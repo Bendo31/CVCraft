@@ -40,7 +40,7 @@ const defaultResume = {
   certifications: [],
 }
 
-function ResumeBuilder({ onLogout, showNotice, notice }) {
+function ResumeBuilder({ onLogout, onChangeTemplate, showNotice, notice }) {
   const [photo, setPhoto] = useState(() => window.localStorage.getItem('cvcraft-resume-photo') || '')
   const [template, setTemplate] = useState(() => window.localStorage.getItem('cvcraft-template') || 'sillage')
   const [signalColor, setSignalColor] = useState(() => window.localStorage.getItem('cvcraft-signal-color') || '#e49a68')
@@ -92,15 +92,21 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
     if (!resumeElement) return
 
     showNotice('Préparation de votre CV PDF...')
-    const canvas = await html2canvas(resumeElement, { scale: 2.5, useCORS: true, backgroundColor: '#fffef9' })
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
-    const pageWidth = pdf.internal.pageSize.getWidth()
-    const pageHeight = pdf.internal.pageSize.getHeight()
-    const imageHeight = (canvas.height * pageWidth) / canvas.width
-    pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, Math.min(imageHeight, pageHeight))
-    const fileName = `${resume.lastName.trim()} ${resume.firstName.trim()} CvCraft.pdf`.trim()
-    pdf.save(fileName)
-    showNotice(`CV exporté : ${fileName}`)
+    document.body.classList.add('pdf-exporting')
+    await new Promise((resolve) => window.requestAnimationFrame(resolve))
+    try {
+      const canvas = await html2canvas(resumeElement, { scale: 2.5, useCORS: true, backgroundColor: '#fffef9' })
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const imageHeight = (canvas.height * pageWidth) / canvas.width
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, Math.min(imageHeight, pageHeight))
+      const fileName = `${resume.lastName.trim()} ${resume.firstName.trim()} CvCraft.pdf`.trim()
+      pdf.save(fileName)
+      showNotice(`CV exporté : ${fileName}`)
+    } finally {
+      document.body.classList.remove('pdf-exporting')
+    }
   }
 
   const handleExport = () => setPaymentOpen(true)
@@ -110,7 +116,7 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
       <header className="builder-header">
         <button className="brand builder-brand" onClick={onLogout} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
         <div className="builder-header-center"><span className="save-dot" /> Toutes les modifications sont enregistrées</div>
-        <div className="builder-user"><span className="builder-avatar">ML</span><button onClick={onLogout}>Quitter</button></div>
+        <div className="builder-user"><button className="mobile-change-template" onClick={onChangeTemplate}>Changer de modèle</button><span className="builder-avatar">ML</span><button onClick={onLogout}>Quitter</button></div>
       </header>
       <main className="builder-main">
         <aside className="builder-sidebar">
@@ -149,7 +155,7 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
         </section>
       </main>
       <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
-      {mobilePreviewOpen && <div className="mobile-preview-actions"><button className="button-outline" onClick={() => setMobilePreviewOpen(false)}>Modifier</button><button className="button-dark" onClick={handleExport}>Télécharger <span aria-hidden="true">↓</span></button></div>}
+      {mobilePreviewOpen && <div className="mobile-preview-actions"><button className="button-dark" onClick={handleExport}>Télécharger <span aria-hidden="true">↓</span></button></div>}
       {notice && <div className="toast" role="status">{notice}</div>}
       {paymentOpen && <div className="payment-backdrop" role="presentation"><div className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title"><span className="preview-kicker">Checkout simulé</span><h2 id="payment-title">Débloquer votre PDF</h2><p>Montant à payer : <strong>100 FCFA</strong></p><div className="payment-actions"><button className="button-outline" onClick={() => setPaymentOpen(false)}>Annuler</button><button className="button-dark" onClick={() => { setPaymentOpen(false); downloadPdf() }}>Simuler le paiement</button></div></div></div>}
     </div>
@@ -165,7 +171,7 @@ function MobileTemplateSelection({ onSelect, onLogout }) {
   return (
     <div className="mobile-template-page">
       <header className="builder-header"><button className="brand builder-brand" onClick={onLogout} aria-label="Quitter"><span className="brand-mark">c</span><span>CVcraft</span></button><button className="builder-user-button" onClick={onLogout}>Quitter</button></header>
-      <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><div className={`mobile-template-preview resume-template-${selectedTemplate.id}`}><div className="mobile-preview-head"><span className="mobile-preview-name">Marie<br /><strong>Lambert.</strong></span><span className="mobile-preview-role">DIRECTRICE<br />ARTISTIQUE</span></div><div className="mobile-preview-rule" /><div className="mobile-preview-columns"><span /><span /><span /><span /><span /><span /></div><div className="mobile-preview-footer">{selectedTemplate.name}</div></div><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>Choisir le modèle <span aria-hidden="true">↗</span></button></main>
+      <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><div className={`mobile-template-preview resume-template-${selectedTemplate.id}`}><div className="mobile-preview-head"><span className="mobile-preview-name">Marie<br /><strong>Lambert.</strong></span><span className="mobile-preview-role">DIRECTRICE<br />ARTISTIQUE</span></div><div className="mobile-preview-contact">marie@craft.fr · Paris · 06 12 34 56 78</div><div className="mobile-preview-body"><div><span className="mobile-preview-label">Profil</span><p>Directrice artistique qui crée des identités visuelles singulières.</p><span className="mobile-preview-label">Compétences</span><p>Direction artistique<br />Branding<br />Figma</p><span className="mobile-preview-label">Références</span><p>Claire Martin<br />Fondatrice, Studio Sillage</p></div><div><span className="mobile-preview-label">Expérience professionnelle</span><div className="mobile-preview-entry"><strong>Studio Sillage</strong><small>Direction artistique · 2021 — Aujourd’hui</small><p>Identités visuelles et campagnes digitales.</p></div><div className="mobile-preview-entry"><strong>Maison Lune</strong><small>Brand designer · 2018 — 2021</small></div><span className="mobile-preview-label">Formation</span><div className="mobile-preview-entry"><strong>École Estienne</strong><small>Design graphique · 2015 — 2018</small></div></div></div><div className="mobile-preview-footer">Aperçu {selectedTemplate.name}</div></div><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>Choisir le modèle <span aria-hidden="true">↗</span></button></main>
     </div>
   )
 }
@@ -209,7 +215,7 @@ function App() {
   const handleMobileTemplate = (selectedTemplate) => { window.localStorage.setItem('cvcraft-template', selectedTemplate); setMobileTemplateStep(null); setView('builder') }
 
   if (view === 'mobile-templates') return <MobileTemplateSelection onSelect={handleMobileTemplate} onLogout={handleLogout} />
-  if (view === 'builder') return <ResumeBuilder onLogout={handleLogout} showNotice={showNotice} notice={notice} />
+  if (view === 'builder') return <ResumeBuilder onLogout={handleLogout} onChangeTemplate={() => { setMobileTemplateStep('templates'); setView('mobile-templates') }} showNotice={showNotice} notice={notice} />
 
   if (authMode) {
     const isSignUp = authMode === 'signup'
