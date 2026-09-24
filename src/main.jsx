@@ -45,6 +45,7 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
   const [template, setTemplate] = useState(() => window.localStorage.getItem('cvcraft-template') || 'sillage')
   const [signalColor, setSignalColor] = useState(() => window.localStorage.getItem('cvcraft-signal-color') || '#e49a68')
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [resume, setResume] = useState(() => {
     try {
       return { ...defaultResume, ...JSON.parse(window.localStorage.getItem('cvcraft-resume') || '{}') }
@@ -105,7 +106,7 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
   const handleExport = () => setPaymentOpen(true)
 
   return (
-    <div className="builder-page">
+    <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
       <header className="builder-header">
         <button className="brand builder-brand" onClick={onLogout} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
         <div className="builder-header-center"><span className="save-dot" /> Toutes les modifications sont enregistrées</div>
@@ -147,8 +148,24 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
           <div className={`resume-sheet resume-template-${template}`} style={{ '--signal-color': signalColor }} id="resume-preview"><div className="resume-sheet-top"><div className="resume-identity">{photo && <img className="resume-photo" src={photo} alt="Portrait" />}<div><h2>{resume.firstName}{template === 'signal' ? ' ' : <br />}<strong>{resume.lastName}.</strong></h2><span>{resume.role.toUpperCase()}</span></div></div><div className="resume-contact"><span>{resume.email}</span><span>{resume.phone}</span><span>{resume.city}</span>{resume.linkedin && <span>{resume.linkedin}</span>}</div></div><div className="resume-rule" /><div className="resume-content"><div className="resume-left"><div className="resume-block"><span className="resume-label">Profil</span><p>{resume.summary}</p></div>{template !== 'signal' && <div className="resume-block"><span className="resume-label">Contact</span><p>{resume.email}<br />{resume.phone}<br />{resume.city}<br />{resume.linkedin}</p></div>}<div className="resume-block"><span className="resume-label">Compétences</span><p>{resume.skills.filter(Boolean).map((skill, index) => <span className="resume-skill" key={`${skill}-${index}`}><i aria-hidden="true">{['✦', '◌', '↗', '◇'][index % 4]}</i>{skill}</span>)}</p></div>{resume.certifications.length > 0 && <div className="resume-block"><span className="resume-label">Certifications</span>{resume.certifications.map((certification, index) => <div className="resume-entry resume-certification" key={`preview-certification-${index}`}><strong>{certification.name}</strong><p><span>{certification.issuer}</span><b>{certification.year}</b></p></div>)}</div>}<div className="resume-block"><span className="resume-label">Références</span>{resume.references.map((reference, index) => <p className="resume-reference" key={`preview-reference-${index}`}><strong>{reference.name}</strong><br />{reference.role}<br />{reference.contact}</p>)}</div></div><div className="resume-right"><div className="resume-block"><span className="resume-label">Expérience</span>{resume.experiences.map((experience, index) => <div className="resume-entry" key={`preview-experience-${index}`}><strong>{experience.company}</strong><p><span>{experience.jobTitle}</span><b>{formatDateRange(experience.startDate, experience.endDate)}</b></p>{experience.tasks && <div className="resume-tasks">{experience.tasks.split(/\r?\n/).filter(Boolean).map((task, taskIndex) => <div className="resume-task-line" key={`task-${index}-${taskIndex}`}>{task}</div>)}</div>}</div>)}</div><div className="resume-block"><span className="resume-label">Formation académique</span>{resume.educations.map((education, index) => <div className="resume-entry" key={`preview-education-${index}`}><strong>{education.school}</strong><p><span>{education.degree}</span><b>{formatDateRange(education.startDate, education.endDate)}</b></p></div>)}</div></div></div><div className="resume-sheet-footer"><span>Made With Love By CVcraft</span><span>01 / 01</span></div></div>
         </section>
       </main>
+      <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
+      {mobilePreviewOpen && <div className="mobile-preview-actions"><button className="button-outline" onClick={() => setMobilePreviewOpen(false)}>Modifier</button><button className="button-dark" onClick={handleExport}>Télécharger <span aria-hidden="true">↓</span></button></div>}
       {notice && <div className="toast" role="status">{notice}</div>}
       {paymentOpen && <div className="payment-backdrop" role="presentation"><div className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title"><span className="preview-kicker">Checkout simulé</span><h2 id="payment-title">Débloquer votre PDF</h2><p>Montant à payer : <strong>100 FCFA</strong></p><div className="payment-actions"><button className="button-outline" onClick={() => setPaymentOpen(false)}>Annuler</button><button className="button-dark" onClick={() => { setPaymentOpen(false); downloadPdf() }}>Simuler le paiement</button></div></div></div>}
+    </div>
+  )
+}
+
+function MobileTemplateSelection({ onSelect, onLogout }) {
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const selectedTemplate = resumeTemplates[selectedIndex]
+  const previousTemplate = () => setSelectedIndex((current) => (current - 1 + resumeTemplates.length) % resumeTemplates.length)
+  const nextTemplate = () => setSelectedIndex((current) => (current + 1) % resumeTemplates.length)
+
+  return (
+    <div className="mobile-template-page">
+      <header className="builder-header"><button className="brand builder-brand" onClick={onLogout} aria-label="Quitter"><span className="brand-mark">c</span><span>CVcraft</span></button><button className="builder-user-button" onClick={onLogout}>Quitter</button></header>
+      <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><div className={`mobile-template-preview resume-template-${selectedTemplate.id}`}><div className="mobile-preview-head"><span className="mobile-preview-name">Marie<br /><strong>Lambert.</strong></span><span className="mobile-preview-role">DIRECTRICE<br />ARTISTIQUE</span></div><div className="mobile-preview-rule" /><div className="mobile-preview-columns"><span /><span /><span /><span /><span /><span /></div><div className="mobile-preview-footer">{selectedTemplate.name}</div></div><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>Choisir le modèle <span aria-hidden="true">↗</span></button></main>
     </div>
   )
 }
@@ -156,7 +173,8 @@ function ResumeBuilder({ onLogout, showNotice, notice }) {
 function App() {
   const [notice, setNotice] = useState('')
   const [authMode, setAuthMode] = useState(null)
-  const [view, setView] = useState(() => window.localStorage.getItem('cvcraft-authenticated') === 'true' ? 'builder' : 'landing')
+  const [view, setView] = useState(() => window.localStorage.getItem('cvcraft-authenticated') === 'true' && window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : window.localStorage.getItem('cvcraft-authenticated') === 'true' ? 'builder' : 'landing')
+  const [mobileTemplateStep, setMobileTemplateStep] = useState(() => window.localStorage.getItem('cvcraft-authenticated') === 'true' && window.matchMedia('(max-width: 800px)').matches ? 'templates' : null)
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
 
   const showNotice = (message) => {
@@ -172,7 +190,8 @@ function App() {
   const handleGoogleSuccess = () => {
     window.localStorage.setItem('cvcraft-authenticated', 'true')
     window.localStorage.setItem('cvcraft-auth-provider', 'google')
-    setView('builder')
+    setView(window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : 'builder')
+    setMobileTemplateStep(window.matchMedia('(max-width: 800px)').matches ? 'templates' : null)
     setAuthMode(null)
   }
 
@@ -180,12 +199,17 @@ function App() {
     event.preventDefault()
     window.localStorage.setItem('cvcraft-authenticated', 'true')
     window.localStorage.setItem('cvcraft-auth-provider', 'email')
-    setView('builder')
+    setView(window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : 'builder')
+    setMobileTemplateStep(window.matchMedia('(max-width: 800px)').matches ? 'templates' : null)
     setAuthMode(null)
     showNotice(isSignUp ? 'Compte créé. Bienvenue chez CVcraft !' : 'Connexion réussie. Bienvenue !')
   }
 
-  if (view === 'builder') return <ResumeBuilder onLogout={() => { window.localStorage.removeItem('cvcraft-authenticated'); window.localStorage.removeItem('cvcraft-auth-provider'); setView('landing') }} showNotice={showNotice} notice={notice} />
+  const handleLogout = () => { window.localStorage.removeItem('cvcraft-authenticated'); window.localStorage.removeItem('cvcraft-auth-provider'); setView('landing'); setMobileTemplateStep(null) }
+  const handleMobileTemplate = (selectedTemplate) => { window.localStorage.setItem('cvcraft-template', selectedTemplate); setMobileTemplateStep(null); setView('builder') }
+
+  if (view === 'mobile-templates') return <MobileTemplateSelection onSelect={handleMobileTemplate} onLogout={handleLogout} />
+  if (view === 'builder') return <ResumeBuilder onLogout={handleLogout} showNotice={showNotice} notice={notice} />
 
   if (authMode) {
     const isSignUp = authMode === 'signup'
