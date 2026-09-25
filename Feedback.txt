@@ -1,0 +1,11 @@
+Suggestions pour CVcraft Version Web - Alain
+
+* Rajouter la possibilité de cadrer la photo sur le cv 
+* Automatiser la mise en page des textes lorsqu'ils sont long 
+* Avoir la possibilité de changer la police 
+* Avoir un plus de choix cote design CV 
+* Gérer le match des couleur
+
+
+
+Maxime

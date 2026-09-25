@@ -1,9 +1,157 @@
-import { StrictMode, useEffect, useState } from 'react'
+import { StrictMode, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { ResumeDocument } from './ResumeDocument.jsx'
+import { uploadPdfAndSaveResume } from './supabaseClient.js'
 import './styles.css'
+
+
+const CROP_VIEW_SIZE = 280
+const CROP_OUTPUT_SIZE = 512
+
+function clampPhotoOffset(offset, naturalWidth, naturalHeight, zoom) {
+  if (!naturalWidth || !naturalHeight) return { x: 0, y: 0 }
+  const baseScale = Math.max(CROP_VIEW_SIZE / naturalWidth, CROP_VIEW_SIZE / naturalHeight)
+  const displayWidth = naturalWidth * baseScale * zoom
+  const displayHeight = naturalHeight * baseScale * zoom
+  const maxX = Math.max(0, (displayWidth - CROP_VIEW_SIZE) / 2)
+  const maxY = Math.max(0, (displayHeight - CROP_VIEW_SIZE) / 2)
+  return {
+    x: Math.min(maxX, Math.max(-maxX, offset.x)),
+    y: Math.min(maxY, Math.max(-maxY, offset.y)),
+  }
+}
+
+function cropPhotoToDataUrl(image, offset, zoom) {
+  const baseScale = Math.max(CROP_VIEW_SIZE / image.naturalWidth, CROP_VIEW_SIZE / image.naturalHeight)
+  const displayWidth = image.naturalWidth * baseScale * zoom
+  const displayHeight = image.naturalHeight * baseScale * zoom
+  const imageLeft = (CROP_VIEW_SIZE - displayWidth) / 2 + offset.x
+  const imageTop = (CROP_VIEW_SIZE - displayHeight) / 2 + offset.y
+  const scale = image.naturalWidth / displayWidth
+  const sourceX = Math.max(0, -imageLeft * scale)
+  const sourceY = Math.max(0, -imageTop * scale)
+  const sourceSize = Math.min(image.naturalWidth - sourceX, image.naturalHeight - sourceY, CROP_VIEW_SIZE * scale)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = CROP_OUTPUT_SIZE
+  canvas.height = CROP_OUTPUT_SIZE
+  const context = canvas.getContext('2d')
+  context.fillStyle = '#fffef9'
+  context.fillRect(0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE)
+  context.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, CROP_OUTPUT_SIZE, CROP_OUTPUT_SIZE)
+  return canvas.toDataURL('image/jpeg', 0.92)
+}
+
+function PhotoCropModal({ imageSrc, onCancel, onConfirm }) {
+  const [zoom, setZoom] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 })
+  const imageRef = useRef(null)
+  const dragRef = useRef(null)
+
+  const baseScale = naturalSize.width
+    ? Math.max(CROP_VIEW_SIZE / naturalSize.width, CROP_VIEW_SIZE / naturalSize.height)
+    : 1
+  const displayWidth = naturalSize.width * baseScale * zoom
+  const displayHeight = naturalSize.height * baseScale * zoom
+
+  const handleImageLoad = (event) => {
+    const { naturalWidth, naturalHeight } = event.currentTarget
+    setNaturalSize({ width: naturalWidth, height: naturalHeight })
+    setOffset({ x: 0, y: 0 })
+    setZoom(1)
+  }
+
+  const updateZoom = (nextZoom) => {
+    const clampedZoom = Math.min(3, Math.max(1, nextZoom))
+    setZoom(clampedZoom)
+    setOffset((current) => clampPhotoOffset(current, naturalSize.width, naturalSize.height, clampedZoom))
+  }
+
+  const startDrag = (clientX, clientY) => {
+    dragRef.current = { startX: clientX, startY: clientY, origin: offset }
+  }
+
+  const moveDrag = (clientX, clientY) => {
+    if (!dragRef.current) return
+    const next = {
+      x: dragRef.current.origin.x + (clientX - dragRef.current.startX),
+      y: dragRef.current.origin.y + (clientY - dragRef.current.startY),
+    }
+    setOffset(clampPhotoOffset(next, naturalSize.width, naturalSize.height, zoom))
+  }
+
+  const endDrag = () => {
+    dragRef.current = null
+  }
+
+  const handleConfirm = () => {
+    const image = imageRef.current
+    if (!image?.naturalWidth) return
+    onConfirm(cropPhotoToDataUrl(image, offset, zoom))
+  }
+
+  return (
+    <div className="payment-backdrop crop-backdrop" role="presentation" onClick={onCancel}>
+      <div
+        className="crop-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="crop-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <span className="preview-kicker">Portrait CV</span>
+        <h2 id="crop-title">Recadrer la photo</h2>
+        <p>Déplacez et zoomez pour cadrer le visage dans le cercle.</p>
+
+        <div
+          className="crop-stage"
+          style={{ width: CROP_VIEW_SIZE, height: CROP_VIEW_SIZE }}
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId)
+            startDrag(event.clientX, event.clientY)
+          }}
+          onPointerMove={(event) => moveDrag(event.clientX, event.clientY)}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+        >
+          <img
+            ref={imageRef}
+            src={imageSrc}
+            alt="Photo à recadrer"
+            draggable={false}
+            onLoad={handleImageLoad}
+            style={{
+              width: displayWidth || 'auto',
+              height: displayHeight || 'auto',
+              transform: `translate(${(CROP_VIEW_SIZE - displayWidth) / 2 + offset.x}px, ${(CROP_VIEW_SIZE - displayHeight) / 2 + offset.y}px)`,
+            }}
+          />
+          <div className="crop-mask" aria-hidden="true" />
+        </div>
+
+        <label className="crop-zoom">
+          <span>Zoom</span>
+          <input
+            type="range"
+            min="1"
+            max="3"
+            step="0.01"
+            value={zoom}
+            onChange={(event) => updateZoom(Number(event.target.value))}
+          />
+        </label>
+
+        <div className="payment-actions">
+          <button className="button-outline" type="button" onClick={onCancel}>Annuler</button>
+          <button className="button-dark" type="button" onClick={handleConfirm}>Valider le cadrage</button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 const steps = [
   { number: '01', title: 'Choisissez votre style', text: 'Partez d’un modèle pensé par des designers et adaptez-le à votre personnalité.' },
@@ -23,6 +171,22 @@ const resumeTemplates = [
   { id: 'signal', name: 'Signal', description: 'Audacieux', color: 'orange' },
 ]
 
+const baseColors = [
+  { id: 'ink', name: 'Encre', value: '#17191a' },
+  { id: 'ocean', name: 'Océan', value: '#3d6fa8' },
+  { id: 'terracotta', name: 'Terracotta', value: '#e49a68' },
+  { id: 'forest', name: 'Forêt', value: '#5f7d3b' },
+  { id: 'bordeaux', name: 'Bordeaux', value: '#8b3a4a' },
+]
+
+const resumeFonts = [
+  { id: 'classic', name: 'Classique', family: "'DM Sans', sans-serif", display: "'Fraunces', Georgia, serif" },
+  { id: 'editorial', name: 'Éditoriale', family: "'Libre Baskerville', Georgia, serif", display: "'Libre Baskerville', Georgia, serif" },
+  { id: 'modern', name: 'Moderne', family: "'Space Grotesk', sans-serif", display: "'Space Grotesk', sans-serif" },
+  { id: 'elegant', name: 'Élégante', family: "'Cormorant Garamond', Georgia, serif", display: "'Cormorant Garamond', Georgia, serif" },
+  { id: 'clear', name: 'Claire', family: "'Source Sans 3', sans-serif", display: "'Source Sans 3', sans-serif" },
+]
+
 const defaultResume = {
   firstName: 'Marie',
   lastName: 'Lambert',
@@ -40,12 +204,14 @@ const defaultResume = {
   certifications: [],
 }
 
-function ResumeBuilder({ onLogout, onChangeTemplate, showNotice, notice }) {
+function ResumeBuilder({ onHome, onChangeTemplate, showNotice, notice }) {
   const [photo, setPhoto] = useState(() => window.localStorage.getItem('cvcraft-resume-photo') || '')
   const [template, setTemplate] = useState(() => window.localStorage.getItem('cvcraft-template') || 'sillage')
-  const [signalColor, setSignalColor] = useState(() => window.localStorage.getItem('cvcraft-signal-color') || '#e49a68')
+  const [baseColor, setBaseColor] = useState(() => window.localStorage.getItem('cvcraft-base-color') || window.localStorage.getItem('cvcraft-signal-color') || '#e49a68')
+  const [resumeFont, setResumeFont] = useState(() => window.localStorage.getItem('cvcraft-resume-font') || 'classic')
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
+  const [cropSource, setCropSource] = useState('')
   const [resume, setResume] = useState(() => {
     try {
       return { ...defaultResume, ...JSON.parse(window.localStorage.getItem('cvcraft-resume') || '{}') }
@@ -75,35 +241,70 @@ function ResumeBuilder({ onLogout, onChangeTemplate, showNotice, notice }) {
     const file = event.target.files?.[0]
     if (!file) return
     const reader = new FileReader()
-    reader.onload = () => setPhoto(reader.result)
+    reader.onload = () => setCropSource(String(reader.result || ''))
     reader.readAsDataURL(file)
+    event.target.value = ''
+  }
+  const openRecrop = () => {
+    if (photo) setCropSource(photo)
   }
   const selectTemplate = (templateId) => {
     setTemplate(templateId)
     window.localStorage.setItem('cvcraft-template', templateId)
   }
-  const selectSignalColor = (color) => {
-    setSignalColor(color)
+  const selectBaseColor = (color) => {
+    setBaseColor(color)
+    window.localStorage.setItem('cvcraft-base-color', color)
     window.localStorage.setItem('cvcraft-signal-color', color)
   }
+  const selectResumeFont = (fontId) => {
+    setResumeFont(fontId)
+    window.localStorage.setItem('cvcraft-resume-font', fontId)
+  }
+  const selectedFont = resumeFonts.find((item) => item.id === resumeFont) || resumeFonts[0]
 
   const downloadPdf = async () => {
-    const resumeElement = document.getElementById('resume-preview')
-    if (!resumeElement) return
+    const sheets = document.querySelectorAll('#resume-preview .resume-sheet')
+    if (!sheets.length) return
 
-    showNotice('Préparation de votre CV PDF...')
+    showNotice('Génération de votre CV PDF...')
     document.body.classList.add('pdf-exporting')
     await new Promise((resolve) => window.requestAnimationFrame(resolve))
     try {
-      const canvas = await html2canvas(resumeElement, { scale: 2.5, useCORS: true, backgroundColor: '#fffef9' })
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
-      const imageHeight = (canvas.height * pageWidth) / canvas.width
-      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, Math.min(imageHeight, pageHeight))
+
+      for (let index = 0; index < sheets.length; index += 1) {
+        const canvas = await html2canvas(sheets[index], { scale: 2.5, useCORS: true, backgroundColor: '#fffef9' })
+        if (index > 0) pdf.addPage()
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, pageHeight)
+      }
+
       const fileName = `${resume.lastName.trim()} ${resume.firstName.trim()} CvCraft.pdf`.trim()
+
+      // Sauvegarde du fichier PDF sur le serveur Supabase avant le téléchargement
+      showNotice('Sauvegarde du CV sur le serveur Supabase...')
+      const pdfBlob = pdf.output('blob')
+      const uploadResult = await uploadPdfAndSaveResume({
+        pdfBlob,
+        fileName,
+        resume,
+        photo,
+      })
+
+      if (uploadResult?.success) {
+        showNotice('CV sauvegardé sur le serveur Supabase !')
+      } else {
+        console.warn('La sauvegarde cloud a échoué ou Supabase n\'est pas configuré:', uploadResult)
+      }
+
+      // Téléchargement local du fichier
       pdf.save(fileName)
-      showNotice(`CV exporté : ${fileName}`)
+      showNotice(`CV exporté et sauvegardé : ${fileName}`)
+    } catch (err) {
+      console.error('Erreur lors de la génération ou sauvegarde du PDF:', err)
+      showNotice('Erreur lors de la génération du CV.')
     } finally {
       document.body.classList.remove('pdf-exporting')
     }
@@ -114,18 +315,24 @@ function ResumeBuilder({ onLogout, onChangeTemplate, showNotice, notice }) {
   return (
     <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
       <header className="builder-header">
-        <button className="brand builder-brand" onClick={onLogout} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
+        <button className="brand builder-brand" onClick={onHome} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
         <div className="builder-header-center"><span className="save-dot" /> Toutes les modifications sont enregistrées</div>
-        <div className="builder-user"><button className="mobile-change-template" onClick={onChangeTemplate}>Changer de modèle</button><span className="builder-avatar">ML</span><button onClick={onLogout}>Quitter</button></div>
+        <div className="builder-user"><button className="mobile-change-template" onClick={onChangeTemplate}>Changer de modèle</button><button onClick={onHome}>Quitter</button></div>
       </header>
       <main className="builder-main">
         <aside className="builder-sidebar">
-          <div className="builder-sidebar-heading"><div><span className="auth-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
+          <div className="builder-sidebar-heading"><div><span className="section-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
           <div className="builder-progress"><span className="active" /><span /><span /></div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
           <div className="builder-form">
             <div className="builder-section-title"><span>01</span><h2>Identité</h2></div>
-            <div className="photo-field"><div className="photo-thumb">{photo ? <img src={photo} alt="Portrait du CV" /> : <span>+</span>}</div><label className="photo-upload">Photo<input type="file" accept="image/*" onChange={handlePhoto} /><span>Ajouter une photo</span></label></div>
+            <div className="photo-field">
+              <div className="photo-thumb">{photo ? <img src={photo} alt="Portrait du CV" /> : <span>+</span>}</div>
+              <div className="photo-actions">
+                <label className="photo-upload">Photo<input type="file" accept="image/*" onChange={handlePhoto} /><span>{photo ? 'Changer la photo' : 'Ajouter une photo'}</span></label>
+                {photo && <button className="photo-recrop" type="button" onClick={openRecrop}>Recadrer</button>}
+              </div>
+            </div>
             <div className="field-row"><label>Prénom<input value={resume.firstName} onChange={(event) => updateResume('firstName', event.target.value)} /></label><label>Nom<input value={resume.lastName} onChange={(event) => updateResume('lastName', event.target.value)} /></label></div>
             <label>Intitulé du poste<input value={resume.role} onChange={(event) => updateResume('role', event.target.value)} /></label>
             <div className="field-row"><label>Adresse mail<input type="email" value={resume.email} onChange={(event) => updateResume('email', event.target.value)} /></label><label>Numéro de téléphone<input value={resume.phone} onChange={(event) => updateResume('phone', event.target.value)} /></label></div>
@@ -150,19 +357,99 @@ function ResumeBuilder({ onLogout, onChangeTemplate, showNotice, notice }) {
         </aside>
         <section className="builder-preview-area">
           <div className="preview-toolbar"><div><span className="preview-kicker">Aperçu en direct</span><strong>Modèle {resumeTemplates.find((item) => item.id === template)?.name}</strong></div><div className="preview-actions"><button title="Réduire">−</button><span>85%</span><button title="Agrandir">+</button><button className="preview-export" onClick={handleExport}>Exporter en PDF <span>↗</span></button></div></div>
-          <div className="template-picker"><div><span className="preview-kicker">Choisir sa structure</span><strong>Un design qui vous ressemble</strong></div><div className="template-options">{resumeTemplates.map((item) => <button className={`template-option ${template === item.id ? 'selected' : ''}`} key={item.id} onClick={() => selectTemplate(item.id)}><span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span><span><b>{item.name}</b><small>{item.description}</small></span>{template === item.id && <em>✓</em>}</button>)}{template === 'signal' && <label className="signal-color-picker">Couleur<input type="color" value={signalColor} onChange={(event) => selectSignalColor(event.target.value)} /></label>}</div></div>
-          <div className={`resume-sheet resume-template-${template}`} style={{ '--signal-color': signalColor }} id="resume-preview"><div className="resume-sheet-top"><div className="resume-identity">{photo && <img className="resume-photo" src={photo} alt="Portrait" />}<div><h2>{resume.firstName}{template === 'signal' ? ' ' : <br />}<strong>{resume.lastName}.</strong></h2><span>{resume.role.toUpperCase()}</span></div></div><div className="resume-contact"><span>{resume.email}</span><span>{resume.phone}</span><span>{resume.city}</span>{resume.linkedin && <span>{resume.linkedin}</span>}</div></div><div className="resume-rule" /><div className="resume-content"><div className="resume-left"><div className="resume-block"><span className="resume-label">Profil</span><p>{resume.summary}</p></div>{template !== 'signal' && <div className="resume-block"><span className="resume-label">Contact</span><p>{resume.email}<br />{resume.phone}<br />{resume.city}<br />{resume.linkedin}</p></div>}<div className="resume-block"><span className="resume-label">Compétences</span><p>{resume.skills.filter(Boolean).map((skill, index) => <span className="resume-skill" key={`${skill}-${index}`}><i aria-hidden="true">{['✦', '◌', '↗', '◇'][index % 4]}</i>{skill}</span>)}</p></div>{resume.certifications.length > 0 && <div className="resume-block"><span className="resume-label">Certifications</span>{resume.certifications.map((certification, index) => <div className="resume-entry resume-certification" key={`preview-certification-${index}`}><strong>{certification.name}</strong><p><span>{certification.issuer}</span><b>{certification.year}</b></p></div>)}</div>}<div className="resume-block"><span className="resume-label">Références</span>{resume.references.map((reference, index) => <p className="resume-reference" key={`preview-reference-${index}`}><strong>{reference.name}</strong><br />{reference.role}<br />{reference.contact}</p>)}</div></div><div className="resume-right"><div className="resume-block"><span className="resume-label">Expérience</span>{resume.experiences.map((experience, index) => <div className="resume-entry" key={`preview-experience-${index}`}><strong>{experience.company}</strong><p><span>{experience.jobTitle}</span><b>{formatDateRange(experience.startDate, experience.endDate)}</b></p>{experience.tasks && <div className="resume-tasks">{experience.tasks.split(/\r?\n/).filter(Boolean).map((task, taskIndex) => <div className="resume-task-line" key={`task-${index}-${taskIndex}`}>{task}</div>)}</div>}</div>)}</div><div className="resume-block"><span className="resume-label">Formation académique</span>{resume.educations.map((education, index) => <div className="resume-entry" key={`preview-education-${index}`}><strong>{education.school}</strong><p><span>{education.degree}</span><b>{formatDateRange(education.startDate, education.endDate)}</b></p></div>)}</div></div></div><div className="resume-sheet-footer"><span>Made With Love By CVcraft</span><span>01 / 01</span></div></div>
+          <ResumeDocument
+            resume={resume}
+            photo={photo}
+            template={template}
+            baseColor={baseColor}
+            selectedFont={selectedFont}
+            formatDateRange={formatDateRange}
+          />
         </section>
+        <aside className="builder-design-panel" aria-label="Personnalisation du CV">
+          <div className="design-panel-heading">
+            <span className="section-kicker">Personnalisation</span>
+            <h2>Style<br /><em>du CV.</em></h2>
+          </div>
+
+          <section className="design-group">
+            <div className="design-group-title"><span>01</span><h3>Structure</h3></div>
+            <div className="design-template-list">
+              {resumeTemplates.map((item) => (
+                <button
+                  className={`design-template-option ${template === item.id ? 'selected' : ''}`}
+                  key={item.id}
+                  type="button"
+                  onClick={() => selectTemplate(item.id)}
+                >
+                  <span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span>
+                  <span><b>{item.name}</b><small>{item.description}</small></span>
+                  {template === item.id && <em>✓</em>}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="design-group">
+            <div className="design-group-title"><span>02</span><h3>Couleur de base</h3></div>
+            <div className="design-color-list" role="listbox" aria-label="Couleurs de base">
+              {baseColors.map((color) => (
+                <button
+                  className={`design-color-option ${baseColor === color.value ? 'selected' : ''}`}
+                  key={color.id}
+                  type="button"
+                  title={color.name}
+                  aria-label={color.name}
+                  aria-selected={baseColor === color.value}
+                  style={{ '--swatch': color.value }}
+                  onClick={() => selectBaseColor(color.value)}
+                >
+                  <span className="design-color-swatch" />
+                  <small>{color.name}</small>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="design-group">
+            <div className="design-group-title"><span>03</span><h3>Typographie</h3></div>
+            <div className="design-font-list">
+              {resumeFonts.map((font) => (
+                <button
+                  className={`design-font-option ${resumeFont === font.id ? 'selected' : ''}`}
+                  key={font.id}
+                  type="button"
+                  onClick={() => selectResumeFont(font.id)}
+                  style={{ fontFamily: font.family }}
+                >
+                  <b>{font.name}</b>
+                  <span>Aa Bb Cc</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
       </main>
       <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
       {mobilePreviewOpen && <div className="mobile-preview-actions"><button className="button-dark" onClick={handleExport}>Télécharger <span aria-hidden="true">↓</span></button></div>}
       {notice && <div className="toast" role="status">{notice}</div>}
+      {cropSource && (
+        <PhotoCropModal
+          imageSrc={cropSource}
+          onCancel={() => setCropSource('')}
+          onConfirm={(croppedPhoto) => {
+            setPhoto(croppedPhoto)
+            setCropSource('')
+            showNotice('Photo recadrée et enregistrée.')
+          }}
+        />
+      )}
       {paymentOpen && <div className="payment-backdrop" role="presentation"><div className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title"><span className="preview-kicker">Checkout simulé</span><h2 id="payment-title">Débloquer votre PDF</h2><p>Montant à payer : <strong>100 FCFA</strong></p><div className="payment-actions"><button className="button-outline" onClick={() => setPaymentOpen(false)}>Annuler</button><button className="button-dark" onClick={() => { setPaymentOpen(false); downloadPdf() }}>Simuler le paiement</button></div></div></div>}
     </div>
   )
 }
 
-function MobileTemplateSelection({ onSelect, onLogout }) {
+function MobileTemplateSelection({ onSelect, onHome }) {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const selectedTemplate = resumeTemplates[selectedIndex]
   const previousTemplate = () => setSelectedIndex((current) => (current - 1 + resumeTemplates.length) % resumeTemplates.length)
@@ -170,7 +457,7 @@ function MobileTemplateSelection({ onSelect, onLogout }) {
 
   return (
     <div className="mobile-template-page">
-      <header className="builder-header"><button className="brand builder-brand" onClick={onLogout} aria-label="Quitter"><span className="brand-mark">c</span><span>CVcraft</span></button><button className="builder-user-button" onClick={onLogout}>Quitter</button></header>
+      <header className="builder-header"><button className="brand builder-brand" onClick={onHome} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button><button className="builder-user-button" onClick={onHome}>Quitter</button></header>
       <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><div className={`mobile-template-preview resume-template-${selectedTemplate.id}`}><div className="mobile-preview-head"><span className="mobile-preview-name">Marie<br /><strong>Lambert.</strong></span><span className="mobile-preview-role">DIRECTRICE<br />ARTISTIQUE</span></div><div className="mobile-preview-contact">marie@craft.fr · Paris · 06 12 34 56 78</div><div className="mobile-preview-body"><div><span className="mobile-preview-label">Profil</span><p>Directrice artistique qui crée des identités visuelles singulières.</p><span className="mobile-preview-label">Compétences</span><p>Direction artistique<br />Branding<br />Figma</p><span className="mobile-preview-label">Références</span><p>Claire Martin<br />Fondatrice, Studio Sillage</p></div><div><span className="mobile-preview-label">Expérience professionnelle</span><div className="mobile-preview-entry"><strong>Studio Sillage</strong><small>Direction artistique · 2021 — Aujourd’hui</small><p>Identités visuelles et campagnes digitales.</p></div><div className="mobile-preview-entry"><strong>Maison Lune</strong><small>Brand designer · 2018 — 2021</small></div><span className="mobile-preview-label">Formation</span><div className="mobile-preview-entry"><strong>École Estienne</strong><small>Design graphique · 2015 — 2018</small></div></div></div><div className="mobile-preview-footer">Aperçu {selectedTemplate.name}</div></div><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>Choisir le modèle <span aria-hidden="true">↗</span></button></main>
     </div>
   )
@@ -178,82 +465,30 @@ function MobileTemplateSelection({ onSelect, onLogout }) {
 
 function App() {
   const [notice, setNotice] = useState('')
-  const [authMode, setAuthMode] = useState(null)
-  const [view, setView] = useState(() => window.localStorage.getItem('cvcraft-authenticated') === 'true' && window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : window.localStorage.getItem('cvcraft-authenticated') === 'true' ? 'builder' : 'landing')
-  const [mobileTemplateStep, setMobileTemplateStep] = useState(() => window.localStorage.getItem('cvcraft-authenticated') === 'true' && window.matchMedia('(max-width: 800px)').matches ? 'templates' : null)
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+  const [view, setView] = useState('landing')
 
   const showNotice = (message) => {
     setNotice(message)
     window.setTimeout(() => setNotice(''), 2800)
   }
 
-  const openAuth = (mode) => {
-    setAuthMode(mode)
+  const goHome = () => setView('landing')
+  const startBuilder = () => {
+    setView(window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : 'builder')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-
-  const handleGoogleSuccess = () => {
-    window.localStorage.setItem('cvcraft-authenticated', 'true')
-    window.localStorage.setItem('cvcraft-auth-provider', 'google')
-    setView(window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : 'builder')
-    setMobileTemplateStep(window.matchMedia('(max-width: 800px)').matches ? 'templates' : null)
-    setAuthMode(null)
+  const handleMobileTemplate = (selectedTemplate) => {
+    window.localStorage.setItem('cvcraft-template', selectedTemplate)
+    setView('builder')
   }
 
-  const handleAuthSubmit = (event, isSignUp) => {
-    event.preventDefault()
-    window.localStorage.setItem('cvcraft-authenticated', 'true')
-    window.localStorage.setItem('cvcraft-auth-provider', 'email')
-    setView(window.matchMedia('(max-width: 800px)').matches ? 'mobile-templates' : 'builder')
-    setMobileTemplateStep(window.matchMedia('(max-width: 800px)').matches ? 'templates' : null)
-    setAuthMode(null)
-    showNotice(isSignUp ? 'Compte créé. Bienvenue chez CVcraft !' : 'Connexion réussie. Bienvenue !')
-  }
+  useEffect(() => {
+    window.localStorage.removeItem('cvcraft-authenticated')
+    window.localStorage.removeItem('cvcraft-auth-provider')
+  }, [])
 
-  const handleLogout = () => { window.localStorage.removeItem('cvcraft-authenticated'); window.localStorage.removeItem('cvcraft-auth-provider'); setView('landing'); setMobileTemplateStep(null) }
-  const handleMobileTemplate = (selectedTemplate) => { window.localStorage.setItem('cvcraft-template', selectedTemplate); setMobileTemplateStep(null); setView('builder') }
-
-  if (view === 'mobile-templates') return <MobileTemplateSelection onSelect={handleMobileTemplate} onLogout={handleLogout} />
-  if (view === 'builder') return <ResumeBuilder onLogout={handleLogout} onChangeTemplate={() => { setMobileTemplateStep('templates'); setView('mobile-templates') }} showNotice={showNotice} notice={notice} />
-
-  if (authMode) {
-    const isSignUp = authMode === 'signup'
-
-    return (
-      <div className="auth-page">
-        <header className="auth-header">
-          <button className="brand auth-brand" onClick={() => setAuthMode(null)} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
-          <button className="auth-back" onClick={() => setAuthMode(null)}>← Retour à l'accueil</button>
-        </header>
-        <main className="auth-layout">
-          <div className="auth-intro">
-            <div className="eyebrow"><span className="eyebrow-dot" /> Votre espace CV</div>
-            <h1>{isSignUp ? <>Donnez vie à<br /><em>votre parcours.</em></> : <>Bon retour<br /><em>chez CVcraft.</em></>}</h1>
-            <p>{isSignUp ? 'Créez votre compte en quelques secondes et commencez à construire le CV dont vous serez fier.' : 'Retrouvez vos modèles, vos candidatures et votre prochaine opportunité.'}</p>
-            <div className="auth-stamp"><span>✳</span><strong>Simple.<br />Singulier.<br />Vous.</strong></div>
-          </div>
-          <section className="auth-card" aria-labelledby="auth-title">
-            <div className="auth-card-heading"><span className="auth-kicker">{isSignUp ? 'Nouveau départ' : 'Ravi de vous revoir'}</span><h2 id="auth-title">{isSignUp ? 'Créer un compte' : 'Se connecter'}</h2><p>{isSignUp ? 'Choisissez votre méthode préférée.' : 'Connectez-vous pour retrouver votre espace.'}</p></div>
-            <div className="social-buttons">
-              {googleClientId ? <div className="google-login-wrap"><GoogleLogin onSuccess={handleGoogleSuccess} onError={() => showNotice('La connexion Google a été annulée.')} text="continue_with" shape="rectangular" size="large" width="350" /></div> : <button className="social-button" onClick={() => showNotice('Ajoutez VITE_GOOGLE_CLIENT_ID pour activer Google.') }><span className="social-icon google-icon">G</span>Continuer avec Google</button>}
-              <button className="social-button" onClick={() => { setView('builder'); setAuthMode(null) }}><span className="social-icon linkedin-icon">in</span>Continuer avec LinkedIn</button>
-            </div>
-            <div className="auth-divider"><span>ou avec votre adresse email</span></div>
-            <form className="auth-form" onSubmit={(event) => handleAuthSubmit(event, isSignUp)}>
-              {isSignUp && <label>Nom complet<input type="text" placeholder="Marie Lambert" required /></label>}
-              <label>Adresse email<input type="email" placeholder="vous@exemple.com" required /></label>
-              <label>Mot de passe<input type="password" placeholder="••••••••" minLength="6" required /></label>
-              {!isSignUp && <a className="forgot-link" href="#auth" onClick={(event) => { event.preventDefault(); showNotice('Un lien de réinitialisation vous sera envoyé.') }}>Mot de passe oublié ?</a>}
-              <button className="button button-dark auth-submit" type="submit">{isSignUp ? 'Créer mon compte' : 'Se connecter'} <span aria-hidden="true">↗</span></button>
-            </form>
-            <p className="auth-switch">{isSignUp ? 'Vous avez déjà un compte ?' : 'Vous n’avez pas encore de compte ?'} <button onClick={() => setAuthMode(isSignUp ? 'login' : 'signup')}>{isSignUp ? 'Se connecter' : 'Créer un compte'}</button></p>
-          </section>
-        </main>
-        {notice && <div className="toast" role="status">{notice}</div>}
-      </div>
-    )
-  }
+  if (view === 'mobile-templates') return <MobileTemplateSelection onSelect={handleMobileTemplate} onHome={goHome} />
+  if (view === 'builder') return <ResumeBuilder onHome={goHome} onChangeTemplate={() => setView('mobile-templates')} showNotice={showNotice} notice={notice} />
 
   return (
     <div className="app-shell">
@@ -265,8 +500,7 @@ function App() {
           <a href="#templates">Modèles</a>
         </nav>
         <div className="header-actions">
-          <button className="login-link" onClick={() => openAuth('login')}>Se connecter</button>
-          <button className="button button-dark button-small" onClick={() => openAuth('signup')}>Créer mon CV <span aria-hidden="true">↗</span></button>
+          <button className="button button-dark button-small" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button>
         </div>
       </header>
 
@@ -277,7 +511,7 @@ function App() {
             <h1>Un CV qui ouvre<br /><em>des portes.</em></h1>
             <p className="hero-lede">Concevez un CV clair, singulier et mémorable. CVcraft vous aide à transformer votre parcours en prochaine opportunité.</p>
             <div className="hero-actions">
-              <button className="button button-dark" onClick={() => openAuth('signup')}>Créer mon CV <span aria-hidden="true">↗</span></button>
+              <button className="button button-dark" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button>
               <a className="text-link" href="#process">Découvrir comment ça marche <span aria-hidden="true">↓</span></a>
             </div>
             <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
@@ -304,12 +538,10 @@ function App() {
         </section>
       </main>
 
-      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => openAuth('signup')}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2024 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
+      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2024 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
       {notice && <div className="toast" role="status">{notice}</div>}
     </div>
   )
 }
 
-const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-
-createRoot(document.getElementById('root')).render(<StrictMode><GoogleOAuthProvider clientId={googleClientId || 'google-client-id-not-configured'}><App /></GoogleOAuthProvider></StrictMode>)
+createRoot(document.getElementById('root')).render(<StrictMode><App /></StrictMode>)
