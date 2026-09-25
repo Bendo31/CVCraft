@@ -267,45 +267,54 @@ function ResumeBuilder({ onHome, onChangeTemplate, showNotice, notice }) {
     const sheets = document.querySelectorAll('#resume-preview .resume-sheet')
     if (!sheets.length) return
 
-    showNotice('Génération de votre CV PDF...')
     document.body.classList.add('pdf-exporting')
     await new Promise((resolve) => window.requestAnimationFrame(resolve))
+    const exportRoot = document.createElement('div')
+    exportRoot.className = 'pdf-export-root'
+    document.body.appendChild(exportRoot)
     try {
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true })
       const pageWidth = pdf.internal.pageSize.getWidth()
       const pageHeight = pdf.internal.pageSize.getHeight()
 
       for (let index = 0; index < sheets.length; index += 1) {
-        const canvas = await html2canvas(sheets[index], { scale: 2.5, useCORS: true, backgroundColor: '#fffef9' })
+        const sheet = sheets[index].cloneNode(true)
+        sheet.style.width = '650px'
+        sheet.style.height = '919px'
+        sheet.style.minHeight = '0'
+        sheet.style.aspectRatio = 'auto'
+        sheet.style.transform = 'none'
+        sheet.style.zoom = '1'
+        exportRoot.replaceChildren(sheet)
+        const canvas = await html2canvas(sheet, {
+          scale: 2.5,
+          useCORS: true,
+          backgroundColor: '#fffef9',
+          width: 650,
+          height: 919,
+          windowWidth: 650,
+          windowHeight: 919,
+        })
         if (index > 0) pdf.addPage()
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, pageHeight)
       }
 
       const fileName = `${resume.lastName.trim()} ${resume.firstName.trim()} CvCraft.pdf`.trim()
+      pdf.save(fileName)
 
-      // Sauvegarde du fichier PDF sur le serveur Supabase avant le téléchargement
-      showNotice('Sauvegarde du CV sur le serveur Supabase...')
       const pdfBlob = pdf.output('blob')
-      const uploadResult = await uploadPdfAndSaveResume({
+      uploadPdfAndSaveResume({
         pdfBlob,
         fileName,
         resume,
         photo,
+      }).catch((uploadError) => {
+        console.warn('La sauvegarde cloud du CV a échoué:', uploadError)
       })
-
-      if (uploadResult?.success) {
-        showNotice('CV sauvegardé sur le serveur Supabase !')
-      } else {
-        console.warn('La sauvegarde cloud a échoué ou Supabase n\'est pas configuré:', uploadResult)
-      }
-
-      // Téléchargement local du fichier
-      pdf.save(fileName)
-      showNotice(`CV exporté et sauvegardé : ${fileName}`)
     } catch (err) {
       console.error('Erreur lors de la génération ou sauvegarde du PDF:', err)
-      showNotice('Erreur lors de la génération du CV.')
     } finally {
+      exportRoot.remove()
       document.body.classList.remove('pdf-exporting')
     }
   }
