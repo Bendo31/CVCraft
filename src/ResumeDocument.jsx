@@ -10,6 +10,13 @@ function formatPageLabel(pageIndex, totalPages) {
   return `${String(pageIndex + 1).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`
 }
 
+function formatLanguageLevel(level) {
+  const numericLevel = Number(level)
+  return Number.isInteger(numericLevel) && numericLevel >= 1 && numericLevel <= 5
+    ? ` · Niveau ${numericLevel}/5`
+    : ''
+}
+
 function mergeColumnPages(leftPages, rightPages) {
   const total = Math.max(leftPages.length, rightPages.length, 1)
   const carriedLeft = leftPages[0] || []
@@ -23,17 +30,17 @@ function mergeColumnPages(leftPages, rightPages) {
   })
 }
 
-function ResumeHeader({ resume, photo, template, continued }) {
+function ResumeHeader({ resume, photo, template, continued, sectionVisibility }) {
   if (continued) {
     return (
       <div className="resume-sheet-top resume-sheet-top-continued" data-measure="header-continued">
         <div className="resume-identity">
           <div>
-            <h2>
+            {(resume.firstName || resume.lastName) && <h2>
               {resume.firstName}{' '}
-              <strong>{resume.lastName}.</strong>
-            </h2>
-            <span>{resume.role.toUpperCase()}</span>
+              {resume.lastName && <strong>{resume.lastName}.</strong>}
+            </h2>}
+            {resume.role && <span>{resume.role.toUpperCase()}</span>}
           </div>
         </div>
       </div>
@@ -43,22 +50,25 @@ function ResumeHeader({ resume, photo, template, continued }) {
   return (
     <div className="resume-sheet-top" data-measure="header-full">
       <div className="resume-identity">
-        {photo && <img className="resume-photo" src={photo} alt="Portrait" />}
+        {photo && template !== 'gratuit' && sectionVisibility.personal !== false && <img className="resume-photo" src={photo} alt="Portrait" />}
         <div>
-          <h2>
+          {(resume.firstName || resume.lastName) && <h2>
             {resume.firstName}
-            {template === 'signal' ? ' ' : <br />}
-            <strong>{resume.lastName}.</strong>
-          </h2>
-          <span>{resume.role.toUpperCase()}</span>
+            {resume.lastName && <>{template === 'signal' ? ' ' : <br />}<strong>{resume.lastName}.</strong></>}
+          </h2>}
+          {resume.role && <span>{resume.role.toUpperCase()}</span>}
         </div>
       </div>
-      <div className="resume-contact">
-        <span>{resume.email}</span>
-        <span>{resume.phone}</span>
-        <span>{resume.city}</span>
-        {resume.linkedin && <span>{resume.linkedin}</span>}
-      </div>
+      {sectionVisibility.personal !== false && <div className="resume-contact">
+        {resume.email && <span>{resume.email}</span>}
+        {resume.phone && <span>{resume.phone}</span>}
+        {template !== 'gratuit' && resume.city && <span>{resume.city}</span>}
+        {template !== 'gratuit' && resume.linkedin && <span>LinkedIn · {resume.linkedin}</span>}
+        {template !== 'gratuit' && resume.facebook && <span>Facebook · {resume.facebook}</span>}
+        {template !== 'gratuit' && resume.x && <span>X · {resume.x}</span>}
+        {template !== 'gratuit' && resume.threads && <span>Threads · {resume.threads}</span>}
+        {template !== 'gratuit' && resume.website && <span>{resume.website}</span>}
+      </div>}
     </div>
   )
 }
@@ -67,7 +77,7 @@ function LeftBlock({ item, resume }) {
   if (item.type === 'summary') {
     return (
       <div className="resume-block" data-block-id="summary">
-        <span className="resume-label">Profil</span>
+        <span className="resume-label">Description</span>
         <p>{resume.summary}</p>
       </div>
     )
@@ -78,10 +88,18 @@ function LeftBlock({ item, resume }) {
       <div className="resume-block" data-block-id="contact">
         <span className="resume-label">Contact</span>
         <p>
-          {resume.email}<br />
-          {resume.phone}<br />
-          {resume.city}<br />
-          {resume.linkedin}
+          {[
+            resume.email,
+            resume.phone,
+            resume.city,
+            resume.linkedin && `LinkedIn · ${resume.linkedin}`,
+            resume.facebook && `Facebook · ${resume.facebook}`,
+            resume.x && `X · ${resume.x}`,
+            resume.threads && `Threads · ${resume.threads}`,
+            resume.website,
+          ].filter(Boolean).map((value, index) => (
+            <span key={`${value}-${index}`}>{value}<br /></span>
+          ))}
         </p>
       </div>
     )
@@ -135,6 +153,28 @@ function LeftBlock({ item, resume }) {
     )
   }
 
+  if (item.type === 'languages') {
+    return (
+      <div className="resume-block" data-block-id="languages">
+        <span className="resume-label">Langues</span>
+        {resume.languages.map((language, index) => (
+          <p className="resume-reference" key={`language-${index}`}>
+            <strong>{language.name}</strong>{formatLanguageLevel(language.level)}
+          </p>
+        ))}
+      </div>
+    )
+  }
+
+  if (item.type === 'interests') {
+    return (
+      <div className="resume-block" data-block-id="interests">
+        <span className="resume-label">Centres d’intérêt</span>
+        <p>{resume.interests.filter(Boolean).join(' · ')}</p>
+      </div>
+    )
+  }
+
   return null
 }
 
@@ -149,7 +189,7 @@ function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
           <strong>{experience.company}</strong>
           <p>
             <span>{experience.jobTitle}</span>
-            <b>{formatDateRange(experience.startDate, experience.endDate)}</b>
+            {(experience.startDate || experience.endDate) && <b>{formatDateRange(experience.startDate, experience.endDate)}</b>}
           </p>
           {experience.tasks && (
             <div className="resume-tasks">
@@ -173,8 +213,24 @@ function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
           <strong>{education.school}</strong>
           <p>
             <span>{education.degree}</span>
-            <b>{formatDateRange(education.startDate, education.endDate)}</b>
+            {(education.startDate || education.endDate) && <b>{formatDateRange(education.startDate, education.endDate)}</b>}
           </p>
+        </div>
+      </div>
+    )
+  }
+
+  if (item.type === 'project') {
+    const entry = resume[item.field][item.index]
+    if (!entry) return null
+    return (
+      <div className={`resume-entry-wrap${showLabel ? ' resume-entry-wrap-labeled' : ''}`} data-block-id={item.id}>
+        {showLabel && <span className="resume-label">{item.label}</span>}
+        <div className="resume-entry">
+          {entry.name && <strong>{entry.name}</strong>}
+          {entry.description && <p>{entry.description}</p>}
+          {entry.year && <b>{entry.year}</b>}
+          {entry.link && <p>{entry.link}</p>}
         </div>
       </div>
     )
@@ -209,6 +265,7 @@ function ResumeSheet({
   resume,
   photo,
   template,
+  sectionVisibility,
   page,
   pageIndex,
   totalPages,
@@ -233,7 +290,7 @@ function ResumeSheet({
       style={sheetStyle}
       data-page={pageIndex + 1}
     >
-      <ResumeHeader resume={resume} photo={photo} template={template} continued={continued} />
+      <ResumeHeader resume={resume} photo={photo} template={template} continued={continued} sectionVisibility={sectionVisibility} />
       {!continued && <div className="resume-rule" data-measure="rule" />}
       <div className="resume-content" data-measure="content">
         <div className="resume-left">
@@ -246,6 +303,7 @@ function ResumeSheet({
             <>
               <span className="resume-label" data-measure="exp-label">Expérience</span>
               <span className="resume-label" data-measure="edu-label">Formation académique</span>
+              <span className="resume-label" data-measure="project-label">Projets et réalisations</span>
               {page.right.map((item) => (
                 <RightBlock key={item.id} item={item} resume={resume} formatDateRange={formatDateRange} showLabel={false} />
               ))}
@@ -309,6 +367,7 @@ export function ResumeDocument({
   resume,
   photo,
   template,
+  sectionVisibility = {},
   baseColor,
   selectedFont,
   formatDateRange,
@@ -319,24 +378,40 @@ export function ResumeDocument({
   const [scale, setScale] = useState(1)
 
   const leftItems = useMemo(() => {
-    const items = [{ id: 'summary', type: 'summary' }]
-    if (template === 'sillage') items.push({ id: 'contact', type: 'contact' })
-    items.push({ id: 'skills', type: 'skills' })
-    if (resume.certifications.length > 0) items.push({ id: 'certs', type: 'certs' })
-    if (resume.references.length > 0) items.push({ id: 'refs', type: 'refs' })
+    const visible = (section) => sectionVisibility[section] !== false
+      && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
+    const personalVisible = visible('personal')
+    const items = []
+    if (personalVisible && resume.summary) items.push({ id: 'summary', type: 'summary' })
+    if (template === 'sillage' && personalVisible) items.push({ id: 'contact', type: 'contact' })
+    if (visible('skills') && resume.skills.some(Boolean)) items.push({ id: 'skills', type: 'skills' })
+    if (visible('certifications') && resume.certifications.some((item) => item.name || item.issuer || item.year)) items.push({ id: 'certs', type: 'certs' })
+    if (visible('references') && resume.references.some((item) => item.name || item.role || item.contact)) items.push({ id: 'refs', type: 'refs' })
+    if (visible('languages') && resume.languages.some((item) => item.name || item.level)) items.push({ id: 'languages', type: 'languages' })
+    if (visible('interests') && resume.interests.some(Boolean)) items.push({ id: 'interests', type: 'interests' })
     return items
-  }, [resume.certifications.length, resume.references.length, template])
+  }, [resume, sectionVisibility, template])
 
   const rightItems = useMemo(() => {
+    const visible = (section) => sectionVisibility[section] !== false
+      && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
     const items = []
-    resume.experiences.forEach((_, index) => {
-      items.push({ id: `exp-${index}`, type: 'exp', index })
+    if (visible('experiences')) resume.experiences.slice(0, template === 'gratuit' ? 3 : undefined).forEach((entry, index) => {
+      if (Object.values(entry).some(Boolean)) items.push({ id: `exp-${index}`, type: 'exp', index })
     })
-    resume.educations.forEach((_, index) => {
-      items.push({ id: `edu-${index}`, type: 'edu', index })
+    if (visible('educations')) resume.educations.forEach((entry, index) => {
+      if (Object.values(entry).some(Boolean)) items.push({ id: `edu-${index}`, type: 'edu', index })
     })
+    const appendEntries = (field, type, label, isVisible) => {
+      if (!isVisible) return
+      resume[field].forEach((entry, index) => {
+        if (!Object.values(entry).some(Boolean)) return
+        items.push({ id: `${type}-${index}`, type, field, index, label })
+      })
+    }
+    appendEntries('projects', 'project', 'Projets et réalisations', visible('projects'))
     return items
-  }, [resume.educations, resume.experiences])
+  }, [resume, sectionVisibility, template])
 
   const allPage = useMemo(() => ({ left: leftItems, right: rightItems }), [leftItems, rightItems])
 
@@ -369,9 +444,11 @@ export function ResumeDocument({
 
       const expLabel = root.querySelector('[data-measure="exp-label"]')
       const eduLabel = root.querySelector('[data-measure="edu-label"]')
+      const projectLabel = root.querySelector('[data-measure="project-label"]')
       const labelHeights = {
         exp: expLabel ? expLabel.getBoundingClientRect().height + 10 : 26,
         edu: eduLabel ? eduLabel.getBoundingClientRect().height + 10 : 26,
+        project: projectLabel ? projectLabel.getBoundingClientRect().height + 10 : 26,
       }
 
       const fullHeader = root.querySelector('[data-measure="header-full"]')
@@ -414,7 +491,7 @@ export function ResumeDocument({
           if (rect.bottom <= footerTop + 0.5) return
           const id = node.getAttribute('data-block-id')
           if (!id) return
-          if (id.startsWith('exp-') || id.startsWith('edu-')) forcedBreaks.right.add(id)
+          if (id.startsWith('exp-') || id.startsWith('edu-') || id.startsWith('project-') || id.startsWith('volunteer-') || id.startsWith('publication-')) forcedBreaks.right.add(id)
           else forcedBreaks.left.add(id)
         })
       })
@@ -472,6 +549,7 @@ export function ResumeDocument({
           resume={resume}
           photo={photo}
           template={template}
+          sectionVisibility={sectionVisibility}
           page={allPage}
           pageIndex={0}
           totalPages={1}
@@ -480,7 +558,7 @@ export function ResumeDocument({
           style={sheetStyleVars}
         />
         <div className={`resume-sheet resume-template-${template} resume-sheet-continued resume-sheet-measure`} style={{ ...sheetStyleVars, width: RESUME_SHEET_WIDTH }}>
-          <ResumeHeader resume={resume} photo={photo} template={template} continued />
+          <ResumeHeader resume={resume} photo={photo} template={template} continued sectionVisibility={sectionVisibility} />
         </div>
       </div>
 
@@ -500,6 +578,7 @@ export function ResumeDocument({
               resume={resume}
               photo={photo}
               template={template}
+              sectionVisibility={sectionVisibility}
               page={page}
               pageIndex={pageIndex}
               totalPages={pages.length}

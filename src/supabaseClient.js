@@ -130,19 +130,44 @@ export async function signInWithPassword({ email, password }) {
 }
 
 /**
- * Connexion sans mot de passe via lien magique (Magic Link)
+ * Envoi d’un code OTP pour confirmer une connexion par e-mail
  */
-export async function signInWithOtp(email) {
+export async function signInWithOtp(email, { shouldCreateUser = false } = {}) {
   const client = getSupabaseClient()
   if (!client) throw new Error('Supabase n\'est pas encore configuré.')
 
   const { data, error } = await client.auth.signInWithOtp({
     email,
     options: {
+      shouldCreateUser,
       emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
     },
   })
 
+  if (error) throw error
+  return data
+}
+
+export async function verifyEmailOtp(email, token, type) {
+  const client = getSupabaseClient()
+  if (!client) throw new Error('Supabase n\'est pas encore configuré.')
+
+  const { data, error } = await client.auth.verifyOtp({ email, token, type })
+  if (error) throw error
+  return data
+}
+
+export async function resendSignupOtp(email) {
+  const client = getSupabaseClient()
+  if (!client) throw new Error('Supabase n\'est pas encore configuré.')
+
+  const { data, error } = await client.auth.resend({
+    type: 'signup',
+    email,
+    options: {
+      emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    },
+  })
   if (error) throw error
   return data
 }
@@ -257,27 +282,32 @@ export function onAuthStateChange(callback) {
  */
 export async function saveUserResumeToCloud(userId, resumeData) {
   const client = getSupabaseClient()
-  if (!client || !userId) return { success: false }
+  if (!client || !userId) throw new Error('Une session serveur est requise pour enregistrer le CV.')
 
-  try {
-    const { data, error } = await client
-      .from('resumes')
-      .upsert(
-        {
-          user_id: userId,
-          content: resumeData,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-      .select()
+  const resume = resumeData.resume || resumeData
+  const { data, error } = await client
+    .from('resumes')
+    .upsert(
+      {
+        user_id: userId,
+        first_name: resume.firstName || '',
+        last_name: resume.lastName || '',
+        role: resume.role || '',
+        email: resume.email || '',
+        phone: resume.phone || '',
+        city: resume.city || '',
+        linkedin: resume.linkedin || '',
+        summary: resume.summary || '',
+        photo_url: resumeData.photo || null,
+        content: resumeData,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    )
+    .select()
 
-    if (error) throw error
-    return { success: true, data }
-  } catch (error) {
-    console.error('Erreur sauvegarde CV Supabase:', error)
-    return { success: false, error }
-  }
+  if (error) throw error
+  return { success: true, data }
 }
 
 /**
@@ -285,22 +315,43 @@ export async function saveUserResumeToCloud(userId, resumeData) {
  */
 export async function loadUserResumeFromCloud(userId) {
   const client = getSupabaseClient()
-  if (!client || !userId) return null
+  if (!client || !userId) throw new Error('Une session serveur est requise pour charger le CV.')
 
-  try {
-    const { data, error } = await client
-      .from('resumes')
-      .select('content, updated_at')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .maybeSingle()
+  const { data, error } = await client
+    .from('resumes')
+    .select('content, updated_at')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-    if (error) throw error
-    return data ? data.content : null
-  } catch (error) {
-    console.error('Erreur chargement CV Supabase:', error)
-    return null
+  if (error) throw error
+  return data ? data.content : null
+}
+
+export async function createTaraCheckout(templateId) {
+  const client = getSupabaseClient()
+  if (!client) throw new Error('Supabase n\'est pas encore configuré.')
+
+  const { data, error } = await client.functions.invoke('tara-checkout', {
+    body: { action: 'create', templateId },
+  })
+  if (error) throw error
+  if (!data?.paymentId || !data?.paymentUrl) {
+    throw new Error('Tara Money n’a pas retourné de lien de paiement valide.')
   }
+  return data
+}
+
+export async function verifyTaraPayment(paymentId) {
+  const client = getSupabaseClient()
+  if (!client) throw new Error('Supabase n\'est pas encore configuré.')
+
+  const { data, error } = await client.functions.invoke('tara-checkout', {
+    body: { action: 'verify', paymentId },
+  })
+  if (error) throw error
+  return data
 }
 
 /**
@@ -312,11 +363,11 @@ export async function uploadPdfAndSaveResume({
   fileName,
   resume,
   photo = null,
+  resumeData = { resume, photo },
 }) {
   const client = getSupabaseClient()
   if (!client) {
-    console.warn('Supabase n\'est pas encore configuré.')
-    return { success: false, reason: 'not_configured' }
+    throw new Error('Supabase n\'est pas encore configuré.')
   }
 
   try {
@@ -324,7 +375,7 @@ export async function uploadPdfAndSaveResume({
     const storagePath = `pdfs/${Date.now()}_${safeBaseName}`
 
     // 1. Upload vers le bucket Supabase Storage
-    const { data: uploadData, error: uploadError } = await client.storage
+    const { error: uploadError } = await client.storage
       .from('resumes')
       .upload(storagePath, pdfBlob, {
         contentType: 'application/pdf',
@@ -343,27 +394,16 @@ export async function uploadPdfAndSaveResume({
 
     const publicUrl = urlData?.publicUrl || ''
 
-    // 3. Utilisateur courant (si connecté)
+    // 3. Utilisateur courant
     const currentUser = await getCurrentUser()
+    if (!currentUser) throw new Error('Une session est requise pour enregistrer le PDF.')
 
-    // 4. Récupérer l'adresse IP de l'appareil
-    let ipAddress = null
-    try {
-      const ipRes = await fetch('https://api.ipify.org?format=json')
-      if (ipRes.ok) {
-        const ipData = await ipRes.json()
-        ipAddress = ipData.ip || null
-      }
-    } catch {
-      // Silently ignore - IP is best effort
-    }
-
-    // 5. Insertion dans la table SQL 'resumes'
+    // 4. Mise à jour du CV serveur avec le lien PDF exporté
     const { data: dbData, error: dbError } = await client
       .from('resumes')
-      .insert([
+      .upsert(
         {
-          user_id: currentUser?.id || null,
+          user_id: currentUser.id,
           first_name: resume?.firstName || '',
           last_name: resume?.lastName || '',
           role: resume?.role || '',
@@ -373,11 +413,12 @@ export async function uploadPdfAndSaveResume({
           linkedin: resume?.linkedin || '',
           summary: resume?.summary || '',
           photo_url: photo || null,
-          content: resume,
+          content: resumeData,
           pdf_url: publicUrl,
-          ip_address: ipAddress,
+          updated_at: new Date().toISOString(),
         },
-      ])
+        { onConflict: 'user_id' }
+      )
       .select()
 
     if (dbError) {
@@ -392,8 +433,6 @@ export async function uploadPdfAndSaveResume({
     }
   } catch (error) {
     console.error('Erreur lors de la sauvegarde cloud du PDF:', error)
-    return { success: false, error }
+    throw error
   }
 }
-
-
