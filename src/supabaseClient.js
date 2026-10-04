@@ -277,68 +277,202 @@ export function onAuthStateChange(callback) {
    Sauvegarde et synchronisation Cloud du CV (Table `resumes`)
    ========================================================================== */
 
+async function saveResumeRecord(client, userId, resumeRecord, resumeId = null) {
+  const query = resumeId
+    ? client.from('resumes').update(resumeRecord).eq('user_id', userId).eq('id', resumeId)
+    : client.from('resumes').insert(resumeRecord)
+  const { data, error } = await query.select()
+
+  if (error) throw error
+  if (resumeId && !data?.length) throw new Error('Le CV à modifier est introuvable.')
+  return data
+}
+
 /**
  * Sauvegarde le CV d'un utilisateur dans la base de données Supabase
  */
-export async function saveUserResumeToCloud(userId, resumeData) {
+export async function saveUserResumeToCloud(userId, resumeData, resumeId = null) {
   const client = getSupabaseClient()
   if (!client || !userId) throw new Error('Une session serveur est requise pour enregistrer le CV.')
 
   const resume = resumeData.resume || resumeData
-  const { data, error } = await client
-    .from('resumes')
-    .upsert(
-      {
-        user_id: userId,
-        first_name: resume.firstName || '',
-        last_name: resume.lastName || '',
-        role: resume.role || '',
-        email: resume.email || '',
-        phone: resume.phone || '',
-        city: resume.city || '',
-        linkedin: resume.linkedin || '',
-        summary: resume.summary || '',
-        photo_url: resumeData.photo || null,
-        content: resumeData,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    )
-    .select()
-
-  if (error) throw error
-  return { success: true, data }
+  const templateId = resumeData.template || resumeData.templateId || 'gratuit'
+  const modelStatus = resumeData.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment')
+  const content = { ...resumeData, template: templateId, modelStatus }
+  const data = await saveResumeRecord(client, userId, {
+    user_id: userId,
+    first_name: resume.firstName || '',
+    last_name: resume.lastName || '',
+    role: resume.role || '',
+    email: resume.email || '',
+    phone: resume.phone || '',
+    city: resume.city || '',
+    linkedin: resume.linkedin || '',
+    summary: resume.summary || '',
+    photo_url: resumeData.photo || null,
+    content,
+    updated_at: new Date().toISOString(),
+  }, resumeId)
+  return { success: true, data, resumeId: data?.[0]?.id || resumeId }
 }
 
-/**
- * Charge le CV d'un utilisateur depuis la base de données Supabase
- */
-export async function loadUserResumeFromCloud(userId) {
+export async function updateResumeModelStatus(userId, templateId, modelStatus, resumeId = null) {
   const client = getSupabaseClient()
-  if (!client || !userId) throw new Error('Une session serveur est requise pour charger le CV.')
+  if (!client || !userId) throw new Error('Une session serveur est requise pour mettre à jour le statut du modèle.')
+  if (!['free', 'pending_payment', 'paid'].includes(modelStatus)) {
+    throw new Error('Le statut du modèle est invalide.')
+  }
+
+  const loadQuery = resumeId
+    ? client.from('resumes').select('id, content').eq('user_id', userId).eq('id', resumeId).maybeSingle()
+    : client.from('resumes').select('id, content').eq('user_id', userId).order('updated_at', { ascending: false }).limit(1).maybeSingle()
+  const { data: resumeRecord, error: loadError } = await loadQuery
+
+  if (loadError) throw loadError
+  if (!resumeRecord) throw new Error('Aucun CV enregistré pour ce compte.')
+
+  let updateQuery = client
+    .from('resumes')
+    .update({
+      content: { ...resumeRecord.content, template: templateId, modelStatus },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .eq('id', resumeRecord.id)
+
+  const { error } = await updateQuery
+
+  if (error) throw error
+  return { success: true }
+}
+
+export async function loadUserResumesFromCloud(userId) {
+  const client = getSupabaseClient()
+  if (!client || !userId) throw new Error('Une session serveur est requise pour charger les CV.')
 
   const { data, error } = await client
     .from('resumes')
-    .select('content, updated_at')
+    .select('id, content, created_at, updated_at')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .order('id', { ascending: false })
 
   if (error) throw error
-  return data ? data.content : null
+  return (data || []).map((record) => {
+    const templateId = record.content?.template || 'gratuit'
+    return {
+      ...record.content,
+      id: record.id,
+      template: templateId,
+      modelStatus: record.content?.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment'),
+      createdAt: record.created_at,
+      updatedAt: record.updated_at,
+    }
+  })
 }
 
-export async function createTaraCheckout(templateId) {
+export async function getUserResumePlan(userId) {
+  const client = getSupabaseClient()
+  if (!client || !userId) throw new Error('Une session serveur est requise pour consulter l’offre.')
+
+  const { data, error } = await client
+    .from('cvcraft_subscriptions')
+    .select('plan_id, valid_until')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error?.code === 'PGRST205' && error.message?.includes('cvcraft_subscriptions')) {
+    console.warn('La table cvcraft_subscriptions est absente du cache Supabase. Offre limitée à Free jusqu’à l’application des migrations.')
+    return {
+      planId: 'free',
+      active: true,
+      validUntil: null,
+      schemaWarning: 'Les offres Pro et Gold sont temporairement indisponibles car le schéma des abonnements n’est pas déployé sur Supabase. Appliquez les migrations puis rechargez le dashboard.',
+    }
+  }
+  if (error) throw error
+  if (!data) return { planId: 'free', active: true, validUntil: null }
+
+  const active = new Date(data.valid_until).getTime() > Date.now()
+  return {
+    planId: active ? data.plan_id : 'free',
+    previousPlanId: active ? null : data.plan_id,
+    active,
+    validUntil: data.valid_until,
+  }
+}
+
+export async function deleteUserResumeFromCloud(userId, resumeId) {
+  const client = getSupabaseClient()
+  if (!client || !userId || !resumeId) throw new Error('Une session serveur est requise pour supprimer le CV.')
+
+  const { data, error } = await client
+    .from('resumes')
+    .delete()
+    .eq('user_id', userId)
+    .eq('id', resumeId)
+    .select('id')
+
+  if (error) throw error
+  if (!data?.length) throw new Error('Le CV à supprimer est introuvable.')
+  return { success: true }
+}
+
+export async function createTaraPlanCheckout(planId, phoneNumber) {
+  const client = getSupabaseClient()
+  if (!client) throw new Error('Supabase n’est pas encore configuré.')
+  if (!['pro', 'gold'].includes(planId)) throw new Error('L’offre payante sélectionnée est invalide.')
+
+  const { data, error } = await client.functions.invoke('tara-checkout', {
+    body: { action: 'create-plan', planId, phoneNumber },
+  })
+  if (error) throw error
+  if (!data?.paymentId || data.status !== 'PENDING') {
+    throw new Error('Tara Money n’a pas retourné un paiement MobilePay valide.')
+  }
+  return data
+}
+
+/*
+ * Retourne un seul CV pour les parcours qui n’ont pas besoin de la liste.
+ */
+export async function loadUserResumeFromCloud(userId, resumeId = null) {
+  if (resumeId) {
+    const client = getSupabaseClient()
+    if (!client || !userId) throw new Error('Une session serveur est requise pour charger le CV.')
+    const { data, error } = await client
+      .from('resumes')
+      .select('id, content, created_at, updated_at')
+      .eq('user_id', userId)
+      .eq('id', resumeId)
+      .maybeSingle()
+    if (error) throw error
+    if (!data) return null
+    const templateId = data.content?.template || 'gratuit'
+    return {
+      ...data.content,
+      id: data.id,
+      template: templateId,
+      modelStatus: data.content?.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment'),
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    }
+  }
+
+  const resumes = await loadUserResumesFromCloud(userId)
+  return resumes[0] || null
+}
+
+export async function createTaraCheckout(templateId, phoneNumber, resumeId = null) {
   const client = getSupabaseClient()
   if (!client) throw new Error('Supabase n\'est pas encore configuré.')
 
   const { data, error } = await client.functions.invoke('tara-checkout', {
-    body: { action: 'create', templateId },
+    body: { action: 'create', templateId, resumeId, phoneNumber },
   })
   if (error) throw error
-  if (!data?.paymentId || !data?.paymentUrl) {
-    throw new Error('Tara Money n’a pas retourné de lien de paiement valide.')
+  if (!data?.paymentId || data.status !== 'PENDING') {
+    throw new Error('Tara Money n’a pas retourné un paiement MobilePay valide.')
   }
   return data
 }
@@ -364,6 +498,7 @@ export async function uploadPdfAndSaveResume({
   resume,
   photo = null,
   resumeData = { resume, photo },
+  resumeId = null,
 }) {
   const client = getSupabaseClient()
   if (!client) {
@@ -371,6 +506,9 @@ export async function uploadPdfAndSaveResume({
   }
 
   try {
+    const templateId = resumeData.template || resumeData.templateId || 'gratuit'
+    const modelStatus = resumeData.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment')
+    const content = { ...resumeData, template: templateId, modelStatus }
     const safeBaseName = (fileName || 'CV.pdf').replace(/[^a-zA-Z0-9._-]/g, '_')
     const storagePath = `pdfs/${Date.now()}_${safeBaseName}`
 
@@ -399,37 +537,27 @@ export async function uploadPdfAndSaveResume({
     if (!currentUser) throw new Error('Une session est requise pour enregistrer le PDF.')
 
     // 4. Mise à jour du CV serveur avec le lien PDF exporté
-    const { data: dbData, error: dbError } = await client
-      .from('resumes')
-      .upsert(
-        {
-          user_id: currentUser.id,
-          first_name: resume?.firstName || '',
-          last_name: resume?.lastName || '',
-          role: resume?.role || '',
-          email: resume?.email || '',
-          phone: resume?.phone || '',
-          city: resume?.city || '',
-          linkedin: resume?.linkedin || '',
-          summary: resume?.summary || '',
-          photo_url: photo || null,
-          content: resumeData,
-          pdf_url: publicUrl,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' }
-      )
-      .select()
-
-    if (dbError) {
-      console.error('Erreur insertion base de données resumes:', dbError)
-      throw dbError
-    }
+    const dbData = await saveResumeRecord(client, currentUser.id, {
+      user_id: currentUser.id,
+      first_name: resume?.firstName || '',
+      last_name: resume?.lastName || '',
+      role: resume?.role || '',
+      email: resume?.email || '',
+      phone: resume?.phone || '',
+      city: resume?.city || '',
+      linkedin: resume?.linkedin || '',
+      summary: resume?.summary || '',
+      photo_url: photo || null,
+      content,
+      pdf_url: publicUrl,
+      updated_at: new Date().toISOString(),
+    }, resumeId)
 
     return {
       success: true,
       publicUrl,
       record: dbData?.[0],
+      resumeId: dbData?.[0]?.id || resumeId,
     }
   } catch (error) {
     console.error('Erreur lors de la sauvegarde cloud du PDF:', error)

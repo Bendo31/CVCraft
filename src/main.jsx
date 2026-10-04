@@ -5,8 +5,12 @@ import { jsPDF } from 'jspdf'
 import { ResumeDocument } from './ResumeDocument.jsx'
 import {
   createTaraCheckout,
+  createTaraPlanCheckout,
+  deleteUserResumeFromCloud,
+  getUserResumePlan,
   getSession,
   loadUserResumeFromCloud,
+  loadUserResumesFromCloud,
   onAuthStateChange,
   resetPasswordForEmail,
   resendSignupOtp,
@@ -20,6 +24,7 @@ import {
   updatePassword,
   verifyTaraPayment,
   verifyEmailOtp,
+  updateResumeModelStatus,
 } from './supabaseClient.js'
 import './styles.css'
 
@@ -27,6 +32,32 @@ import './styles.css'
 const CROP_VIEW_SIZE = 280
 const CROP_OUTPUT_SIZE = 512
 const OAUTH_INTENT_KEY = 'cvcraft-oauth-intent'
+
+function normalizeCameroonPhoneNumber(value) {
+  const digits = value.trim().replace(/[^\d+]/g, '').replace(/^\+/, '')
+  const phoneNumber = digits.startsWith('237') ? digits : `237${digits}`
+  if (!/^2376\d{8}$/.test(phoneNumber)) {
+    throw new Error('Saisissez un numéro MTN ou Orange camerounais valide (ex. 2376XXXXXXXX).')
+  }
+  return phoneNumber
+}
+
+function formatRelativeDate(value) {
+  const timestamp = new Date(value).getTime()
+  if (!Number.isFinite(timestamp)) return null
+
+  const elapsed = timestamp - Date.now()
+  const units = [
+    ['year', 365 * 24 * 60 * 60],
+    ['month', 30 * 24 * 60 * 60],
+    ['day', 24 * 60 * 60],
+    ['hour', 60 * 60],
+    ['minute', 60],
+    ['second', 1],
+  ]
+  const [unit, seconds] = units.find(([, unitSeconds]) => Math.abs(elapsed) >= unitSeconds * 1000) || units[units.length - 1]
+  return new Intl.RelativeTimeFormat('fr-FR', { numeric: 'auto' }).format(Math.round(elapsed / (seconds * 1000)), unit)
+}
 
 function clampPhotoOffset(offset, naturalWidth, naturalHeight, zoom) {
   if (!naturalWidth || !naturalHeight) return { x: 0, y: 0 }
@@ -178,9 +209,9 @@ const steps = [
 ]
 
 const plans = [
-  { name: 'Free', price: '0€', suffix: 'pour toujours', description: 'Les essentiels pour démarrer sereinement.', features: ['1 modèle Gratuit', 'Export PDF', 'Conseils de rédaction'], action: 'Commencer gratuitement' },
-  { name: 'Pro', price: '9€', suffix: 'par mois', description: 'Tout ce qu’il faut pour décrocher plus d’entretiens.', features: ['Tous les modèles premium', 'CV et lettres illimités', 'Analyse ATS intelligente'], action: 'Essayer Pro', featured: true },
-  { name: 'Gold', price: '19€', suffix: 'par mois', description: 'L’accompagnement complet pour accélérer votre carrière.', features: ['Tout dans Pro', 'Relecture par un expert', 'Support prioritaire 7j/7'], action: 'Passer en Gold' },
+  { id: 'free', name: 'Gratuit', price: '0', suffix: 'sans limite de durée', description: 'Pour tester CV Craft.', features: ['1 CV', '1 template gratuit', 'Téléchargement PDF', 'Sauvegarde'], action: 'Commencer gratuitement' },
+  { id: 'pro', name: 'Pro', price: '1 500', suffix: 'pour 3 mois', description: 'Pour créer un CV professionnel.', features: ['1 CV', 'Modèles premium', 'PDF sans logo', 'Modifications illimitées', 'Réactivation à payer après 3 mois'], action: 'Choisir Pro', featured: true },
+  { id: 'gold', name: 'Gold', price: '2 500', suffix: 'par mois', description: 'Pour les chercheurs d’emploi actifs.', features: ['Jusqu’à 3 CV', 'Templates premium', 'Optimisation ATS · bientôt', 'Historique des versions · bientôt', 'Lien public · bientôt'], action: 'Choisir Gold' },
 ]
 
 const resumeTemplates = [
@@ -199,6 +230,12 @@ const legacyResumeKeys = [
   'cvcraft-resume-font',
 ]
 const GUEST_RESUME_KEY = 'cvcraft-free-resume-v1'
+
+function clearLocalResumeData() {
+  legacyResumeKeys.forEach((key) => window.localStorage.removeItem(key))
+  window.localStorage.removeItem(GUEST_RESUME_KEY)
+  window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
+}
 
 function loadGuestResume() {
   const storedResume = window.localStorage.getItem(GUEST_RESUME_KEY)
@@ -353,36 +390,67 @@ function SectionHeading({ number, title, enabled, onToggle, onReset, locked = fa
 
 function ResumeBuilder({
   userId,
+  initialResumeId,
+  createNewResume,
+  accountPlan,
+  onReactivatePlan,
   initialTemplate,
   preferInitialTemplate,
   downloadAfterPayment,
+  downloadRequested,
+  onDownloadRequestComplete,
   onAutoDownloadComplete,
   onHome,
+  onDashboard,
+  onLogout,
   onRequestUnlock,
+  onPaymentStarted,
+  paymentStatus,
+  onRetryPayment,
   showNotice,
   notice,
 }) {
   const [photo, setPhoto] = useState('')
   const [template, setTemplate] = useState(initialTemplate)
   const isFreeModel = template === 'gratuit'
+  const [modelStatus, setModelStatus] = useState(isFreeModel ? 'free' : 'pending_payment')
   const [baseColor, setBaseColor] = useState('#e49a68')
   const [resumeFont, setResumeFont] = useState('classic')
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [paymentSubmitting, setPaymentSubmitting] = useState(false)
   const [paymentError, setPaymentError] = useState('')
+  const [paymentPhone, setPaymentPhone] = useState('237')
   const [templateChooserOpen, setTemplateChooserOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
   const [resume, setResume] = useState(defaultResume)
+  const [resumeId, setResumeId] = useState(initialResumeId || null)
+  const resumeIdRef = useRef(initialResumeId || null)
   const [resumeLoaded, setResumeLoaded] = useState(false)
   const [resumeLoadError, setResumeLoadError] = useState('')
   const [isDirty, setIsDirty] = useState(false)
   const [saveStatus, setSaveStatus] = useState('saved')
+  const [saveError, setSaveError] = useState('')
   const [loadRetry, setLoadRetry] = useState(0)
   const [saveRetry, setSaveRetry] = useState(0)
   const editVersion = useRef(0)
+  const cloudSaveQueue = useRef(Promise.resolve())
   const autoDownloadStarted = useRef(false)
+  const dashboardDownloadStarted = useRef(false)
   const guestMigrationPending = useRef(false)
+
+  const saveCloudDraft = (draft) => {
+    const save = cloudSaveQueue.current.then(async () => {
+      const result = await saveUserResumeToCloud(userId, draft, resumeIdRef.current)
+      if (result.resumeId) {
+        resumeIdRef.current = result.resumeId
+        setResumeId(result.resumeId)
+      }
+      return result
+    })
+    cloudSaveQueue.current = save.catch(() => {})
+    return save
+  }
 
   useEffect(() => {
     let active = true
@@ -395,6 +463,7 @@ function ResumeBuilder({
           setResume(guestResume.resume)
           setPhoto(guestResume.photo)
           setTemplate(guestResume.template)
+          setModelStatus(guestResume.modelStatus || (guestResume.template === 'gratuit' ? 'free' : 'pending_payment'))
           setBaseColor(guestResume.baseColor)
           setResumeFont(guestResume.resumeFont)
         } else {
@@ -410,11 +479,31 @@ function ResumeBuilder({
       }
     }
 
-    loadUserResumeFromCloud(userId).then((savedData) => {
+    if (createNewResume) {
+      setResume(defaultResume)
+      setPhoto('')
+      setTemplate(initialTemplate)
+      setModelStatus(initialTemplate === 'gratuit' ? 'free' : 'pending_payment')
+      setBaseColor('#e49a68')
+      setResumeFont('classic')
+      setResumeId(null)
+      resumeIdRef.current = null
+      editVersion.current += 1
+      setIsDirty(true)
+      setSaveStatus('saving')
+      setResumeLoaded(true)
+      return () => {
+        active = false
+      }
+    }
+
+    loadUserResumeFromCloud(userId, initialResumeId).then((savedData) => {
       if (!active) return
 
       const guestData = savedData ? null : loadGuestResume()
       if (savedData) {
+        setResumeId(savedData.id || null)
+        resumeIdRef.current = savedData.id || null
         window.localStorage.removeItem(GUEST_RESUME_KEY)
         const savedResume = savedData.resume || savedData
         setResume({
@@ -434,6 +523,9 @@ function ResumeBuilder({
             ? savedData.template
             : initialTemplate
         setTemplate(resolvedTemplate)
+        setModelStatus(resolvedTemplate === savedData.template
+          ? savedData.modelStatus || (resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment')
+          : resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment')
         setBaseColor(savedData.baseColor || '#e49a68')
         setResumeFont(savedData.resumeFont || 'classic')
         if (preferInitialTemplate && resolvedTemplate !== savedData.template) {
@@ -442,9 +534,13 @@ function ResumeBuilder({
           setSaveStatus('saving')
         }
       } else if (guestData) {
+        setResumeId(null)
+        resumeIdRef.current = null
         setResume(guestData.resume)
         setPhoto(guestData.photo)
-        setTemplate(preferInitialTemplate ? initialTemplate : guestData.template)
+        const guestTemplate = preferInitialTemplate ? initialTemplate : guestData.template
+        setTemplate(guestTemplate)
+        setModelStatus(guestTemplate === 'gratuit' ? 'free' : 'pending_payment')
         setBaseColor(guestData.baseColor)
         setResumeFont(guestData.resumeFont)
         guestMigrationPending.current = true
@@ -452,6 +548,8 @@ function ResumeBuilder({
         setIsDirty(true)
         setSaveStatus('saving')
       } else {
+        setResumeId(null)
+        resumeIdRef.current = null
         const legacyData = readLegacyResume()
         if (legacyData) {
           setResume({
@@ -465,11 +563,11 @@ function ResumeBuilder({
             },
           })
           setPhoto(legacyData.photo)
-          setTemplate(
-            !preferInitialTemplate && resumeTemplates.some((item) => item.id === legacyData.template)
-              ? legacyData.template
-              : initialTemplate
-          )
+          const legacyTemplate = !preferInitialTemplate && resumeTemplates.some((item) => item.id === legacyData.template)
+            ? legacyData.template
+            : initialTemplate
+          setTemplate(legacyTemplate)
+          setModelStatus(legacyTemplate === 'gratuit' ? 'free' : 'pending_payment')
           setBaseColor(legacyData.baseColor)
           setResumeFont(legacyData.resumeFont)
           editVersion.current += 1
@@ -477,6 +575,7 @@ function ResumeBuilder({
           setSaveStatus('saving')
         } else {
           setTemplate(initialTemplate)
+          setModelStatus(initialTemplate === 'gratuit' ? 'free' : 'pending_payment')
           editVersion.current += 1
           setIsDirty(true)
           setSaveStatus('saving')
@@ -492,7 +591,7 @@ function ResumeBuilder({
     return () => {
       active = false
     }
-  }, [initialTemplate, loadRetry, preferInitialTemplate, userId])
+  }, [createNewResume, initialResumeId, initialTemplate, loadRetry, preferInitialTemplate, userId])
 
   const markEdited = () => {
     editVersion.current += 1
@@ -512,11 +611,13 @@ function ResumeBuilder({
         resume,
         photo,
         template,
+        modelStatus,
         baseColor,
         resumeFont,
       }
       if (userId) {
-        await saveUserResumeToCloud(userId, draft)
+        const saved = await saveCloudDraft(draft)
+        if (saved.resumeId) setResumeId(saved.resumeId)
         if (guestMigrationPending.current && editVersion.current === version) {
           window.localStorage.removeItem(GUEST_RESUME_KEY)
           guestMigrationPending.current = false
@@ -525,14 +626,24 @@ function ResumeBuilder({
         saveGuestResume(draft)
       }
       setIsDirty(false)
+      setSaveError('')
       setSaveStatus(userId ? 'saved' : 'guest')
       navigate()
     } catch (error) {
       console.error(userId ? 'Erreur lors de la sauvegarde du CV avant de quitter:' : 'Erreur lors de la sauvegarde locale avant de quitter:', error)
+      setSaveError(error.message || 'Erreur inconnue')
       setSaveStatus('error')
-      showNotice(userId ? 'Votre CV n’a pas pu être enregistré. Réessayez avant de quitter.' : 'Votre CV n’a pas pu être sauvegardé sur cet appareil.')
     }
   }
+
+  const handleLogout = () => saveBeforeNavigation(async () => {
+    try {
+      await onLogout()
+    } catch (error) {
+      console.error('Erreur lors de la déconnexion:', error)
+      showNotice('La déconnexion a échoué. Votre session est toujours active.')
+    }
+  })
 
   useEffect(() => {
     if (!resumeLoaded || !isDirty) return undefined
@@ -544,29 +655,32 @@ function ResumeBuilder({
           resume,
           photo,
           template,
+          modelStatus,
           baseColor,
           resumeFont,
         }
         if (userId) {
-          await saveUserResumeToCloud(userId, draft)
+          const saved = await saveCloudDraft(draft)
+          if (saved.resumeId) setResumeId(saved.resumeId)
         } else {
           saveGuestResume(draft)
         }
         if (editVersion.current === version) {
           setIsDirty(false)
+          setSaveError('')
           setSaveStatus(userId ? 'saved' : 'guest')
         }
       } catch (error) {
         console.error(userId ? 'Erreur lors de la sauvegarde du CV sur le serveur:' : 'Erreur lors de la sauvegarde locale du CV gratuit:', error)
         if (editVersion.current === version) {
+          setSaveError(error.message || 'Erreur inconnue')
           setSaveStatus('error')
-          if (!userId) showNotice('Le CV n’a pas pu être sauvegardé localement. Libérez de l’espace puis réessayez.')
         }
       }
-    }, 700)
+    }, 500)
 
     return () => window.clearTimeout(timeout)
-  }, [baseColor, isDirty, photo, resume, resumeFont, resumeLoaded, saveRetry, showNotice, template, userId])
+  }, [baseColor, isDirty, modelStatus, photo, resume, resumeFont, resumeLoaded, saveRetry, template, userId])
 
   const updateResume = (field, value) => {
     markEdited()
@@ -655,10 +769,11 @@ function ResumeBuilder({
     if (!selected) return
     markEdited()
     setTemplate(templateId)
+    setModelStatus(templateId === 'gratuit' ? 'free' : templateId === template && modelStatus === 'paid' ? 'paid' : 'pending_payment')
     setTemplateChooserOpen(false)
   }
   const unlockTemplate = (templateId) => {
-    onRequestUnlock(templateId, { resume, photo, template, baseColor, resumeFont })
+    onRequestUnlock(templateId, { resume, photo, template, baseColor, resumeFont, resumeId })
   }
   const selectBaseColor = (color) => {
     markEdited()
@@ -672,7 +787,7 @@ function ResumeBuilder({
 
   const downloadPdf = async () => {
     const sheets = document.querySelectorAll('#resume-preview .resume-sheet')
-    if (!sheets.length) return
+    if (!sheets.length) return false
 
     document.body.classList.add('pdf-exporting')
     await new Promise((resolve) => window.requestAnimationFrame(resolve))
@@ -716,14 +831,18 @@ function ResumeBuilder({
           fileName,
           resume,
           photo,
-          resumeData: { resume, photo, template, baseColor, resumeFont },
+          resumeData: { resume, photo, template, modelStatus, baseColor, resumeFont },
+          resumeId,
         }).catch((uploadError) => {
           console.warn('La sauvegarde cloud du CV a échoué:', uploadError)
           showNotice('Le PDF est téléchargé, mais sa sauvegarde sur le serveur a échoué.')
         })
       }
+      return true
     } catch (err) {
       console.error('Erreur lors de la génération ou sauvegarde du PDF:', err)
+      showNotice('Le téléchargement du PDF a échoué. Réessayez.')
+      return false
     } finally {
       exportRoot.remove()
       document.body.classList.remove('pdf-exporting')
@@ -735,7 +854,9 @@ function ResumeBuilder({
     const timeout = window.setTimeout(() => {
       if (autoDownloadStarted.current) return
       autoDownloadStarted.current = true
-      downloadPdf().finally(onAutoDownloadComplete)
+      downloadPdf().then((downloaded) => {
+        if (downloaded) showNotice('Merci ! Votre CV est téléchargé. Vous pouvez continuer à le modifier ici.')
+      }).finally(onAutoDownloadComplete)
     }, 100)
     return () => window.clearTimeout(timeout)
   }, [downloadAfterPayment, resumeLoaded])
@@ -744,43 +865,75 @@ function ResumeBuilder({
     setPaymentSubmitting(true)
     setPaymentError('')
     try {
+      const phoneNumber = normalizeCameroonPhoneNumber(paymentPhone)
       await saveUserResumeToCloud(userId, {
         resume,
         photo,
         template,
+        modelStatus: 'pending_payment',
         baseColor,
         resumeFont,
-      })
-      const checkout = await createTaraCheckout(template)
-      window.location.assign(checkout.paymentUrl)
+      }, resumeId)
+      setModelStatus('pending_payment')
+      const checkout = await createTaraCheckout(template, phoneNumber, resumeId)
+      setPaymentOpen(false)
+      onPaymentStarted(checkout.paymentId)
+      showNotice('Demande envoyée. Validez le paiement sur votre téléphone.')
     } catch (error) {
       console.error('Impossible de démarrer le paiement Tara Money:', error)
       setPaymentError(error.message || 'Le paiement ne peut pas être démarré pour le moment.')
+    } finally {
       setPaymentSubmitting(false)
     }
   }
 
   const handleExport = () => {
+    if (userId && accountPlan && !accountPlan.active) {
+      showNotice('Votre offre a expiré. Réactivez-la pour télécharger ce CV.')
+      return
+    }
+    if (accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId)) {
+      downloadPdf()
+      return
+    }
     if (template === 'gratuit') {
       if (!userId) {
-        onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont }, { downloadAfterAuth: true })
+        onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId }, { downloadAfterAuth: true })
         return
       }
       downloadPdf()
       return
     }
     if (!userId) {
-      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont })
+      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
+      return
+    }
+    if (modelStatus === 'paid') {
+      downloadPdf()
       return
     }
     setPaymentError('')
+    setPaymentPhone('237')
     setPaymentOpen(true)
   }
 
-  if (!resumeLoaded) {
+  useEffect(() => {
+    if (!downloadRequested) {
+      dashboardDownloadStarted.current = false
+      return
+    }
+    if (!resumeLoaded || dashboardDownloadStarted.current) return
+    dashboardDownloadStarted.current = true
+    const download = template === 'gratuit' || modelStatus === 'paid' || accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId)
+      ? downloadPdf()
+      : Promise.resolve(handleExport())
+    Promise.resolve(download).finally(onDownloadRequestComplete)
+  }, [accountPlan, downloadRequested, resumeLoaded, handleExport, onDownloadRequestComplete])
+
+  if (!resumeLoaded || userId && !accountPlan?.ready) {
     return (
       <div className="account-page">
-        <div className="account-dialog" role="status">
+        <div className="account-dialog" aria-busy="true">
           {resumeLoadError ? (
             <>
               <h1>Chargement impossible</h1>
@@ -790,9 +943,26 @@ function ResumeBuilder({
                 setLoadRetry((current) => current + 1)
               }}>Réessayer</button>
             </>
-          ) : <p>Chargement de votre CV depuis le serveur…</p>}
+          ) : <span className="loading-indicator" aria-hidden="true" />}
         </div>
       </div>
+    )
+  }
+
+  if (userId && !accountPlan.active) {
+    const previousPlanName = accountPlan.previousPlanId === 'gold' ? 'Gold' : 'Pro'
+    return (
+      <main className="account-page">
+        <section className="account-dialog" role="alert">
+          <span className="preview-kicker">Offre expirée</span>
+          <h1>Votre CV est désactivé.</h1>
+          <p>Vos informations sont conservées. Réactivez votre offre {previousPlanName} pour modifier ou télécharger ce CV.</p>
+          <button className="button button-dark" type="button" onClick={() => onReactivatePlan(accountPlan.previousPlanId)}>
+            Réactiver {previousPlanName} · {accountPlan.previousPlanId === 'gold' ? '2 500' : '1 500'} FCFA
+          </button>
+          <button className="account-switch" type="button" onClick={onDashboard}>Retour au dashboard</button>
+        </section>
+      </main>
     )
   }
 
@@ -800,9 +970,9 @@ function ResumeBuilder({
     <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
       <header className="builder-header">
         <button className="brand builder-brand" onClick={() => saveBeforeNavigation(onHome)} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
-        <div className={`builder-header-center save-status-${userId ? saveStatus : 'guest'}`} role="status">
+        {(!userId && saveStatus !== 'saving' || saveStatus === 'error') && <div className={`builder-header-center save-status-${userId ? saveStatus : 'guest'}`} role={saveStatus === 'error' ? 'alert' : undefined}>
           <span className="save-dot" />
-          {!userId ? saveStatus === 'saving' ? 'Sauvegarde locale…' : saveStatus === 'error' ? (
+          {!userId ? saveStatus === 'error' ? (
             <button type="button" onClick={() => {
               setSaveStatus('saving')
               setSaveRetry((current) => current + 1)
@@ -811,18 +981,18 @@ function ResumeBuilder({
                 setIsDirty(true)
               }
             }}>Échec de sauvegarde locale — Réessayer</button>
-          ) : 'CV gratuit · sauvegarde locale automatique' : saveStatus === 'saving' ? 'Enregistrement sur le serveur…' : saveStatus === 'error' ? (
-            <button type="button" onClick={() => {
+          ) : 'CV gratuit · sauvegarde locale automatique' : (
+            <button type="button" title={saveError} onClick={() => {
               setSaveStatus('saving')
               setSaveRetry((current) => current + 1)
               if (!isDirty) {
                 editVersion.current += 1
                 setIsDirty(true)
               }
-            }}>Échec de sauvegarde — Réessayer</button>
-          ) : 'CV enregistré sur le serveur'}
-        </div>
-        <div className="builder-user"><button className="mobile-change-template" onClick={() => setTemplateChooserOpen(true)}>Changer de modèle</button><button onClick={() => saveBeforeNavigation(onHome)}>Quitter</button></div>
+            }}>Échec serveur — Réessayer</button>
+          )}
+        </div>}
+        <div className="builder-user"><button className="mobile-change-template" onClick={() => setTemplateChooserOpen(true)}>Changer de modèle</button>{userId && <button onClick={() => saveBeforeNavigation(onDashboard)}>Mes CV</button>}{userId && <button onClick={handleLogout}>Déconnexion</button>}<button onClick={() => saveBeforeNavigation(onHome)}>Quitter</button></div>
       </header>
       <main className="builder-main">
         <aside className="builder-sidebar">
@@ -910,6 +1080,7 @@ function ResumeBuilder({
             baseColor={baseColor}
             selectedFont={selectedFont}
             formatDateRange={formatDateRange}
+            showBranding={!(modelStatus === 'paid' || accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId))}
           />
         </section>
         <aside className="builder-design-panel" aria-label="Personnalisation du CV">
@@ -920,26 +1091,51 @@ function ResumeBuilder({
 
           <section className="design-group">
             <div className="design-group-title"><span>01</span><h3>Structure</h3></div>
-            <div className="design-template-list">
-              {resumeTemplates.map((item) => (
-                <div className="design-template-item" key={item.id}>
-                  <button
-                    className={`design-template-option ${template === item.id ? 'selected' : ''} ${!userId && item.id !== 'gratuit' ? 'locked' : ''}`}
-                    type="button"
-                    aria-pressed={template === item.id}
-                    onClick={() => selectTemplate(item.id)}
-                  >
-                    <span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span>
-                    <span><b>{item.name}</b><small>{item.description}</small></span>
-                    {userId && template === item.id && <em>✓</em>}
-                  </button>
-                  {!userId && item.id !== 'gratuit' && (
-                    <button className="template-unlock" type="button" onClick={() => unlockTemplate(item.id)}>
-                    <PremiumCrown /> Débloquer
-                    </button>
-                  )}
+            <div className="template-tiers">
+              <div className="template-tier template-tier-pro">
+                <div className="template-tier-heading"><PremiumCrown /><span>Modèles Pro</span></div>
+                <div className="design-template-list">
+                  {resumeTemplates.filter((item) => item.id !== 'gratuit').map((item) => (
+                    <div className="design-template-item" key={item.id}>
+                      <button
+                        className={`design-template-option ${template === item.id ? 'selected' : ''} ${!userId ? 'locked' : ''}`}
+                        type="button"
+                        aria-pressed={template === item.id}
+                        onClick={() => selectTemplate(item.id)}
+                      >
+                        <span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span>
+                        <span><b>{item.name}</b><small>{item.description}</small></span>
+                        <PremiumCrown />
+                        {userId && template === item.id && <em>✓</em>}
+                      </button>
+                      {!userId && (
+                        <button className="template-unlock" type="button" onClick={() => unlockTemplate(item.id)}>
+                          <PremiumCrown /> Débloquer
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </div>
+              <div className="template-tier template-tier-free">
+                <div className="template-tier-heading"><span>Accès libre</span></div>
+                <div className="design-template-list">
+                  {resumeTemplates.filter((item) => item.id === 'gratuit').map((item) => (
+                    <div className="design-template-item" key={item.id}>
+                      <button
+                        className={`design-template-option ${template === item.id ? 'selected' : ''}`}
+                        type="button"
+                        aria-pressed={template === item.id}
+                        onClick={() => selectTemplate(item.id)}
+                      >
+                        <span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span>
+                        <span><b>{item.name}</b><small>{item.description}</small></span>
+                        {userId && template === item.id && <em>✓</em>}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </section>
 
@@ -986,6 +1182,10 @@ function ResumeBuilder({
       <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
       {mobilePreviewOpen && <div className="mobile-preview-actions">{!userId && template !== 'gratuit' && <button className="button-outline" onClick={() => unlockTemplate(template)}><PremiumCrown /> Débloquer</button>}<button className="button-dark" disabled={!userId && template !== 'gratuit'} title={!userId && template !== 'gratuit' ? 'Cliquez sur Débloquer pour continuer' : undefined} onClick={handleExport}>Télécharger <span aria-hidden="true">↓</span></button></div>}
       {notice && <div className="toast" role="status">{notice}</div>}
+      {paymentStatus && <div className="builder-payment-status" role={paymentStatus === 'failure' || paymentStatus === 'error' ? 'alert' : 'status'}>
+        <span>{paymentStatus === 'checking' ? 'Validez la demande Tara Money sur votre téléphone…' : paymentStatus === 'pending' ? 'Paiement toujours en attente de confirmation.' : 'Le paiement n’a pas été confirmé.'}</span>
+        {paymentStatus === 'pending' && <button type="button" onClick={onRetryPayment}>Vérifier</button>}
+      </div>}
       {cropSource && (
         <PhotoCropModal
           imageSrc={cropSource}
@@ -998,7 +1198,7 @@ function ResumeBuilder({
           }}
         />
       )}
-      {paymentOpen && <div className="payment-backdrop" role="presentation"><div className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title"><span className="preview-kicker">Paiement sécurisé par Tara Money</span><h2 id="payment-title">Télécharger le modèle {resumeTemplates.find((item) => item.id === template)?.name}</h2><p>Le paiement de <strong>100 FCFA</strong> est requis avant le téléchargement du CV.</p>{paymentError && <p className="account-error" role="alert">{paymentError}</p>}<div className="payment-actions"><button className="button-outline" disabled={paymentSubmitting} onClick={() => setPaymentOpen(false)}>Annuler</button><button className="button-dark" disabled={paymentSubmitting} onClick={beginPaidDownload}>{paymentSubmitting ? 'Préparation du paiement…' : 'Payer avec Tara Money · 100 FCFA'}</button></div></div></div>}
+      {paymentOpen && <div className="payment-backdrop" role="presentation"><form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title" onSubmit={(event) => { event.preventDefault(); beginPaidDownload() }}><span className="preview-kicker">Paiement Mobile Money par Tara</span><h2 id="payment-title">Télécharger le modèle {resumeTemplates.find((item) => item.id === template)?.name}</h2><p>Le paiement de <strong>100 FCFA</strong> est requis. Tara détectera MTN ou Orange avec votre numéro camerounais.</p><label className="payment-phone-label" htmlFor="template-payment-phone">Numéro mobile</label><input id="template-payment-phone" className="payment-phone-input" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="2376XXXXXXXX" value={paymentPhone} onChange={(event) => setPaymentPhone(event.target.value)} required />{paymentError && <p className="account-error" role="alert">{paymentError}</p>}<div className="payment-actions"><button className="button-outline" type="button" disabled={paymentSubmitting} onClick={() => setPaymentOpen(false)}>Annuler</button><button className="button-dark" type="submit" disabled={paymentSubmitting}>{paymentSubmitting ? 'Envoi…' : 'Payer · 100 FCFA'}</button></div></form></div>}
       {templateChooserOpen && (
         <div className="mobile-template-overlay">
           <MobileTemplateSelection
@@ -1212,7 +1412,7 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
               {error && <p className="account-error" role="alert">{error}</p>}
               {message && <p className="account-message" role="status">{message}</p>}
               <button className="button button-dark" type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Veuillez patienter…' : flowMode === 'signup' ? 'Créer mon compte' : flowMode === 'reset' ? 'Envoyer le lien' : flowMode === 'update' ? 'Enregistrer le nouveau mot de passe' : flowMode === 'otp' ? 'Valider le code' : 'Recevoir mon code'}
+                {flowMode === 'signup' ? 'Créer mon compte' : flowMode === 'reset' ? 'Envoyer le lien' : flowMode === 'update' ? 'Enregistrer le nouveau mot de passe' : flowMode === 'otp' ? 'Valider le code' : 'Recevoir mon code'}
               </button>
             </form>
             {flowMode === 'otp' && <div className="account-otp-actions">
@@ -1261,31 +1461,292 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
   )
 }
 
+function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloadResume, onPurchasePlan, onLogout }) {
+  const [resumes, setResumes] = useState([])
+  const [plan, setPlan] = useState({ planId: 'free', active: true, validUntil: null })
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [retry, setRetry] = useState(0)
+  const [actionsOpen, setActionsOpen] = useState(null)
+  const [changeOfferOpen, setChangeOfferOpen] = useState(false)
+  const guestMigrationRef = useRef(null)
+
+  useEffect(() => {
+    let active = true
+    const loadResume = async () => {
+      setIsLoading(true)
+      setError('')
+      try {
+        let [loadedResumes, loadedPlan] = await Promise.all([
+          loadUserResumesFromCloud(user.id),
+          getUserResumePlan(user.id),
+        ])
+        if (loadedResumes.length) {
+          window.localStorage.removeItem(GUEST_RESUME_KEY)
+        } else {
+          const guestDraft = loadGuestResume()
+          if (guestDraft) {
+            if (!guestMigrationRef.current) {
+              guestMigrationRef.current = saveUserResumeToCloud(user.id, guestDraft)
+            }
+            try {
+              await guestMigrationRef.current
+            } catch (migrationError) {
+              guestMigrationRef.current = null
+              throw migrationError
+            }
+            window.localStorage.removeItem(GUEST_RESUME_KEY)
+            loadedResumes = await loadUserResumesFromCloud(user.id)
+          }
+        }
+        if (!active) return
+        setResumes(loadedResumes)
+        setPlan(loadedPlan)
+      } catch (loadError) {
+        console.error('Erreur lors du chargement des CV du tableau de bord:', loadError)
+        if (!active) return
+        setError(loadError.message || 'Impossible de charger vos CV.')
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+    loadResume()
+
+    return () => {
+      active = false
+    }
+  }, [retry, user.id])
+
+  const resumeQuota = plan.planId === 'gold' ? 3 : 1
+  const freeQuotaReached = resumes.length >= resumeQuota
+  const formatDate = (value) => value
+    ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value))
+    : '—'
+  const getResumeTitle = (resume) => {
+    const name = `${resume.resume?.firstName || ''} ${resume.resume?.lastName || ''}`.trim()
+    return resume.name || (name ? `CV de ${name}` : 'Mon CV')
+  }
+  const handleDeleteResume = async (resume) => {
+    const title = getResumeTitle(resume)
+    if (!window.confirm(`Supprimer définitivement « ${title} » ?`)) return
+    try {
+      await deleteUserResumeFromCloud(user.id, resume.id)
+      setResumes((current) => current.filter((item) => item.id !== resume.id))
+      setActionsOpen(null)
+    } catch (deleteError) {
+      console.error('Erreur lors de la suppression du CV:', deleteError)
+      setError(deleteError.message || 'Impossible de supprimer ce CV.')
+    }
+  }
+  const handleDuplicateResume = async (resume) => {
+    if (plan.planId !== 'gold' || !plan.active || resumes.length >= 3) return
+    const title = getResumeTitle(resume)
+    try {
+      await saveUserResumeToCloud(user.id, {
+        ...resume,
+        id: undefined,
+        name: `${title} (copie)`,
+      })
+      setActionsOpen(null)
+      setRetry((current) => current + 1)
+    } catch (duplicateError) {
+      console.error('Erreur lors de la duplication du CV:', duplicateError)
+      setError(duplicateError.message || 'Impossible de dupliquer ce CV.')
+    }
+  }
+
+  return (
+    <main className="dashboard-page">
+      <header className="dashboard-header">
+        <a className="brand dashboard-brand" href="/" aria-label="Retour à l’accueil"><span className="brand-mark">c</span><span>CVcraft</span></a>
+        <div className="dashboard-user">
+          <span>{user.email}</span>
+          <a className="dashboard-home-link" href="/">Accueil</a>
+          <button type="button" onClick={onLogout}>Déconnexion</button>
+        </div>
+      </header>
+      <div className="dashboard-content">
+        <section className="dashboard-documents" aria-labelledby="dashboard-documents-title" aria-busy={isLoading}>
+          <div className="dashboard-documents-heading">
+            <div>
+              <h1 id="dashboard-documents-title">Documents</h1>
+              <p>Tous les documents <span>·</span> Offre {plan.planId === 'gold' ? 'Gold' : plan.planId === 'pro' ? 'Pro' : 'Free'} : {resumes.length} / {resumeQuota} CV utilisé{resumes.length === 1 ? '' : 's'}</p>
+            </div>
+            <div className="dashboard-heading-actions">
+              {plan.planId === 'free' && <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>Changer mon offre</button>}
+              <button className="dashboard-create-button" type="button" disabled={isLoading || !plan.active || freeQuotaReached} title={!plan.active ? 'Réactivez votre offre pour créer un CV.' : freeQuotaReached ? 'La limite de CV de votre offre est atteinte.' : undefined} onClick={onCreateResume}>
+                <span aria-hidden="true">＋</span> Créer
+              </button>
+            </div>
+          </div>
+          {!plan.active && plan.previousPlanId && <div className="dashboard-expired-plan" role="alert">
+            <p>Votre offre {plan.previousPlanId === 'pro' ? 'Pro' : 'Gold'} a expiré le {formatDate(plan.validUntil)}. Vos CV sont conservés, mais désactivés jusqu’à la réactivation.</p>
+            <button type="button" onClick={() => onPurchasePlan(plan.previousPlanId)}>Réactiver l’offre</button>
+          </div>}
+          {plan.schemaWarning && <div className="dashboard-schema-warning" role="alert">{plan.schemaWarning}</div>}
+          {isLoading ? <div className="dashboard-state" aria-hidden="true"><span className="loading-indicator" /></div> : error ? (
+            <div className="dashboard-state" role="alert">
+              <p>{error}</p>
+              <button className="button button-outline" type="button" onClick={() => setRetry((current) => current + 1)}>Réessayer</button>
+            </div>
+          ) : resumes.length ? (
+            <div className="dashboard-table-scroll">
+              <table className="dashboard-document-table">
+                <caption className="visually-hidden">Documents enregistrés sur votre compte</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Nom</th>
+                    <th scope="col">Emploi</th>
+                    <th scope="col">Type</th>
+                    <th scope="col">Créé le</th>
+                    <th scope="col">Dernière modification <span aria-hidden="true">↓</span></th>
+                    <th scope="col"><span className="visually-hidden">Actions</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resumes.map((resume, resumeIndex) => {
+                    const resumeTitle = getResumeTitle(resume)
+                    const selectedTemplate = resumeTemplates.find((item) => item.id === resume.template)
+                    const resumeWithinQuota = plan.active && resumeIndex < resumeQuota
+                    const canDuplicate = resumeWithinQuota && plan.planId === 'gold' && resumes.length < 3
+                    return <tr key={resume.id}>
+                    <td>
+                      <button className="dashboard-document-name" type="button" disabled={!resumeWithinQuota} onClick={() => onOpenResume(resume)}>
+                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
+                        <span>{resumeTitle}</span>
+                      </button>
+                    </td>
+                    <td>
+                      <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" disabled={!resumeWithinQuota} onClick={() => onOpenResume(resume)}>
+                        {!resume.resume?.role && <span aria-hidden="true">＋</span>}
+                        {resume.resume?.role || 'Ajouter'}
+                      </button>
+                    </td>
+                    <td>
+                      <span className="dashboard-document-type">CV</span>
+                      <small className="dashboard-document-model">{selectedTemplate?.name || 'Gratuit'}</small>
+                      {!resumeWithinQuota && plan.active && <small className="dashboard-document-payment">Hors quota actif</small>}
+                      {resume.modelStatus === 'pending_payment' && <small className="dashboard-document-payment">Paiement requis</small>}
+                      {resume.modelStatus === 'paid' && <small className="dashboard-document-paid">Payé</small>}
+                    </td>
+                    <td>{formatDate(resume.createdAt)}</td>
+                    <td>{formatRelativeDate(resume.updatedAt) || '—'}</td>
+                    <td>
+                      <div className="dashboard-document-actions">
+                        <button className="dashboard-icon-button" type="button" aria-label={`Télécharger ${resumeTitle}`} title={!plan.active ? 'Offre expirée — réactivez-la pour télécharger' : !resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'} disabled={!resumeWithinQuota} onClick={() => onDownloadResume(resume)}>
+                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3 13v3.5h14V13" /></svg>
+                        </button>
+                        <div className="dashboard-more-wrap">
+                          <button className="dashboard-icon-button" type="button" aria-label={`Plus d’actions pour ${resumeTitle}`} aria-expanded={actionsOpen === resume.id} onClick={() => setActionsOpen((open) => open === resume.id ? null : resume.id)}>
+                            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1" /><circle cx="10" cy="10" r="1" /><circle cx="16" cy="10" r="1" /></svg>
+                          </button>
+                          {actionsOpen === resume.id && <div className="dashboard-actions-menu">
+                            <button type="button" disabled={!resumeWithinQuota} title={!resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : undefined} onClick={() => { setActionsOpen(null); onOpenResume(resume) }}>Modifier le CV</button>
+                            <button type="button" disabled={!canDuplicate} title={canDuplicate ? undefined : 'La duplication est disponible avec Gold, dans la limite de 3 CV.'} onClick={() => handleDuplicateResume(resume)}><PremiumCrown /> Dupliquer le CV</button>
+                            <button className="dashboard-delete-action" type="button" onClick={() => handleDeleteResume(resume)}>Supprimer le CV</button>
+                          </div>}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="dashboard-empty">
+              <p>Aucun document pour le moment. Créez votre premier CV gratuit.</p>
+            </div>
+          )}
+        </section>
+      </div>
+      {changeOfferOpen && <div className="payment-backdrop" role="presentation" onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setChangeOfferOpen(false)
+      }}>
+        <section className="change-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="change-plan-title">
+          <button className="change-plan-close" type="button" aria-label="Fermer" onClick={() => setChangeOfferOpen(false)}>×</button>
+          <span className="preview-kicker">Votre espace CVcraft</span>
+          <h2 id="change-plan-title">Changer mon offre</h2>
+          <p>Choisissez l’offre qui correspond à vos besoins. Le paiement se fait par Mobile Money.</p>
+          {plan.schemaWarning && <p className="change-plan-warning" role="status">Les offres payantes seront disponibles dès que la configuration Supabase sera mise à jour.</p>}
+          <div className="change-plan-options">
+            {plans.filter((option) => option.id !== 'free').map((option) => (
+              <article className={`change-plan-option ${option.featured ? 'featured' : ''}`} key={option.id}>
+                <div><strong>{option.name}</strong><span>{option.price} FCFA · {option.suffix}</span></div>
+                <p>{option.description}</p>
+                <small>{option.features.slice(0, 3).join(' · ')}</small>
+                <button type="button" disabled={Boolean(plan.schemaWarning)} onClick={() => {
+                  setChangeOfferOpen(false)
+                  onPurchasePlan(option.id)
+                }}>{option.action}</button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </div>}
+    </main>
+  )
+}
+
+function PlanMobilePayDialog({ planId, phone, onPhoneChange, error, submitting, onCancel, onSubmit }) {
+  const planName = planId === 'gold' ? 'Gold' : 'Pro'
+  const amount = planId === 'gold' ? 2500 : 1500
+  return (
+    <div className="payment-backdrop" role="presentation">
+      <form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-payment-title" onSubmit={onSubmit}>
+        <span className="preview-kicker">Paiement Mobile Money par Tara</span>
+        <h2 id="plan-payment-title">Activer l’offre {planName}</h2>
+        <p>Le paiement de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> sera demandé sur votre téléphone. Tara détectera MTN ou Orange avec votre numéro.</p>
+        <label className="payment-phone-label" htmlFor="plan-payment-phone">Numéro mobile</label>
+        <input id="plan-payment-phone" className="payment-phone-input" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="2376XXXXXXXX" value={phone} onChange={(event) => onPhoneChange(event.target.value)} required />
+        {error && <p className="account-error" role="alert">{error}</p>}
+        <div className="payment-actions">
+          <button className="button-outline" type="button" disabled={submitting} onClick={onCancel}>Annuler</button>
+          <button className="button-dark" type="submit" disabled={submitting}>{submitting ? 'Envoi…' : `Payer · ${amount.toLocaleString('fr-FR')} FCFA`}</button>
+        </div>
+      </form>
+    </div>
+  )
+}
+
 function App() {
   const [notice, setNotice] = useState('')
   const [view, setView] = useState('landing')
   const [user, setUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
+  const [accountPlan, setAccountPlan] = useState({ planId: 'free', active: true, validUntil: null, ready: false })
   const [authOpen, setAuthOpen] = useState(false)
   const [authMode, setAuthMode] = useState('signup')
   const [selectedTemplate, setSelectedTemplate] = useState('gratuit')
+  const [selectedResumeId, setSelectedResumeId] = useState(null)
+  const [createNewResume, setCreateNewResume] = useState(false)
   const [templateSelectionMade, setTemplateSelectionMade] = useState(false)
   const [downloadAfterPayment, setDownloadAfterPayment] = useState(false)
+  const [dashboardDownloadRequested, setDashboardDownloadRequested] = useState(false)
   const [paymentVerifyAttempt, setPaymentVerifyAttempt] = useState(0)
+  const [mobilePayPlan, setMobilePayPlan] = useState(null)
+  const [mobilePayPhone, setMobilePayPhone] = useState('237')
+  const [mobilePayError, setMobilePayError] = useState('')
+  const [mobilePaySubmitting, setMobilePaySubmitting] = useState(false)
   const [paymentReturnStatus, setPaymentReturnStatus] = useState(() => {
     const paymentId = new URLSearchParams(window.location.search).get('tara_payment')
     return paymentId ? { state: 'checking' } : null
   })
-  const paymentReturnId = useRef(new URLSearchParams(window.location.search).get('tara_payment')).current
+  const [paymentReturnId, setPaymentReturnId] = useState(() => new URLSearchParams(window.location.search).get('tara_payment'))
   const pendingTemplateRef = useRef(null)
   const pendingDraftRef = useRef(null)
   const pendingDownloadRef = useRef(false)
+  const pendingAuthDestinationRef = useRef(null)
+  const pendingPlanRef = useRef(null)
 
   const prepareOAuth = (mode) => {
     if (pendingDraftRef.current) saveGuestResume(pendingDraftRef.current)
     window.sessionStorage.setItem(OAUTH_INTENT_KEY, JSON.stringify({
       templateId: pendingTemplateRef.current,
       downloadAfterAuth: pendingDownloadRef.current,
+      destination: pendingAuthDestinationRef.current,
+      planId: pendingPlanRef.current,
+      resumeId: selectedResumeId,
       mode,
     }))
   }
@@ -1317,9 +1778,20 @@ function App() {
         : null
       setSelectedTemplate(templateId || 'gratuit')
       setTemplateSelectionMade(Boolean(templateId))
+      setSelectedResumeId(intent.resumeId || null)
+      setCreateNewResume(false)
       setDownloadAfterPayment(Boolean(intent.downloadAfterAuth))
+      setUser(session.user)
       setAuthOpen(false)
-      setView('builder')
+      if (['pro', 'gold'].includes(intent.planId)) {
+        setMobilePayPhone('237')
+        setMobilePayError('')
+        setMobilePayPlan(intent.planId)
+        setView('dashboard')
+          return
+      }
+      setView(intent.destination === 'dashboard' && !templateId ? 'dashboard' : 'builder')
+      pendingAuthDestinationRef.current = null
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
@@ -1342,7 +1814,7 @@ function App() {
     })
 
     const { data: { subscription } } = onAuthStateChange((event, session) => {
-      setUser(session?.user || null)
+      if (event !== 'SIGNED_IN') setUser(session?.user || null)
       setAuthReady(true)
       resumeOAuth(session)
       if (event === 'PASSWORD_RECOVERY') {
@@ -1355,6 +1827,49 @@ function App() {
       subscription.unsubscribe()
     }
   }, [])
+
+  useEffect(() => {
+    if (!user?.id) {
+      setAccountPlan({ planId: 'free', active: true, validUntil: null, ready: true })
+      return undefined
+    }
+    let active = true
+    setAccountPlan((current) => ({ ...current, ready: false }))
+    getUserResumePlan(user.id).then((loadedPlan) => {
+      if (active) setAccountPlan({ ...loadedPlan, ready: true })
+    }).catch((error) => {
+      console.error('Erreur lors du chargement de l’offre du compte:', error)
+      if (active) setAccountPlan({ planId: 'free', previousPlanId: null, active: false, validUntil: null, ready: true })
+    })
+    return () => {
+      active = false
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!accountPlan.ready || !accountPlan.active || !accountPlan.validUntil || !accountPlan.planId) return undefined
+    const delay = new Date(accountPlan.validUntil).getTime() - Date.now()
+    if (delay <= 0) {
+      setAccountPlan((current) => ({
+        ...current,
+        planId: 'free',
+        previousPlanId: current.planId,
+        active: false,
+      }))
+      return undefined
+    }
+    const checkExpiry = () => {
+      if (Date.now() < new Date(accountPlan.validUntil).getTime()) return
+      setAccountPlan((current) => ({
+        ...current,
+        planId: 'free',
+        previousPlanId: current.planId,
+        active: false,
+      }))
+    }
+    const interval = window.setInterval(checkExpiry, Math.min(delay + 20, 60_000))
+    return () => window.clearInterval(interval)
+  }, [accountPlan])
 
   useEffect(() => {
     if (!paymentReturnId) return undefined
@@ -1375,13 +1890,34 @@ function App() {
           if (!active) return
 
           if (result.status === 'SUCCESS') {
+            if (result.productType === 'plan') {
+              if (!['pro', 'gold'].includes(result.planId)) {
+                throw new Error('L’offre associée au paiement est invalide.')
+              }
+              const loadedPlan = await getUserResumePlan(user.id)
+              if (!active) return
+              setAccountPlan(loadedPlan)
+              const nextUrl = new URL(window.location.href)
+              nextUrl.searchParams.delete('tara_payment')
+              window.history.replaceState({}, '', nextUrl)
+              setPaymentReturnId(null)
+              setPaymentReturnStatus(null)
+              setView('dashboard')
+              return
+            }
             if (!resumeTemplates.some((item) => item.id === result.templateId && item.id !== 'gratuit')) {
               throw new Error('Le modèle associé au paiement est invalide.')
             }
+            const paidResumeId = result.resumeId || selectedResumeId
+            await updateResumeModelStatus(user.id, result.templateId, 'paid', paidResumeId)
+            if (!active) return
             const nextUrl = new URL(window.location.href)
             nextUrl.searchParams.delete('tara_payment')
             window.history.replaceState({}, '', nextUrl)
+            setPaymentReturnId(null)
             setSelectedTemplate(result.templateId)
+            setSelectedResumeId(paidResumeId)
+            setCreateNewResume(false)
             setTemplateSelectionMade(true)
             setDownloadAfterPayment(true)
             setPaymentReturnStatus(null)
@@ -1392,7 +1928,7 @@ function App() {
             setPaymentReturnStatus({ state: 'failure' })
             return
           }
-          await new Promise((resolve) => window.setTimeout(resolve, 3000))
+          await new Promise((resolve) => window.setTimeout(resolve, 4000))
         }
         if (active) setPaymentReturnStatus({ state: 'pending' })
       } catch (error) {
@@ -1405,7 +1941,7 @@ function App() {
     return () => {
       active = false
     }
-  }, [authReady, paymentVerifyAttempt, paymentReturnId, user?.id])
+  }, [authReady, paymentVerifyAttempt, paymentReturnId, selectedResumeId, user?.id])
 
   const showNotice = (message) => {
     setNotice(message)
@@ -1413,7 +1949,50 @@ function App() {
   }
 
   const goHome = () => setView('landing')
-  const startBuilder = () => {
+  const goDashboard = () => {
+    if (!user) {
+      setAuthMode('signin')
+      setAuthOpen(true)
+      return
+    }
+    setView('dashboard')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const logout = async () => {
+    await signOut()
+    clearLocalResumeData()
+    setUser(null)
+    setSelectedTemplate('gratuit')
+    setSelectedResumeId(null)
+    setAccountPlan({ planId: 'free', active: true, validUntil: null })
+    setTemplateSelectionMade(false)
+    setView('landing')
+  }
+  const startBuilder = async () => {
+    if (user) {
+      try {
+        const [currentPlan, currentResumes] = await Promise.all([
+          getUserResumePlan(user.id),
+          loadUserResumesFromCloud(user.id),
+        ])
+        const limit = currentPlan.planId === 'gold' ? 3 : 1
+        setAccountPlan(currentPlan)
+        if (!currentPlan.active) {
+          showNotice('Votre offre a expiré. Réactivez-la pour créer un CV.')
+          return
+        }
+        if (currentResumes.length >= limit) {
+          showNotice('La limite de CV de votre offre est atteinte.')
+          return
+        }
+      } catch (error) {
+        console.error('Impossible de vérifier le quota de CV:', error)
+        showNotice(error.message || 'Impossible de vérifier votre offre.')
+        return
+      }
+    }
+    setSelectedResumeId(null)
+    setCreateNewResume(true)
     setTemplateSelectionMade(false)
     setSelectedTemplate('gratuit')
     setView('builder')
@@ -1423,11 +2002,79 @@ function App() {
     pendingTemplateRef.current = templateId
     pendingDraftRef.current = draft
     pendingDownloadRef.current = downloadAfterAuth
+    pendingAuthDestinationRef.current = null
+    pendingPlanRef.current = null
     setAuthMode('signup')
     setAuthOpen(true)
   }
+  const requestPlanCheckout = (planId) => {
+    if (!['pro', 'gold'].includes(planId)) return
+    if (accountPlan.schemaWarning) {
+      showNotice('Les paiements d’offres sont indisponibles tant que les migrations Supabase ne sont pas appliquées.')
+      return
+    }
+    if (!user) {
+      pendingPlanRef.current = planId
+      pendingAuthDestinationRef.current = null
+      setAuthMode('signup')
+      setAuthOpen(true)
+      return
+    }
+    setMobilePayError('')
+    setMobilePayPhone('237')
+    setMobilePayPlan(planId)
+  }
+  const beginPlanMobilePay = async (event) => {
+    event.preventDefault()
+    if (!mobilePayPlan || mobilePaySubmitting) return
+    setMobilePaySubmitting(true)
+    setMobilePayError('')
+    try {
+      const phoneNumber = normalizeCameroonPhoneNumber(mobilePayPhone)
+      const checkout = await createTaraPlanCheckout(mobilePayPlan, phoneNumber)
+      setMobilePayPlan(null)
+      trackMobilePay(checkout.paymentId)
+      setView('dashboard')
+      showNotice('Demande envoyée. Validez le paiement sur votre téléphone.')
+    } catch (error) {
+      console.error(`Impossible de démarrer le paiement de l’offre ${mobilePayPlan}:`, error)
+      setMobilePayError(error.message || 'Le paiement de l’offre n’a pas pu être démarré.')
+    } finally {
+      setMobilePaySubmitting(false)
+    }
+  }
+  const trackMobilePay = (paymentId) => {
+    const nextUrl = new URL(window.location.href)
+    nextUrl.searchParams.set('tara_payment', paymentId)
+    window.history.replaceState({}, '', nextUrl)
+    setPaymentReturnStatus({ state: 'checking' })
+    setPaymentReturnId(paymentId)
+  }
+  const handleMobilePayStarted = (paymentId) => {
+    trackMobilePay(paymentId)
+  }
+  const planMobilePayDialog = mobilePayPlan && (
+    <PlanMobilePayDialog
+      planId={mobilePayPlan}
+      phone={mobilePayPhone}
+      onPhoneChange={setMobilePayPhone}
+      error={mobilePayError}
+      submitting={mobilePaySubmitting}
+      onCancel={() => setMobilePayPlan(null)}
+      onSubmit={beginPlanMobilePay}
+    />
+  )
+  const closeAuth = () => {
+    setAuthOpen(false)
+    pendingTemplateRef.current = null
+    pendingDraftRef.current = null
+    pendingDownloadRef.current = false
+    pendingAuthDestinationRef.current = null
+    pendingPlanRef.current = null
+  }
   const handleAuthenticated = async (authenticatedUser, draft) => {
     const requestedTemplate = pendingTemplateRef.current
+    const requestedPlan = pendingPlanRef.current
     let resumeDraft = draft || pendingDraftRef.current
     let templateToSave = requestedTemplate
     if (!resumeDraft) {
@@ -1443,23 +2090,65 @@ function App() {
       }
     }
     if (resumeDraft && templateToSave) {
-      await saveUserResumeToCloud(authenticatedUser.id, {
+      const saved = await saveUserResumeToCloud(authenticatedUser.id, {
         ...resumeDraft,
         template: templateToSave,
-      })
+      }, resumeDraft.resumeId || null)
+      setSelectedResumeId(saved.resumeId || null)
+      setCreateNewResume(false)
       window.localStorage.removeItem(GUEST_RESUME_KEY)
     }
     setUser(authenticatedUser)
     setAuthOpen(false)
+    if (requestedPlan) {
+      pendingPlanRef.current = null
+      pendingTemplateRef.current = null
+      pendingDraftRef.current = null
+      pendingDownloadRef.current = false
+      setMobilePayPhone('237')
+      setMobilePayError('')
+      setMobilePayPlan(requestedPlan)
+      setView('dashboard')
+      return
+    }
     setSelectedTemplate(templateToSave || 'gratuit')
     setTemplateSelectionMade(Boolean(templateToSave))
     setDownloadAfterPayment(pendingDownloadRef.current)
     pendingTemplateRef.current = null
     pendingDraftRef.current = null
     pendingDownloadRef.current = false
-    setView('builder')
+    pendingPlanRef.current = null
+    setView(pendingAuthDestinationRef.current === 'dashboard' && !requestedTemplate ? 'dashboard' : 'builder')
+    pendingAuthDestinationRef.current = null
     if (paymentReturnId) setPaymentVerifyAttempt((current) => current + 1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const openDashboardResume = (savedResume) => {
+    const resumeTemplate = resumeTemplates.some((item) => item.id === savedResume.template)
+      ? savedResume.template
+      : 'gratuit'
+    setSelectedTemplate(resumeTemplate)
+    setSelectedResumeId(savedResume.id)
+    setCreateNewResume(false)
+    setTemplateSelectionMade(true)
+    setDownloadAfterPayment(false)
+    setView('builder')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  const downloadDashboardResume = (savedResume) => {
+    const resumeTemplate = resumeTemplates.some((item) => item.id === savedResume.template)
+      ? savedResume.template
+      : 'gratuit'
+    setSelectedTemplate(resumeTemplate)
+    setSelectedResumeId(savedResume.id)
+    setCreateNewResume(false)
+    setTemplateSelectionMade(true)
+    setDashboardDownloadRequested(true)
+    if (resumeTemplate !== 'gratuit' && savedResume.modelStatus !== 'paid' && !(accountPlan.active && ['pro', 'gold'].includes(accountPlan.planId))) {
+      setView('builder')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   if (paymentReturnStatus && view !== 'builder') {
@@ -1474,10 +2163,11 @@ function App() {
             : paymentReturnStatus.message || 'La vérification du paiement a échoué.'
     return (
       <div className="account-page">
-        <div className="account-dialog" role="status">
+        <div className="account-dialog" aria-busy={paymentReturnStatus.state === 'checking'}>
           <span className="preview-kicker">Tara Money</span>
-          <h1>{paymentReturnStatus.state === 'checking' ? 'Vérification en cours' : 'Statut du paiement'}</h1>
-          <p>{paymentMessage}</p>
+          {paymentReturnStatus.state === 'checking'
+            ? <span className="loading-indicator" aria-hidden="true" />
+            : <><h1>Statut du paiement</h1><p>{paymentMessage}</p></>}
           {['pending', 'failure', 'error'].includes(paymentReturnStatus.state) && (
             <button className="button button-dark" type="button" onClick={() => setPaymentVerifyAttempt((current) => current + 1)}>Vérifier à nouveau</button>
           )}
@@ -1486,11 +2176,12 @@ function App() {
           <AccountModal
             mode={authMode}
             onModeChange={setAuthMode}
-            onClose={() => setAuthOpen(false)}
+            onClose={closeAuth}
             onAuthenticated={handleAuthenticated}
             onOAuthStart={prepareOAuth}
           />
         )}
+        {planMobilePayDialog}
       </div>
     )
   }
@@ -1500,12 +2191,23 @@ function App() {
       <>
         <ResumeBuilder
           userId={user?.id}
+          initialResumeId={selectedResumeId}
+          createNewResume={createNewResume}
+          accountPlan={accountPlan}
+          onReactivatePlan={requestPlanCheckout}
           initialTemplate={selectedTemplate}
           preferInitialTemplate={templateSelectionMade}
           downloadAfterPayment={downloadAfterPayment}
+          downloadRequested={dashboardDownloadRequested}
+          onDownloadRequestComplete={() => setDashboardDownloadRequested(false)}
           onAutoDownloadComplete={() => setDownloadAfterPayment(false)}
           onHome={goHome}
+          onDashboard={goDashboard}
+          onLogout={logout}
           onRequestUnlock={requestUnlock}
+          onPaymentStarted={handleMobilePayStarted}
+          paymentStatus={paymentReturnStatus?.state}
+          onRetryPayment={() => setPaymentVerifyAttempt((current) => current + 1)}
           showNotice={showNotice}
           notice={notice}
         />
@@ -1513,16 +2215,55 @@ function App() {
           <AccountModal
             mode={authMode}
             onModeChange={setAuthMode}
-            onClose={() => {
-              setAuthOpen(false)
-              pendingTemplateRef.current = null
-              pendingDraftRef.current = null
-              pendingDownloadRef.current = false
-            }}
+            onClose={closeAuth}
             onAuthenticated={handleAuthenticated}
             onOAuthStart={prepareOAuth}
           />
         )}
+        {planMobilePayDialog}
+      </>
+    )
+  }
+
+  if (view === 'dashboard' && user) {
+    return (
+      <>
+        <ResumeDashboard
+          user={user}
+          onHome={goHome}
+          onCreateResume={startBuilder}
+          onOpenResume={openDashboardResume}
+          onDownloadResume={downloadDashboardResume}
+          onPurchasePlan={requestPlanCheckout}
+          onLogout={logout}
+        />
+        {dashboardDownloadRequested && (
+          <div className="dashboard-download-host" aria-hidden="true">
+            <ResumeBuilder
+              userId={user.id}
+              initialResumeId={selectedResumeId}
+              createNewResume={false}
+              accountPlan={accountPlan}
+              onReactivatePlan={requestPlanCheckout}
+              initialTemplate={selectedTemplate}
+              preferInitialTemplate={templateSelectionMade}
+              downloadAfterPayment={false}
+              downloadRequested
+              onDownloadRequestComplete={() => setDashboardDownloadRequested(false)}
+              onAutoDownloadComplete={() => {}}
+              onHome={goHome}
+              onDashboard={goDashboard}
+              onLogout={logout}
+              onRequestUnlock={requestUnlock}
+              onPaymentStarted={handleMobilePayStarted}
+              paymentStatus={null}
+              onRetryPayment={() => {}}
+              showNotice={showNotice}
+              notice=""
+            />
+          </div>
+        )}
+        {planMobilePayDialog}
       </>
     )
   }
@@ -1538,7 +2279,9 @@ function App() {
           <a href="#templates">Modèles</a>
         </nav>
         <div className="header-actions">
+          {user && <button className="button button-outline button-small" onClick={goDashboard}>Mes CV</button>}
           <button className="button button-outline button-small" onClick={() => {
+            pendingAuthDestinationRef.current = 'dashboard'
             setAuthMode('signup')
             setAuthOpen(true)
           }}>Créer mon compte</button>
@@ -1576,23 +2319,19 @@ function App() {
 
         <section className="pricing section-wrap" id="pricing">
           <div className="pricing-heading"><div className="eyebrow">Investissez en vous</div><h2>Le bon plan pour<br /><em>chaque étape.</em></h2><p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p></div>
-          <div className="plans">{plans.map((plan) => <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.name}>{plan.featured && <div className="popular">Le plus choisi</div>}<div className="plan-top"><span className="plan-name">{plan.name}</span><span className="plan-symbol">{plan.name === 'Gold' ? '✦' : plan.name === 'Pro' ? '◆' : '○'}</span></div><div className="plan-price">{plan.price}<small> / {plan.suffix}</small></div><p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><span>✓</span>{feature}</li>)}</ul><button className={`button ${plan.featured ? 'button-light' : 'button-outline'}`} onClick={() => showNotice(`${plan.name} sélectionné. Votre espace arrive bientôt.`)}>{plan.action}<span aria-hidden="true">↗</span></button></article>)}</div>
+          <div className="plans">{plans.map((plan) => <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>{plan.featured && <div className="popular">Le plus choisi</div>}<div className="plan-top"><span className="plan-name">{plan.name}</span><span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span></div><div className="plan-price">{plan.price}<small> FCFA / {plan.suffix}</small></div><p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><span>✓</span>{feature}</li>)}</ul><button className={`button ${plan.featured ? 'button-light' : 'button-outline'}`} onClick={() => plan.id === 'free' ? startBuilder() : requestPlanCheckout(plan.id)}>{plan.action}<span aria-hidden="true">↗</span></button></article>)}</div>
         </section>
       </main>
 
       <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2024 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
       {notice && <div className="toast" role="status">{notice}</div>}
     </div>
+      {planMobilePayDialog}
       {authOpen && (
         <AccountModal
           mode={authMode}
           onModeChange={setAuthMode}
-          onClose={() => {
-            setAuthOpen(false)
-            pendingTemplateRef.current = null
-            pendingDraftRef.current = null
-            pendingDownloadRef.current = false
-          }}
+          onClose={closeAuth}
           onAuthenticated={handleAuthenticated}
           onOAuthStart={prepareOAuth}
         />

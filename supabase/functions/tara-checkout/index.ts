@@ -7,6 +7,10 @@ const PAID_TEMPLATES = new Map([
   ['atlas', 'Atlas'],
   ['signal', 'Signal'],
 ])
+const PAID_PLANS = new Map([
+  ['pro', { name: 'Pro', amount: 1500, durationMonths: 3 }],
+  ['gold', { name: 'Gold', amount: 2500, durationMonths: 1 }],
+])
 
 const allowedOrigins = (Deno.env.get('APP_ORIGIN') || '')
   .split(',')
@@ -51,6 +55,40 @@ async function getTaraStatus(productId: string) {
   return result.status as 'SUCCESS' | 'FAILURE' | 'PENDING'
 }
 
+async function startMobilePay(productId: string, productName: string, productPrice: number, phoneNumber: string) {
+  const webhookUrl = new URL(`${requiredEnv('SUPABASE_URL').replace(/\/$/, '')}/functions/v1/tara-checkout`)
+  webhookUrl.searchParams.set('hook', '1')
+  webhookUrl.searchParams.set('productId', productId)
+
+  const response = await fetch(`${TARA_API}/mobilepay`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      apiKey: requiredEnv('TARA_API_KEY'),
+      businessId: requiredEnv('TARA_BUSINESS_ID'),
+      productId,
+      productName,
+      productPrice,
+      phoneNumber,
+      webHookUrl: webhookUrl.toString(),
+    }),
+    signal: AbortSignal.timeout(60_000),
+  })
+
+  const result = await response.json()
+  if (!response.ok || result.status === 'FAILURE') {
+    throw new Error(typeof result.message === 'string' ? result.message : `Paiement MobilePay refusé (${response.status}).`)
+  }
+  if (result.status !== 'SUCCESS') {
+    throw new Error('Tara Money n’a pas confirmé le démarrage du paiement MobilePay.')
+  }
+  return typeof result.vendor === 'string' ? result.vendor : null
+}
+
+function isCameroonMobileNumber(value: unknown): value is string {
+  return typeof value === 'string' && /^2376\d{8}$/.test(value)
+}
+
 Deno.serve(async (request) => {
   const origin = request.headers.get('origin') || ''
   const isWebhook = new URL(request.url).searchParams.get('hook') === '1'
@@ -72,20 +110,33 @@ Deno.serve(async (request) => {
     })
 
     if (action === 'webhook') {
-      const productId = typeof body.productId === 'string' ? body.productId : ''
+      const productId = typeof body.productId === 'string' && body.productId
+        ? body.productId
+        : new URL(request.url).searchParams.get('productId') || ''
       if (!productId) return json({ error: 'Identifiant de paiement absent.' }, 400)
-      const { data: payment, error: lookupError } = await service
+      const { data: templatePayment, error: templateLookupError } = await service
         .from('tara_payments')
         .select('id, status')
         .eq('product_id', productId)
         .maybeSingle()
-      if (lookupError) throw lookupError
+      if (templateLookupError) throw templateLookupError
+      const table = templatePayment ? 'tara_payments' : 'cvcraft_plan_payments'
+      let payment = templatePayment
+      if (!payment) {
+        const { data, error } = await service
+          .from('cvcraft_plan_payments')
+          .select('id, status')
+          .eq('product_id', productId)
+          .maybeSingle()
+        if (error) throw error
+        payment = data
+      }
       if (!payment) return json({ error: 'Paiement inconnu.' }, 404)
       if (payment.status === 'SUCCESS') return json({ received: true })
 
       const status = await getTaraStatus(productId)
       const { error: updateError } = await service
-        .from('tara_payments')
+        .from(table)
         .update({
           status,
           updated_at: new Date().toISOString(),
@@ -109,8 +160,21 @@ Deno.serve(async (request) => {
 
     if (action === 'create') {
       const templateId = typeof body.templateId === 'string' ? body.templateId : ''
+      const resumeId = typeof body.resumeId === 'string' ? body.resumeId : null
+      const phoneNumber = typeof body.phoneNumber === 'string' ? body.phoneNumber : ''
       const templateName = PAID_TEMPLATES.get(templateId)
       if (!templateName) return json({ error: 'Modèle payant invalide.' }, 400, origin)
+      if (!isCameroonMobileNumber(phoneNumber)) return json({ error: 'Saisissez un numéro mobile camerounais au format 2376XXXXXXXX.' }, 400, origin)
+      if (resumeId) {
+        const { data: resume, error: resumeError } = await service
+          .from('resumes')
+          .select('id')
+          .eq('id', resumeId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (resumeError) throw resumeError
+        if (!resume) return json({ error: 'CV introuvable pour ce compte.' }, 404, origin)
+      }
 
       const productId = `cv-${crypto.randomUUID()}`
       const { data: payment, error: insertError } = await service
@@ -119,51 +183,44 @@ Deno.serve(async (request) => {
           user_id: user.id,
           product_id: productId,
           template_id: templateId,
+          resume_id: resumeId,
           amount: PRICE_XOF,
         })
         .select('id')
         .single()
       if (insertError) throw insertError
 
-      const appUrl = requiredEnv('APP_ORIGIN').split(',')[0].trim().replace(/\/$/, '')
-      const callbackUrl = new URL(appUrl)
-      callbackUrl.searchParams.set('tara_payment', payment.id)
-      const webhookUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/tara-checkout?hook=1`
+      const vendor = await startMobilePay(productId, `CV Craft — modèle ${templateName}`, PRICE_XOF, phoneNumber)
+      return json({ paymentId: payment.id, status: 'PENDING', vendor }, 200, origin)
+    }
 
-      const taraResponse = await fetch(`${TARA_API}/paymentlinks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: requiredEnv('TARA_API_KEY'),
-          businessId: requiredEnv('TARA_BUSINESS_ID'),
-          productId,
-          productName: `CV Craft — modèle ${templateName}`,
-          productPrice: PRICE_XOF,
-          productDescription: `Téléchargement d’un CV avec le modèle ${templateName}`,
-          returnUrl: callbackUrl.toString(),
-          webHookUrl: webhookUrl,
-        }),
-      })
-      if (!taraResponse.ok) throw new Error(`Création du paiement Tara Money refusée (${taraResponse.status}).`)
-      const taraData = await taraResponse.json()
-      const paymentUrl = [taraData.paymentUrl, taraData.paymentLink, taraData.generalLink]
-        .find((candidate) => typeof candidate === 'string' && candidate.length > 0)
-      if (taraData.status && !['SUCCESS', 'success'].includes(taraData.status)) {
-        throw new Error('Tara Money n’a pas pu créer le lien de paiement.')
-      }
-      if (!paymentUrl) throw new Error('Tara Money n’a pas retourné de lien de paiement.')
+    if (action === 'create-plan') {
+      const planId = typeof body.planId === 'string' ? body.planId : ''
+      const phoneNumber = typeof body.phoneNumber === 'string' ? body.phoneNumber : ''
+      const plan = PAID_PLANS.get(planId)
+      if (!plan) return json({ error: 'Offre payante invalide.' }, 400, origin)
+      if (!isCameroonMobileNumber(phoneNumber)) return json({ error: 'Saisissez un numéro mobile camerounais au format 2376XXXXXXXX.' }, 400, origin)
 
-      const parsedPaymentUrl = new URL(paymentUrl)
-      if (parsedPaymentUrl.protocol !== 'https:' || !/(^|\.)taramoney\.com$/i.test(parsedPaymentUrl.hostname)) {
-        throw new Error('Le lien de paiement Tara Money n’est pas valide.')
-      }
+      const productId = `cv-plan-${crypto.randomUUID()}`
+      const { data: payment, error: insertError } = await service
+        .from('cvcraft_plan_payments')
+        .insert({
+          user_id: user.id,
+          product_id: productId,
+          plan_id: planId,
+          amount: plan.amount,
+        })
+        .select('id')
+        .single()
+      if (insertError) throw insertError
 
-      const { error: updateError } = await service
-        .from('tara_payments')
-        .update({ payment_url: paymentUrl, updated_at: new Date().toISOString() })
-        .eq('id', payment.id)
-      if (updateError) throw updateError
-      return json({ paymentId: payment.id, paymentUrl }, 200, origin)
+      const vendor = await startMobilePay(
+        productId,
+        `CV Craft — offre ${plan.name}`,
+        plan.amount,
+        phoneNumber,
+      )
+      return json({ paymentId: payment.id, status: 'PENDING', vendor }, 200, origin)
     }
 
     if (action === 'verify') {
@@ -171,12 +228,53 @@ Deno.serve(async (request) => {
       if (!paymentId) return json({ error: 'Identifiant de paiement absent.' }, 400, origin)
       const { data: payment, error: lookupError } = await service
         .from('tara_payments')
-        .select('id, product_id, template_id, amount, status')
+        .select('id, product_id, template_id, resume_id, amount, status')
         .eq('id', paymentId)
         .eq('user_id', user.id)
         .maybeSingle()
       if (lookupError) throw lookupError
-      if (!payment) return json({ error: 'Paiement inconnu.' }, 404, origin)
+      if (!payment) {
+        const { data: planPayment, error: planLookupError } = await service
+          .from('cvcraft_plan_payments')
+          .select('id, product_id, plan_id, amount, status')
+          .eq('id', paymentId)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        if (planLookupError) throw planLookupError
+        if (!planPayment) return json({ error: 'Paiement inconnu.' }, 404, origin)
+
+        if (planPayment.status !== 'SUCCESS') {
+          const status = await getTaraStatus(planPayment.product_id)
+          const { error: updateError } = await service
+            .from('cvcraft_plan_payments')
+            .update({
+              status,
+              updated_at: new Date().toISOString(),
+              paid_at: status === 'SUCCESS' ? new Date().toISOString() : null,
+            })
+            .eq('id', planPayment.id)
+            .neq('status', 'SUCCESS')
+          if (updateError) throw updateError
+          planPayment.status = status
+        }
+
+        let validUntil: string | null = null
+        if (planPayment.status === 'SUCCESS') {
+          const { data: activation, error: activationError } = await service
+            .rpc('activate_cvcraft_plan_payment', { p_payment_id: planPayment.id })
+            .single()
+          if (activationError) throw activationError
+          validUntil = activation.valid_until
+        }
+
+        return json({
+          status: planPayment.status,
+          productType: 'plan',
+          planId: planPayment.plan_id,
+          amount: planPayment.amount,
+          validUntil,
+        }, 200, origin)
+      }
 
       if (payment.status !== 'SUCCESS') {
         const status = await getTaraStatus(payment.product_id)
@@ -196,6 +294,7 @@ Deno.serve(async (request) => {
       return json({
         status: payment.status,
         templateId: payment.template_id,
+        resumeId: payment.resume_id,
         amount: payment.amount,
       }, 200, origin)
     }

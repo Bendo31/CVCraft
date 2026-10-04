@@ -314,7 +314,7 @@ function ResumeSheet({
         </div>
       </div>
       <div className="resume-sheet-footer">
-        <span>Made With Love By CVcraft</span>
+        {showBranding && <span>Made With Love By CVcraft</span>}
         <span>{formatPageLabel(pageIndex, totalPages)}</span>
       </div>
     </div>
@@ -371,6 +371,7 @@ export function ResumeDocument({
   baseColor,
   selectedFont,
   formatDateRange,
+  showBranding = true,
 }) {
   const measureRef = useRef(null)
   const wrapRef = useRef(null)
