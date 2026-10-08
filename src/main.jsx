@@ -413,7 +413,8 @@ function ResumeBuilder({
   const [photo, setPhoto] = useState('')
   const [template, setTemplate] = useState(initialTemplate)
   const isFreeModel = template === 'gratuit'
-  const [modelStatus, setModelStatus] = useState(isFreeModel ? 'free' : 'pending_payment')
+  const isPlanActive = Boolean(accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId))
+  const [modelStatus, setModelStatus] = useState(isFreeModel || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
   const [baseColor, setBaseColor] = useState('#e49a68')
   const [resumeFont, setResumeFont] = useState('classic')
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -523,9 +524,9 @@ function ResumeBuilder({
             ? savedData.template
             : initialTemplate
         setTemplate(resolvedTemplate)
-        setModelStatus(resolvedTemplate === savedData.template
+        setModelStatus(isPlanActive ? 'paid' : (resolvedTemplate === savedData.template
           ? savedData.modelStatus || (resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment')
-          : resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment')
+          : resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment'))
         setBaseColor(savedData.baseColor || '#e49a68')
         setResumeFont(savedData.resumeFont || 'classic')
         if (preferInitialTemplate && resolvedTemplate !== savedData.template) {
@@ -540,7 +541,7 @@ function ResumeBuilder({
         setPhoto(guestData.photo)
         const guestTemplate = preferInitialTemplate ? initialTemplate : guestData.template
         setTemplate(guestTemplate)
-        setModelStatus(guestTemplate === 'gratuit' ? 'free' : 'pending_payment')
+        setModelStatus(guestTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
         setBaseColor(guestData.baseColor)
         setResumeFont(guestData.resumeFont)
         guestMigrationPending.current = true
@@ -567,7 +568,7 @@ function ResumeBuilder({
             ? legacyData.template
             : initialTemplate
           setTemplate(legacyTemplate)
-          setModelStatus(legacyTemplate === 'gratuit' ? 'free' : 'pending_payment')
+          setModelStatus(legacyTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
           setBaseColor(legacyData.baseColor)
           setResumeFont(legacyData.resumeFont)
           editVersion.current += 1
@@ -575,7 +576,7 @@ function ResumeBuilder({
           setSaveStatus('saving')
         } else {
           setTemplate(initialTemplate)
-          setModelStatus(initialTemplate === 'gratuit' ? 'free' : 'pending_payment')
+          setModelStatus(initialTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
           editVersion.current += 1
           setIsDirty(true)
           setSaveStatus('saving')
@@ -769,7 +770,7 @@ function ResumeBuilder({
     if (!selected) return
     markEdited()
     setTemplate(templateId)
-    setModelStatus(templateId === 'gratuit' ? 'free' : templateId === template && modelStatus === 'paid' ? 'paid' : 'pending_payment')
+    setModelStatus(templateId === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : templateId === template && modelStatus === 'paid' ? 'paid' : 'pending_payment')
     setTemplateChooserOpen(false)
   }
   const unlockTemplate = (templateId) => {
@@ -1490,15 +1491,21 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
   )
 }
 
-function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloadResume, onPurchasePlan, onLogout }) {
+function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResume, onOpenResume, onDownloadResume, onPurchasePlan, onLogout }) {
   const [resumes, setResumes] = useState([])
-  const [plan, setPlan] = useState({ planId: 'free', active: true, validUntil: null })
+  const [plan, setPlan] = useState(() => accountPlan || { planId: 'free', active: true, validUntil: null })
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [retry, setRetry] = useState(0)
   const [actionsOpen, setActionsOpen] = useState(null)
   const [changeOfferOpen, setChangeOfferOpen] = useState(false)
   const guestMigrationRef = useRef(null)
+
+  useEffect(() => {
+    if (accountPlan && (accountPlan.ready || accountPlan.validUntil || accountPlan.planId !== 'free')) {
+      setPlan(accountPlan)
+    }
+  }, [accountPlan])
 
   useEffect(() => {
     let active = true
@@ -1531,6 +1538,7 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
         if (!active) return
         setResumes(loadedResumes)
         setPlan(loadedPlan)
+        if (onPlanUpdate) onPlanUpdate(loadedPlan)
       } catch (loadError) {
         console.error('Erreur lors du chargement des CV du tableau de bord:', loadError)
         if (!active) return
@@ -2088,16 +2096,28 @@ function App() {
             if (!['pro', 'gold'].includes(result.planId)) {
               throw new Error('L’offre associée au paiement est invalide.')
             }
-            const loadedPlan = await getUserResumePlan(user.id)
-            if (!active) return
-            setAccountPlan(loadedPlan)
+            const activePlan = {
+              planId: result.planId,
+              previousPlanId: null,
+              active: true,
+              validUntil: result.validUntil,
+              ready: true,
+            }
+            setAccountPlan(activePlan)
+            try {
+              const loadedPlan = await getUserResumePlan(user.id)
+              if (active && loadedPlan?.active) setAccountPlan(loadedPlan)
+            } catch (err) {
+              console.warn('Sync plan error:', err)
+            }
             const nextUrl = new URL(window.location.href)
             nextUrl.searchParams.delete('tara_payment')
             window.history.replaceState({}, '', nextUrl)
             setPaymentReturnId(null)
             setPaymentReturnStatus(null)
             setView('dashboard')
-            showNotice('Paiement confirmé ! Votre offre est désormais active.')
+            const planName = result.planId === 'gold' ? 'Gold' : 'Pro'
+            showNotice(`Félicitations ! Votre offre ${planName} est désormais active avec toutes ses fonctionnalités.`)
             return
           }
           if (!resumeTemplates.some((item) => item.id === result.templateId && item.id !== 'gratuit')) {
@@ -2523,6 +2543,8 @@ function App() {
       <>
         <ResumeDashboard
           user={user}
+          accountPlan={accountPlan}
+          onPlanUpdate={setAccountPlan}
           onHome={goHome}
           onCreateResume={startBuilder}
           onOpenResume={openDashboardResume}
