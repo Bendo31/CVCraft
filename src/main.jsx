@@ -1167,10 +1167,8 @@ function ResumeBuilder({
           )}
           <span>
             {paymentStatus === 'checking'
-              ? 'Vérification auprès de Tara Money…'
-              : paymentStatus === 'pending'
-              ? 'Paiement en attente de validation sur votre téléphone.'
-              : 'Le paiement n’a pas été confirmé.'}
+              ? 'Vérification automatique en cours…'
+              : 'En attente de paiement : validez la demande sur votre téléphone.'}
           </span>
           {(paymentStatus === 'pending' || paymentStatus === 'checking') && (
             <button
@@ -2076,64 +2074,78 @@ function App() {
     }
 
     let active = true
-    const verify = async () => {
-      setPaymentReturnStatus({ state: 'checking' })
-      try {
-        for (let attempt = 0; attempt < 6; attempt += 1) {
-          const result = await verifyTaraPayment(paymentReturnId)
-          if (!active) return
+    let isVerifying = false
 
-          if (result.status === 'SUCCESS') {
-            if (result.productType === 'plan') {
-              if (!['pro', 'gold'].includes(result.planId)) {
-                throw new Error('L’offre associée au paiement est invalide.')
-              }
-              const loadedPlan = await getUserResumePlan(user.id)
-              if (!active) return
-              setAccountPlan(loadedPlan)
-              const nextUrl = new URL(window.location.href)
-              nextUrl.searchParams.delete('tara_payment')
-              window.history.replaceState({}, '', nextUrl)
-              setPaymentReturnId(null)
-              setPaymentReturnStatus(null)
-              setView('dashboard')
-              return
+    const checkPayment = async () => {
+      if (!active || isVerifying) return
+      isVerifying = true
+      try {
+        const result = await verifyTaraPayment(paymentReturnId)
+        if (!active) return
+
+        if (result.status === 'SUCCESS') {
+          if (result.productType === 'plan') {
+            if (!['pro', 'gold'].includes(result.planId)) {
+              throw new Error('L’offre associée au paiement est invalide.')
             }
-            if (!resumeTemplates.some((item) => item.id === result.templateId && item.id !== 'gratuit')) {
-              throw new Error('Le modèle associé au paiement est invalide.')
-            }
-            const paidResumeId = result.resumeId || selectedResumeId
-            await updateResumeModelStatus(user.id, result.templateId, 'paid', paidResumeId)
+            const loadedPlan = await getUserResumePlan(user.id)
             if (!active) return
+            setAccountPlan(loadedPlan)
             const nextUrl = new URL(window.location.href)
             nextUrl.searchParams.delete('tara_payment')
             window.history.replaceState({}, '', nextUrl)
             setPaymentReturnId(null)
-            setSelectedTemplate(result.templateId)
-            setSelectedResumeId(paidResumeId)
-            setCreateNewResume(false)
-            setTemplateSelectionMade(true)
-            setDownloadAfterPayment(true)
             setPaymentReturnStatus(null)
-            setView('builder')
+            setView('dashboard')
+            showNotice('Paiement confirmé ! Votre offre est désormais active.')
             return
           }
-          if (result.status === 'FAILURE') {
-            setPaymentReturnStatus({ state: 'failure' })
-            return
+          if (!resumeTemplates.some((item) => item.id === result.templateId && item.id !== 'gratuit')) {
+            throw new Error('Le modèle associé au paiement est invalide.')
           }
-          await new Promise((resolve) => window.setTimeout(resolve, 4000))
+          const paidResumeId = result.resumeId || selectedResumeId
+          await updateResumeModelStatus(user.id, result.templateId, 'paid', paidResumeId)
+          if (!active) return
+          const nextUrl = new URL(window.location.href)
+          nextUrl.searchParams.delete('tara_payment')
+          window.history.replaceState({}, '', nextUrl)
+          setPaymentReturnId(null)
+          setSelectedTemplate(result.templateId)
+          setSelectedResumeId(paidResumeId)
+          setCreateNewResume(false)
+          setTemplateSelectionMade(true)
+          setDownloadAfterPayment(true)
+          setPaymentReturnStatus(null)
+          setView('builder')
+          showNotice('Paiement confirmé ! Votre modèle est prêt.')
+          return
         }
-        if (active) setPaymentReturnStatus({ state: 'pending' })
+
+        // Pendant l'attente de validation Tara
+        if (active) {
+          setPaymentReturnStatus({ state: 'pending', lastChecked: Date.now() })
+        }
       } catch (error) {
-        console.error('Erreur lors de la vérification du paiement Tara Money:', error)
-        if (active) setPaymentReturnStatus({ state: 'error', message: error.message })
+        // En cas de délai réseau ou vérification en cours, on reste en attente de paiement
+        console.warn('Vérification en arrière-plan du paiement Tara:', error.message)
+        if (active) {
+          setPaymentReturnStatus({ state: 'pending', lastChecked: Date.now() })
+        }
+      } finally {
+        isVerifying = false
       }
     }
 
-    verify()
+    // État initial : en attente de paiement avec vérification immédiate
+    setPaymentReturnStatus({ state: 'pending', lastChecked: Date.now() })
+    checkPayment()
+
+    // Vérification automatique continue toutes les 3,5 secondes
+    const interval = window.setInterval(checkPayment, 3500)
+
     return () => {
       active = false
+      window.clearInterval(interval)
     }
   }, [authReady, paymentVerifyAttempt, paymentReturnId, selectedResumeId, user?.id])
 
@@ -2359,81 +2371,88 @@ function App() {
   }
 
   if (paymentReturnStatus && view !== 'builder') {
-    const isWaiting = paymentReturnStatus.state === 'checking' || paymentReturnStatus.state === 'pending'
-    const isChecking = paymentReturnStatus.state === 'checking'
+    if (paymentReturnStatus.state === 'auth') {
+      return (
+        <div className="account-page">
+          <div className="account-dialog">
+            <span className="preview-kicker">Tara Money</span>
+            <h2>Connexion requise</h2>
+            <p>Connectez-vous pour finaliser la validation automatique de votre paiement.</p>
+            <div className="payment-verify-actions">
+              <button
+                className="button button-dark button-verify-payment"
+                type="button"
+                onClick={() => {
+                  setAuthMode('signin')
+                  setAuthOpen(true)
+                }}
+              >
+                <span>Se connecter</span>
+              </button>
+              <button className="button-dismiss-payment" type="button" onClick={dismissPaymentReturn}>
+                Retour
+              </button>
+            </div>
+          </div>
+          {authOpen && (
+            <AccountModal
+              mode={authMode}
+              onModeChange={setAuthMode}
+              onClose={closeAuth}
+              onAuthenticated={handleAuthenticated}
+              onOAuthStart={prepareOAuth}
+            />
+          )}
+          {planMobilePayDialog}
+        </div>
+      )
+    }
 
     return (
       <div className="account-page">
-        <div className="account-dialog" aria-busy={isChecking}>
-          {isWaiting ? (
-            <div className="payment-waiting-box">
-              <span className={`payment-status-badge ${isChecking ? 'is-checking' : ''}`}>
-                <span className="badge-dot" />
-                {isChecking ? 'Vérification en cours…' : 'En attente de validation'}
+        <div className="account-dialog" aria-busy="true">
+          <div className="payment-waiting-box">
+            <span className="payment-status-badge is-checking">
+              <span className="badge-dot" />
+              Vérification automatique en cours
+            </span>
+
+            <div className="payment-loading-animation" aria-hidden="true">
+              <span className="payment-loading-pulse" />
+              <span className="payment-loading-spinner" />
+              <span className="payment-loading-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+                  <line x1="12" y1="18" x2="12.01" y2="18" />
+                </svg>
               </span>
-
-              <div className="payment-loading-animation" aria-hidden="true">
-                <span className="payment-loading-pulse" />
-                <span className="payment-loading-spinner" />
-                <span className="payment-loading-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
-                    <line x1="12" y1="18" x2="12.01" y2="18" />
-                  </svg>
-                </span>
-              </div>
-
-              <h2>Validation Mobile Money</h2>
-              <p>
-                Une demande de paiement Tara Money a été envoyée sur votre téléphone.<br />
-                Veuillez <strong>confirmer la transaction</strong> avec votre code secret PIN (MTN ou Orange Money).
-              </p>
-
-              <div className="payment-verify-actions">
-                <button
-                  className={`button button-dark button-verify-payment ${isChecking ? 'is-loading' : ''}`}
-                  type="button"
-                  disabled={isChecking}
-                  onClick={() => setPaymentVerifyAttempt((current) => current + 1)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
-                  </svg>
-                  <span>{isChecking ? 'Vérification en cours…' : 'Vérifier le paiement'}</span>
-                </button>
-                <button className="button-dismiss-payment" type="button" onClick={dismissPaymentReturn}>
-                  Annuler / Fermer
-                </button>
-              </div>
             </div>
-          ) : (
-            <div className="payment-waiting-box">
-              <span className="preview-kicker">Tara Money</span>
-              <h2>{paymentReturnStatus.state === 'auth' ? 'Connexion requise' : 'Paiement non confirmé'}</h2>
-              <p>
-                {paymentReturnStatus.state === 'auth'
-                  ? 'Connectez-vous au compte ayant effectué le paiement.'
-                  : paymentReturnStatus.state === 'failure'
-                  ? 'Le paiement n’a pas abouti sur votre téléphone. Aucun montant n’a été débité.'
-                  : paymentReturnStatus.message || 'La vérification du paiement a échoué.'}
-              </p>
-              <div className="payment-verify-actions">
-                <button
-                  className="button button-dark button-verify-payment"
-                  type="button"
-                  onClick={() => setPaymentVerifyAttempt((current) => current + 1)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
-                  </svg>
-                  <span>Réessayer la vérification</span>
-                </button>
-                <button className="button-dismiss-payment" type="button" onClick={dismissPaymentReturn}>
-                  Retour
-                </button>
-              </div>
+
+            <h2>En attente de paiement</h2>
+            <p>
+              Une demande de paiement Tara Money a été envoyée sur votre téléphone.<br />
+              Veuillez <strong>confirmer la transaction</strong> avec votre code secret PIN (MTN ou Orange Money).<br />
+              <small style={{ display: 'inline-block', marginTop: '8px', color: 'var(--muted)' }}>
+                La détection s'effectue automatiquement en arrière-plan sans recharger la page.
+              </small>
+            </p>
+
+            <div className="payment-verify-actions">
+              <button
+                className="button button-dark button-verify-payment is-loading"
+                type="button"
+                onClick={() => setPaymentVerifyAttempt((current) => current + 1)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" />
+                </svg>
+                <span>Vérifier maintenant</span>
+              </button>
+              <button className="button-dismiss-payment" type="button" onClick={dismissPaymentReturn}>
+                Annuler / Vérifier plus tard
+              </button>
             </div>
-          )}
+          </div>
         </div>
         {authOpen && (
           <AccountModal
@@ -2448,6 +2467,7 @@ function App() {
       </div>
     )
   }
+
 
   if (!authReady && hasPersistedSupabaseSession()) {
     return (
