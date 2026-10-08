@@ -272,6 +272,7 @@ function ResumeSheet({
   formatDateRange,
   measure = false,
   style,
+  showBranding,
 }) {
   const continued = pageIndex > 0
   const sheetStyle = measure
@@ -557,6 +558,7 @@ export function ResumeDocument({
           formatDateRange={formatDateRange}
           measure
           style={sheetStyleVars}
+          showBranding={showBranding}
         />
         <div className={`resume-sheet resume-template-${template} resume-sheet-continued resume-sheet-measure`} style={{ ...sheetStyleVars, width: RESUME_SHEET_WIDTH }}>
           <ResumeHeader resume={resume} photo={photo} template={template} continued sectionVisibility={sectionVisibility} />
@@ -590,6 +592,7 @@ export function ResumeDocument({
                 height: RESUME_SHEET_HEIGHT,
                 aspectRatio: 'auto',
               }}
+              showBranding={showBranding}
             />
           ))}
         </div>

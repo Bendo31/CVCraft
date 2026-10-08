@@ -1,5 +1,74 @@
+-- ==============================================================================
+-- CV CRAFT - SCRIPT DE DÉPLOIEMENT COMPLET BASE DE DONNÉES SUPABASE
+-- À exécuter dans le SQL Editor de Supabase (exécute tout sans prérequis)
+-- ==============================================================================
+
+-- 1. Table des CVs (public.resumes)
+create table if not exists public.resumes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  first_name text not null default '',
+  last_name text not null default '',
+  role text not null default '',
+  email text not null default '',
+  phone text not null default '',
+  city text not null default '',
+  linkedin text not null default '',
+  summary text not null default '',
+  photo_url text,
+  content jsonb not null default '{}'::jsonb,
+  pdf_url text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Colonnes éventuelles si la table existait déjà partiellement
+alter table public.resumes
+  add column if not exists user_id uuid references auth.users(id) on delete cascade,
+  add column if not exists first_name text not null default '',
+  add column if not exists last_name text not null default '',
+  add column if not exists role text not null default '',
+  add column if not exists email text not null default '',
+  add column if not exists phone text not null default '',
+  add column if not exists city text not null default '',
+  add column if not exists linkedin text not null default '',
+  add column if not exists summary text not null default '',
+  add column if not exists photo_url text,
+  add column if not exists content jsonb not null default '{}'::jsonb,
+  add column if not exists pdf_url text,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+-- Supprimer l'ancienne contrainte 1 seul CV par utilisateur pour autoriser le multi-CV
 drop index if exists public.resumes_user_id_key;
 
+-- Politiques RLS pour les CVs
+alter table public.resumes enable row level security;
+grant select, insert, update, delete on public.resumes to authenticated;
+
+drop policy if exists "Users can view own resume" on public.resumes;
+create policy "Users can view own resume"
+  on public.resumes for select to authenticated
+  using ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can insert own resume" on public.resumes;
+create policy "Users can insert own resume"
+  on public.resumes for insert to authenticated
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can update own resume" on public.resumes;
+create policy "Users can update own resume"
+  on public.resumes for update to authenticated
+  using ((select auth.uid()) = user_id)
+  with check ((select auth.uid()) = user_id);
+
+drop policy if exists "Users can delete own resume" on public.resumes;
+create policy "Users can delete own resume"
+  on public.resumes for delete to authenticated
+  using ((select auth.uid()) = user_id);
+
+
+-- 2. Table des paiements de templates individuels (public.tara_payments)
 create table if not exists public.tara_payments (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -13,11 +82,13 @@ create table if not exists public.tara_payments (
   paid_at timestamptz
 );
 
-alter table public.tara_payments enable row level security;
-
 alter table public.tara_payments
   add column if not exists resume_id uuid references public.resumes(id) on delete set null;
 
+alter table public.tara_payments enable row level security;
+
+
+-- 3. Table des abonnements (public.cvcraft_subscriptions)
 create table if not exists public.cvcraft_subscriptions (
   user_id uuid primary key references auth.users(id) on delete cascade,
   plan_id text not null check (plan_id in ('pro', 'gold')),
@@ -33,6 +104,39 @@ create policy "Users can view own CV Craft subscription"
   on public.cvcraft_subscriptions for select to authenticated
   using ((select auth.uid()) = user_id);
 
+
+-- 4. Table des paiements d'offres / abonnements (public.cvcraft_plan_payments)
+create table if not exists public.cvcraft_plan_payments (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  product_id text not null unique,
+  plan_id text not null check (plan_id in ('pro', 'gold')),
+  amount integer not null check (
+    (plan_id = 'pro' and amount in (100, 1500))
+    or (plan_id = 'gold' and amount in (100, 2500))
+  ),
+  status text not null default 'PENDING' check (status in ('PENDING', 'SUCCESS', 'FAILURE')),
+  payment_url text,
+  entitlement_applied_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+
+-- Si la contrainte existait déjà avec seulement 1500/2500, la mettre à jour pour 100 FCFA
+alter table public.cvcraft_plan_payments
+  drop constraint if exists cvcraft_plan_payments_amount_check;
+
+alter table public.cvcraft_plan_payments
+  add constraint cvcraft_plan_payments_amount_check check (
+    (plan_id = 'pro' and amount in (100, 1500))
+    or (plan_id = 'gold' and amount in (100, 2500))
+  );
+
+alter table public.cvcraft_plan_payments enable row level security;
+
+
+-- 5. Trigger de contrôle des quotas de CVs
 create or replace function public.enforce_cvcraft_resume_entitlement()
 returns trigger
 language plpgsql
@@ -94,25 +198,8 @@ create trigger enforce_cvcraft_resume_entitlement
   before insert or update on public.resumes
   for each row execute function public.enforce_cvcraft_resume_entitlement();
 
-create table if not exists public.cvcraft_plan_payments (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  product_id text not null unique,
-  plan_id text not null check (plan_id in ('pro', 'gold')),
-  amount integer not null check (
-    (plan_id = 'pro' and amount in (100, 1500))
-    or (plan_id = 'gold' and amount in (100, 2500))
-  ),
-  status text not null default 'PENDING' check (status in ('PENDING', 'SUCCESS', 'FAILURE')),
-  payment_url text,
-  entitlement_applied_at timestamptz,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  paid_at timestamptz
-);
 
-alter table public.cvcraft_plan_payments enable row level security;
-
+-- 6. Fonction RPC d'activation d'abonnement après paiement confirmé
 create or replace function public.activate_cvcraft_plan_payment(p_payment_id uuid)
 returns table (plan_id text, valid_until timestamptz)
 language plpgsql
@@ -177,4 +264,5 @@ $$;
 revoke all on function public.activate_cvcraft_plan_payment(uuid) from public, anon, authenticated;
 grant execute on function public.activate_cvcraft_plan_payment(uuid) to service_role;
 
+-- 7. Recharger le cache PostgREST Supabase
 notify pgrst, 'reload schema';

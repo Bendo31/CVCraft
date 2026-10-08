@@ -418,6 +418,20 @@ export async function deleteUserResumeFromCloud(userId, resumeId) {
   return { success: true }
 }
 
+async function handleEdgeFunctionError(error) {
+  if (!error) return
+  if (error.context) {
+    try {
+      const body = await error.context.json()
+      if (body?.error) throw new Error(body.error)
+      if (body?.message) throw new Error(body.message)
+    } catch (e) {
+      if (e.message && e.message !== error.message) throw e
+    }
+  }
+  throw error
+}
+
 export async function createTaraPlanCheckout(planId, phoneNumber) {
   const client = getSupabaseClient()
   if (!client) throw new Error('Supabase n’est pas encore configuré.')
@@ -426,7 +440,7 @@ export async function createTaraPlanCheckout(planId, phoneNumber) {
   const { data, error } = await client.functions.invoke('tara-checkout', {
     body: { action: 'create-plan', planId, phoneNumber },
   })
-  if (error) throw error
+  if (error) await handleEdgeFunctionError(error)
   if (!data?.paymentId || data.status !== 'PENDING') {
     throw new Error('Tara Money n’a pas retourné un paiement MobilePay valide.')
   }
@@ -470,7 +484,7 @@ export async function createTaraCheckout(templateId, phoneNumber, resumeId = nul
   const { data, error } = await client.functions.invoke('tara-checkout', {
     body: { action: 'create', templateId, resumeId, phoneNumber },
   })
-  if (error) throw error
+  if (error) await handleEdgeFunctionError(error)
   if (!data?.paymentId || data.status !== 'PENDING') {
     throw new Error('Tara Money n’a pas retourné un paiement MobilePay valide.')
   }
@@ -484,7 +498,7 @@ export async function verifyTaraPayment(paymentId) {
   const { data, error } = await client.functions.invoke('tara-checkout', {
     body: { action: 'verify', paymentId },
   })
-  if (error) throw error
+  if (error) await handleEdgeFunctionError(error)
   return data
 }
 

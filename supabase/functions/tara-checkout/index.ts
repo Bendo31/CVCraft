@@ -8,21 +8,30 @@ const PAID_TEMPLATES = new Map([
   ['signal', 'Signal'],
 ])
 const PAID_PLANS = new Map([
-  ['pro', { name: 'Pro', amount: 1500, durationMonths: 3 }],
-  ['gold', { name: 'Gold', amount: 2500, durationMonths: 1 }],
+  ['pro', { name: 'Pro', amount: 100, durationMonths: 3 }],
+  ['gold', { name: 'Gold', amount: 100, durationMonths: 1 }],
 ])
 
-const allowedOrigins = (Deno.env.get('APP_ORIGIN') || '')
+const envOrigins = (Deno.env.get('APP_ORIGIN') || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean)
 
+function isOriginAllowed(origin: string): boolean {
+  if (!origin) return true
+  if (envOrigins.length === 0) return true
+  if (envOrigins.includes(origin)) return true
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true
+  return false
+}
+
 function json(body: unknown, status = 200, origin = '') {
+  const allowOrigin = origin && isOriginAllowed(origin) ? origin : '*'
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Origin': allowOrigin,
       'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       Vary: 'Origin',
@@ -94,11 +103,19 @@ Deno.serve(async (request) => {
   const isWebhook = new URL(request.url).searchParams.get('hook') === '1'
 
   if (request.method === 'OPTIONS') {
-    if (!allowedOrigins.includes(origin)) return new Response(null, { status: 403 })
-    return json({}, 200, origin)
+    const allowOrigin = origin && isOriginAllowed(origin) ? origin : '*'
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': allowOrigin,
+        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        Vary: 'Origin',
+      },
+    })
   }
   if (request.method !== 'POST') return json({ error: 'Méthode non autorisée.' }, 405, origin)
-  if (!isWebhook && !allowedOrigins.includes(origin)) return json({ error: 'Origine non autorisée.' }, 403)
+  if (!isWebhook && !isOriginAllowed(origin)) return json({ error: 'Origine non autorisée.' }, 403, origin)
 
   try {
     const body = await request.json()

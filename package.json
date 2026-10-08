@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:functions": "node scripts/deploy-functions.js",
+    "set:secrets": "node scripts/set-secrets.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",

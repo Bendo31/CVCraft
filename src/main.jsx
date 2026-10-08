@@ -210,8 +210,8 @@ const steps = [
 
 const plans = [
   { id: 'free', name: 'Gratuit', price: '0', suffix: 'sans limite de durée', description: 'Pour tester CV Craft.', features: ['1 CV', '1 template gratuit', 'Téléchargement PDF', 'Sauvegarde'], action: 'Commencer gratuitement' },
-  { id: 'pro', name: 'Pro', price: '1 500', suffix: 'pour 3 mois', description: 'Pour créer un CV professionnel.', features: ['1 CV', 'Modèles premium', 'PDF sans logo', 'Modifications illimitées', 'Réactivation à payer après 3 mois'], action: 'Choisir Pro', featured: true },
-  { id: 'gold', name: 'Gold', price: '2 500', suffix: 'par mois', description: 'Pour les chercheurs d’emploi actifs.', features: ['Jusqu’à 3 CV', 'Templates premium', 'Optimisation ATS · bientôt', 'Historique des versions · bientôt', 'Lien public · bientôt'], action: 'Choisir Gold' },
+  { id: 'pro', name: 'Pro', price: '100', suffix: 'pour 3 mois (test)', description: 'Pour créer un CV professionnel.', features: ['1 CV', 'Modèles premium', 'PDF sans logo', 'Modifications illimitées', 'Réactivation à payer après 3 mois'], action: 'Choisir Pro', featured: true },
+  { id: 'gold', name: 'Gold', price: '100', suffix: 'par mois (test)', description: 'Pour les chercheurs d’emploi actifs.', features: ['Jusqu’à 3 CV', 'Templates premium', 'Optimisation ATS · bientôt', 'Historique des versions · bientôt', 'Lien public · bientôt'], action: 'Choisir Gold' },
 ]
 
 const resumeTemplates = [
@@ -888,10 +888,6 @@ function ResumeBuilder({
   }
 
   const handleExport = () => {
-    if (userId && accountPlan && !accountPlan.active) {
-      showNotice('Votre offre a expiré. Réactivez-la pour télécharger ce CV.')
-      return
-    }
     if (accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId)) {
       downloadPdf()
       return
@@ -946,23 +942,6 @@ function ResumeBuilder({
           ) : <span className="loading-indicator" aria-hidden="true" />}
         </div>
       </div>
-    )
-  }
-
-  if (userId && !accountPlan.active) {
-    const previousPlanName = accountPlan.previousPlanId === 'gold' ? 'Gold' : 'Pro'
-    return (
-      <main className="account-page">
-        <section className="account-dialog" role="alert">
-          <span className="preview-kicker">Offre expirée</span>
-          <h1>Votre CV est désactivé.</h1>
-          <p>Vos informations sont conservées. Réactivez votre offre {previousPlanName} pour modifier ou télécharger ce CV.</p>
-          <button className="button button-dark" type="button" onClick={() => onReactivatePlan(accountPlan.previousPlanId)}>
-            Réactiver {previousPlanName} · {accountPlan.previousPlanId === 'gold' ? '2 500' : '1 500'} FCFA
-          </button>
-          <button className="account-switch" type="button" onClick={onDashboard}>Retour au dashboard</button>
-        </section>
-      </main>
     )
   }
 
@@ -1217,6 +1196,40 @@ function ResumeBuilder({
   )
 }
 
+const dummyResume = {
+  firstName: 'Marie', lastName: 'Lambert', role: 'DIRECTRICE\nARTISTIQUE',
+  email: 'marie@craft.fr', phone: '06 12 34 56 78', city: 'Paris', website: 'marielambert.fr',
+  summary: 'Directrice artistique créant des identités visuelles singulières.',
+  experiences: [
+    { id: '1', title: 'Direction artistique', company: 'Studio Sillage', startDate: '2021', endDate: 'Aujourd\'hui', description: 'Identités visuelles et campagnes digitales.' },
+    { id: '2', title: 'Brand designer', company: 'Maison Lune', startDate: '2018', endDate: '2021', description: '' }
+  ],
+  educations: [
+    { id: '1', degree: 'Design graphique', school: 'École Estienne', startDate: '2015', endDate: '2018', description: '' }
+  ],
+  skills: [
+    'Direction artistique', 'Branding', 'Figma'
+  ],
+  languages: [], projects: [], certifications: [], hobbies: [], interests: [],
+  references: [
+    { id: '1', name: 'Claire Martin', company: 'Studio Sillage', contact: 'Fondatrice' }
+  ],
+  sectionVisibility: { personal: true, experiences: true, educations: true, skills: true, languages: false, projects: false, certifications: false, hobbies: false, references: true }
+}
+
+const dummySelectedFont = { family: "'Inter', sans-serif", display: "'Fraunces', Georgia, serif" }
+const dummyFormatDateRange = (start, end) => `${start} — ${end || "Aujourd'hui"}`
+
+function TemplateMiniPreview({ template }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#fff', containerType: 'inline-size' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '794px', transform: 'scale(calc(100cqw / 794))', transformOrigin: 'top left', pointerEvents: 'none' }}>
+        <ResumeDocument resume={dummyResume} template={template.id} selectedFont={dummySelectedFont} formatDateRange={dummyFormatDateRange} baseColor="#17191a" />
+      </div>
+    </div>
+  )
+}
+
 function MobileTemplateSelection({ currentTemplate, isAuthenticated, onSelect, onUnlock, onHome }) {
   const [selectedIndex, setSelectedIndex] = useState(
     Math.max(0, resumeTemplates.findIndex((item) => item.id === currentTemplate))
@@ -1229,7 +1242,7 @@ function MobileTemplateSelection({ currentTemplate, isAuthenticated, onSelect, o
   return (
     <div className="mobile-template-page">
       <header className="builder-header"><button className="brand builder-brand" onClick={onHome} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button><button className="builder-user-button" onClick={onHome}>Quitter</button></header>
-      <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><div className={`mobile-template-preview resume-template-${selectedTemplate.id}`}><div className="mobile-preview-head"><span className="mobile-preview-name">Marie<br /><strong>Lambert.</strong></span><span className="mobile-preview-role">DIRECTRICE<br />ARTISTIQUE</span></div><div className="mobile-preview-contact">marie@craft.fr · Paris · 06 12 34 56 78</div><div className="mobile-preview-body"><div><span className="mobile-preview-label">Profil</span><p>Directrice artistique qui crée des identités visuelles singulières.</p><span className="mobile-preview-label">Compétences</span><p>Direction artistique<br />Branding<br />Figma</p><span className="mobile-preview-label">Références</span><p>Claire Martin<br />Fondatrice, Studio Sillage</p></div><div><span className="mobile-preview-label">Expérience professionnelle</span><div className="mobile-preview-entry"><strong>Studio Sillage</strong><small>Direction artistique · 2021 — Aujourd’hui</small><p>Identités visuelles et campagnes digitales.</p></div><div className="mobile-preview-entry"><strong>Maison Lune</strong><small>Brand designer · 2018 — 2021</small></div><span className="mobile-preview-label">Formation</span><div className="mobile-preview-entry"><strong>École Estienne</strong><small>Design graphique · 2015 — 2018</small></div></div></div><div className="mobile-preview-footer">Aperçu {selectedTemplate.name}</div></div><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><div className="mobile-template-actions"><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>{isLocked ? 'Prévisualiser mon CV' : 'Choisir le modèle'} <span aria-hidden="true">↗</span></button>{isLocked && <button className="button-outline mobile-template-unlock" onClick={() => onUnlock(selectedTemplate.id)}><PremiumCrown /> Débloquer</button>}</div></main>
+      <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><TemplateMiniPreview template={selectedTemplate} /><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><div className="mobile-template-actions"><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>{isLocked ? 'Prévisualiser mon CV' : 'Choisir le modèle'} <span aria-hidden="true">↗</span></button>{isLocked && <button className="button-outline mobile-template-unlock" onClick={() => onUnlock(selectedTemplate.id)}><PremiumCrown /> Débloquer</button>}</div></main>
     </div>
   )
 }
@@ -1555,13 +1568,69 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
     }
   }
 
+  const handleToggleActions = (event, resume) => {
+    event.stopPropagation()
+    if (actionsOpen?.resume?.id === resume.id) {
+      setActionsOpen(null)
+      return
+    }
+    const rect = event.currentTarget.getBoundingClientRect()
+    const spaceBelow = window.innerHeight - rect.bottom
+    const openUpwards = spaceBelow < 165
+    setActionsOpen({
+      resume,
+      openUpwards,
+      top: openUpwards ? undefined : Math.round(rect.bottom + 6),
+      bottom: openUpwards ? Math.round(window.innerHeight - rect.top + 6) : undefined,
+      right: Math.max(12, Math.round(window.innerWidth - rect.right)),
+    })
+  }
+
+  useEffect(() => {
+    if (!actionsOpen) return undefined
+    const handleClose = () => setActionsOpen(null)
+    window.addEventListener('scroll', handleClose, true)
+    window.addEventListener('resize', handleClose)
+    return () => {
+      window.removeEventListener('scroll', handleClose, true)
+      window.removeEventListener('resize', handleClose)
+    }
+  }, [actionsOpen])
+
+  const activeMenuResumeIndex = actionsOpen
+    ? resumes.findIndex((item) => item.id === actionsOpen.resume.id)
+    : -1
+  const canDuplicateActiveResume = Boolean(
+    actionsOpen &&
+    activeMenuResumeIndex !== -1 &&
+    activeMenuResumeIndex < resumeQuota &&
+    plan.active &&
+    plan.planId === 'gold' &&
+    resumes.length < 3
+  )
+  const duplicateDisabledReason = !plan.active
+    ? 'Offre expirée — réactivez votre offre Gold pour dupliquer'
+    : plan.planId !== 'gold'
+      ? 'La duplication est réservée aux abonnés Gold'
+      : resumes.length >= 3
+        ? 'Limite de 3 CV atteinte pour l’offre Gold'
+        : activeMenuResumeIndex >= resumeQuota
+          ? 'Ce CV dépasse le quota actif de votre offre.'
+          : undefined
+
+  const isPlanExpired = Boolean(!plan.active && (plan.previousPlanId || plan.validUntil))
+  const expiredPlanName = plan.previousPlanId === 'gold' ? 'Gold' : 'Pro'
+  const currentPlanLabel = isPlanExpired
+    ? `Free (${expiredPlanName} expiré)`
+    : plan.planId === 'gold' ? 'Gold' : plan.planId === 'pro' ? 'Pro' : 'Free'
+
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
-        <a className="brand dashboard-brand" href="/" aria-label="Retour à l’accueil"><span className="brand-mark">c</span><span>CVcraft</span></a>
+        <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CVcraft"><span className="brand-mark">c</span><span>CVcraft</span></button>
         <div className="dashboard-user">
-          <span>{user.email}</span>
-          <a className="dashboard-home-link" href="/">Accueil</a>
+          <span>{user?.email || ''}</span>
+          <button className="dashboard-home-link" type="button" onClick={onHome}>Accueil</button>
           <button type="button" onClick={onLogout}>Déconnexion</button>
         </div>
       </header>
@@ -1570,18 +1639,21 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
           <div className="dashboard-documents-heading">
             <div>
               <h1 id="dashboard-documents-title">Documents</h1>
-              <p>Tous les documents <span>·</span> Offre {plan.planId === 'gold' ? 'Gold' : plan.planId === 'pro' ? 'Pro' : 'Free'} : {resumes.length} / {resumeQuota} CV utilisé{resumes.length === 1 ? '' : 's'}</p>
+              <p>Tous les documents <span>·</span> Offre {currentPlanLabel} : {resumes.length} / {resumeQuota} CV utilisé{resumes.length === 1 ? '' : 's'}</p>
             </div>
             <div className="dashboard-heading-actions">
-              {plan.planId === 'free' && <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>Changer mon offre</button>}
-              <button className="dashboard-create-button" type="button" disabled={isLoading || !plan.active || freeQuotaReached} title={!plan.active ? 'Réactivez votre offre pour créer un CV.' : freeQuotaReached ? 'La limite de CV de votre offre est atteinte.' : undefined} onClick={onCreateResume}>
+              {plan.planId === 'free' && <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>{isPlanExpired ? 'Renouveler mon offre' : 'Changer mon offre'}</button>}
+              <button className="dashboard-create-button" type="button" disabled={isLoading || freeQuotaReached} title={freeQuotaReached ? (isPlanExpired ? 'Votre offre a expiré et la limite de CV est atteinte. Réactivez votre offre pour créer d’autres CV.' : 'La limite de CV de votre offre est atteinte.') : undefined} onClick={onCreateResume}>
                 <span aria-hidden="true">＋</span> Créer
               </button>
             </div>
           </div>
-          {!plan.active && plan.previousPlanId && <div className="dashboard-expired-plan" role="alert">
-            <p>Votre offre {plan.previousPlanId === 'pro' ? 'Pro' : 'Gold'} a expiré le {formatDate(plan.validUntil)}. Vos CV sont conservés, mais désactivés jusqu’à la réactivation.</p>
-            <button type="button" onClick={() => onPurchasePlan(plan.previousPlanId)}>Réactiver l’offre</button>
+          {isPlanExpired && <div className="dashboard-expired-plan" role="alert">
+            <div className="dashboard-expired-plan-info">
+              <span className="dashboard-expired-badge">Offre expirée</span>
+              <p>Votre offre {expiredPlanName} a expiré{plan.validUntil ? ` le ${formatDate(plan.validUntil)}` : ''}. Vos CV sont conservés et modifiables. Réactivez votre offre pour profiter de tous les avantages premium (modèles exclusifs, téléchargements sans filigrane).</p>
+            </div>
+            <button type="button" onClick={() => onPurchasePlan(plan.previousPlanId || 'pro')}>Réactiver l’offre {expiredPlanName}</button>
           </div>}
           {plan.schemaWarning && <div className="dashboard-schema-warning" role="alert">{plan.schemaWarning}</div>}
           {isLoading ? <div className="dashboard-state" aria-hidden="true"><span className="loading-indicator" /></div> : error ? (
@@ -1607,17 +1679,17 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
                   {resumes.map((resume, resumeIndex) => {
                     const resumeTitle = getResumeTitle(resume)
                     const selectedTemplate = resumeTemplates.find((item) => item.id === resume.template)
-                    const resumeWithinQuota = plan.active && resumeIndex < resumeQuota
-                    const canDuplicate = resumeWithinQuota && plan.planId === 'gold' && resumes.length < 3
+                    const resumeWithinQuota = resumeIndex < resumeQuota
+                    const canDuplicate = resumeWithinQuota && plan.active && plan.planId === 'gold' && resumes.length < 3
                     return <tr key={resume.id}>
                     <td>
-                      <button className="dashboard-document-name" type="button" disabled={!resumeWithinQuota} onClick={() => onOpenResume(resume)}>
+                      <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
                         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
                         <span>{resumeTitle}</span>
                       </button>
                     </td>
                     <td>
-                      <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" disabled={!resumeWithinQuota} onClick={() => onOpenResume(resume)}>
+                      <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" onClick={() => onOpenResume(resume)}>
                         {!resume.resume?.role && <span aria-hidden="true">＋</span>}
                         {resume.resume?.role || 'Ajouter'}
                       </button>
@@ -1633,18 +1705,19 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
                     <td>{formatRelativeDate(resume.updatedAt) || '—'}</td>
                     <td>
                       <div className="dashboard-document-actions">
-                        <button className="dashboard-icon-button" type="button" aria-label={`Télécharger ${resumeTitle}`} title={!plan.active ? 'Offre expirée — réactivez-la pour télécharger' : !resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'} disabled={!resumeWithinQuota} onClick={() => onDownloadResume(resume)}>
+                        <button className="dashboard-icon-button" type="button" aria-label={`Télécharger ${resumeTitle}`} title={!resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'} disabled={!resumeWithinQuota} onClick={() => onDownloadResume(resume)}>
                           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3 13v3.5h14V13" /></svg>
                         </button>
                         <div className="dashboard-more-wrap">
-                          <button className="dashboard-icon-button" type="button" aria-label={`Plus d’actions pour ${resumeTitle}`} aria-expanded={actionsOpen === resume.id} onClick={() => setActionsOpen((open) => open === resume.id ? null : resume.id)}>
+                          <button
+                            className="dashboard-icon-button"
+                            type="button"
+                            aria-label={`Plus d’actions pour ${resumeTitle}`}
+                            aria-expanded={actionsOpen?.resume?.id === resume.id}
+                            onClick={(event) => handleToggleActions(event, resume)}
+                          >
                             <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1" /><circle cx="10" cy="10" r="1" /><circle cx="16" cy="10" r="1" /></svg>
                           </button>
-                          {actionsOpen === resume.id && <div className="dashboard-actions-menu">
-                            <button type="button" disabled={!resumeWithinQuota} title={!resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : undefined} onClick={() => { setActionsOpen(null); onOpenResume(resume) }}>Modifier le CV</button>
-                            <button type="button" disabled={!canDuplicate} title={canDuplicate ? undefined : 'La duplication est disponible avec Gold, dans la limite de 3 CV.'} onClick={() => handleDuplicateResume(resume)}><PremiumCrown /> Dupliquer le CV</button>
-                            <button className="dashboard-delete-action" type="button" onClick={() => handleDeleteResume(resume)}>Supprimer le CV</button>
-                          </div>}
                         </div>
                       </div>
                     </td>
@@ -1660,6 +1733,76 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
           )}
         </section>
       </div>
+      {actionsOpen && (
+        <>
+          <div
+            className="dashboard-actions-backdrop"
+            aria-hidden="true"
+            onClick={() => setActionsOpen(null)}
+          />
+          <div
+            className="dashboard-actions-menu"
+            role="menu"
+            style={{
+              top: actionsOpen.top !== undefined ? `${actionsOpen.top}px` : 'auto',
+              bottom: actionsOpen.bottom !== undefined ? `${actionsOpen.bottom}px` : 'auto',
+              right: `${actionsOpen.right}px`,
+            }}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const target = actionsOpen.resume
+                setActionsOpen(null)
+                onOpenResume(target)
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              </svg>
+              <span>Modifier</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={!canDuplicateActiveResume}
+              title={duplicateDisabledReason}
+              onClick={() => {
+                const target = actionsOpen.resume
+                setActionsOpen(null)
+                handleDuplicateResume(target)
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+              <span style={{ flex: 1 }}>Dupliquer</span>
+              {(!plan.active || plan.planId !== 'gold') && <PremiumCrown />}
+            </button>
+            <button
+              className="dashboard-delete-action"
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const target = actionsOpen.resume
+                setActionsOpen(null)
+                handleDeleteResume(target)
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+              <span>Supprimer</span>
+            </button>
+          </div>
+        </>
+      )}
       {changeOfferOpen && <div className="payment-backdrop" role="presentation" onMouseDown={(event) => {
         if (event.target === event.currentTarget) setChangeOfferOpen(false)
       }}>
@@ -1690,7 +1833,7 @@ function ResumeDashboard({ user, onHome, onCreateResume, onOpenResume, onDownloa
 
 function PlanMobilePayDialog({ planId, phone, onPhoneChange, error, submitting, onCancel, onSubmit }) {
   const planName = planId === 'gold' ? 'Gold' : 'Pro'
-  const amount = planId === 'gold' ? 2500 : 1500
+  const amount = 100
   return (
     <div className="payment-backdrop" role="presentation">
       <form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-payment-title" onSubmit={onSubmit}>
@@ -1709,9 +1852,25 @@ function PlanMobilePayDialog({ planId, phone, onPhoneChange, error, submitting, 
   )
 }
 
+function hasPersistedSupabaseSession() {
+  if (typeof window === 'undefined') return false
+  try {
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i)
+      if (key && key.startsWith('sb-') && key.endsWith('-auth-token')) {
+        const item = window.localStorage.getItem(key)
+        if (item && item.includes('access_token')) return true
+      }
+    }
+  } catch {
+    return false
+  }
+  return false
+}
+
 function App() {
   const [notice, setNotice] = useState('')
-  const [view, setView] = useState('landing')
+  const [view, setView] = useState(() => hasPersistedSupabaseSession() ? 'dashboard' : 'landing')
   const [user, setUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
   const [accountPlan, setAccountPlan] = useState({ planId: 'free', active: true, validUntil: null, ready: false })
@@ -1804,19 +1963,36 @@ function App() {
     let active = true
     getSession().then((session) => {
       if (active) {
-        setUser(session?.user || null)
+        const currentUser = session?.user || null
+        setUser(currentUser)
         setAuthReady(true)
         resumeOAuth(session)
+        if (currentUser && !window.sessionStorage.getItem(OAUTH_INTENT_KEY)) {
+          setView((current) => current === 'landing' ? 'dashboard' : current)
+        } else if (!currentUser) {
+          setView((current) => current === 'dashboard' ? 'landing' : current)
+        }
       }
     }).catch((error) => {
       console.error('Erreur lors de la vérification de la session:', error)
-      if (active) setAuthReady(true)
+      if (active) {
+        setAuthReady(true)
+        setView((current) => current === 'dashboard' ? 'landing' : current)
+      }
     })
 
     const { data: { subscription } } = onAuthStateChange((event, session) => {
-      if (event !== 'SIGNED_IN') setUser(session?.user || null)
+      const currentUser = session?.user || null
+      if (event !== 'SIGNED_IN') setUser(currentUser)
       setAuthReady(true)
       resumeOAuth(session)
+      if (event === 'SIGNED_IN' && currentUser && !window.sessionStorage.getItem(OAUTH_INTENT_KEY)) {
+        setView((current) => current === 'landing' ? 'dashboard' : current)
+      }
+      if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setView('landing')
+      }
       if (event === 'PASSWORD_RECOVERY') {
         setAuthMode('update')
         setAuthOpen(true)
@@ -1948,7 +2124,14 @@ function App() {
     window.setTimeout(() => setNotice(''), 2800)
   }
 
-  const goHome = () => setView('landing')
+  const goHome = () => {
+    if (user) {
+      setView('dashboard')
+    } else {
+      setView('landing')
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
   const goDashboard = () => {
     if (!user) {
       setAuthMode('signin')
@@ -1967,8 +2150,12 @@ function App() {
     setAccountPlan({ planId: 'free', active: true, validUntil: null })
     setTemplateSelectionMade(false)
     setView('landing')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  const startBuilder = async () => {
+  const startBuilder = async (templateChoice) => {
+    const chosenTemplate = typeof templateChoice === 'string' && resumeTemplates.some((item) => item.id === templateChoice)
+      ? templateChoice
+      : null
     if (user) {
       try {
         const [currentPlan, currentResumes] = await Promise.all([
@@ -1977,12 +2164,8 @@ function App() {
         ])
         const limit = currentPlan.planId === 'gold' ? 3 : 1
         setAccountPlan(currentPlan)
-        if (!currentPlan.active) {
-          showNotice('Votre offre a expiré. Réactivez-la pour créer un CV.')
-          return
-        }
         if (currentResumes.length >= limit) {
-          showNotice('La limite de CV de votre offre est atteinte.')
+          showNotice(!currentPlan.active ? 'Votre offre a expiré et votre quota de CV Free est atteint. Réactivez votre offre pour créer d’autres CV.' : 'La limite de CV de votre offre est atteinte.')
           return
         }
       } catch (error) {
@@ -1993,8 +2176,8 @@ function App() {
     }
     setSelectedResumeId(null)
     setCreateNewResume(true)
-    setTemplateSelectionMade(false)
-    setSelectedTemplate('gratuit')
+    setTemplateSelectionMade(Boolean(chosenTemplate))
+    setSelectedTemplate(chosenTemplate || 'gratuit')
     setView('builder')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -2117,8 +2300,7 @@ function App() {
     pendingTemplateRef.current = null
     pendingDraftRef.current = null
     pendingDownloadRef.current = false
-    pendingPlanRef.current = null
-    setView(pendingAuthDestinationRef.current === 'dashboard' && !requestedTemplate ? 'dashboard' : 'builder')
+    setView((requestedTemplate || resumeDraft) ? 'builder' : 'dashboard')
     pendingAuthDestinationRef.current = null
     if (paymentReturnId) setPaymentVerifyAttempt((current) => current + 1)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -2186,6 +2368,16 @@ function App() {
     )
   }
 
+  if (!authReady && hasPersistedSupabaseSession()) {
+    return (
+      <div className="account-page">
+        <div className="account-dialog" aria-busy="true">
+          <span className="loading-indicator" aria-hidden="true" />
+        </div>
+      </div>
+    )
+  }
+
   if (view === 'builder') {
     return (
       <>
@@ -2225,7 +2417,7 @@ function App() {
     )
   }
 
-  if (view === 'dashboard' && user) {
+  if (user || view === 'dashboard') {
     return (
       <>
         <ResumeDashboard
@@ -2275,17 +2467,19 @@ function App() {
         <a className="brand" href="#top" aria-label="CVcraft, accueil"><span className="brand-mark">c</span><span>CVcraft</span></a>
         <nav className="main-nav" aria-label="Navigation principale">
           <a href="#process">Comment ça marche</a>
+          <a href="#modeles">Modèles</a>
+          <a href="#features">Fonctionnalités</a>
           <a href="#pricing">Tarifs</a>
-          <a href="#templates">Modèles</a>
+          <a href="#faq">FAQ</a>
         </nav>
         <div className="header-actions">
-          {user && <button className="button button-outline button-small" onClick={goDashboard}>Mes CV</button>}
-          <button className="button button-outline button-small" onClick={() => {
+          {user && <button className="header-link" onClick={goDashboard}>Mes CV</button>}
+          <button className="header-link" onClick={() => {
             pendingAuthDestinationRef.current = 'dashboard'
             setAuthMode('signup')
             setAuthOpen(true)
-          }}>Créer mon compte</button>
-          <button className="button button-dark button-small" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button>
+          }}><u>Créer mon compte</u></button>
+          <button className="button button-dark button-small button-pill" onClick={() => startBuilder()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
         </div>
       </header>
 
@@ -2293,20 +2487,43 @@ function App() {
         <section className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
-            <h1>Un CV qui ouvre<br /><em>des portes.</em></h1>
+            <h1 style={{ display: 'flex', flexDirection: 'column' }}><span style={{ whiteSpace: 'nowrap' }}>Un CV qui ouvre</span><em>des portes.</em></h1>
             <p className="hero-lede">Concevez un CV clair, singulier et mémorable. CVcraft vous aide à transformer votre parcours en prochaine opportunité.</p>
             <div className="hero-actions">
-              <button className="button button-dark" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button>
-              <a className="text-link" href="#process">Découvrir comment ça marche <span aria-hidden="true">↓</span></a>
+              <button className="button button-dark button-pill" onClick={() => startBuilder()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
+              <a className="button button-ghost" href="#modeles">Voir les modèles de CV</a>
             </div>
             <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
           </div>
-          <div className="hero-visual" id="templates" aria-label="Aperçu de modèles de CV">
-            <div className="visual-note note-top"><span className="note-star">✳</span><span>Design qui<br /><strong>vous ressemble</strong></span></div>
-            <div className="paper paper-back paper-blue"><div className="paper-lines" /><span className="paper-tag">CV.02</span></div>
-            <div className="paper paper-back paper-yellow"><div className="paper-lines" /><span className="paper-tag">CV.04</span></div>
-            <div className="paper paper-front"><div className="cv-top"><span className="cv-name">Marie<br /><b>Lambert.</b></span><span className="cv-role">DIRECTRICE<br />ARTISTIQUE</span></div><div className="cv-rule" /><div className="cv-grid"><div><span className="cv-label">Profil</span><p>Créer des identités<br />qui ont du sens.</p><span className="cv-label cv-label-space">Contact</span><p>Paris, France<br />marie@craft.fr</p></div><div><span className="cv-label">Expérience</span><div className="cv-entry"><b>2021 — Aujourd’hui</b><br />Studio Sillage<br /><small>Direction artistique</small></div><div className="cv-entry"><b>2018 — 2021</b><br />Maison Lune<br /><small>Brand designer</small></div></div></div><div className="cv-footer"><span>marielambert.fr</span><span>01 / 03</span></div></div>
-            <div className="visual-note note-bottom"><span className="note-arrow">↘</span><span>PDF net.<br /><strong>Prêt à envoyer.</strong></span></div>
+          <div className="hero-visual" aria-label="Aperçu du tableau de bord">
+            <div style={{ width: '100%', height: '400px', backgroundColor: '#eeece3', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.15)', border: '1px solid #d7d7ce', transform: 'rotate(2deg)' }}>
+              <div style={{ height: '40px', backgroundColor: '#fffef9', borderBottom: '1px solid #d7d7ce', display: 'flex', alignItems: 'center', padding: '0 16px', gap: '8px' }}>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ff5f56' }}></div>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ffbd2e' }}></div>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#27c93f' }}></div>
+                <div style={{ marginLeft: 'auto', fontWeight: 'bold', fontSize: '12px', color: '#17191a' }}>CVcraft Studio</div>
+              </div>
+              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+                <div style={{ width: '40%', backgroundColor: '#fffef9', borderRight: '1px solid #d7d7ce', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ width: '60%', height: '16px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
+                  <div style={{ width: '100%', height: '24px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
+                  <div style={{ width: '100%', height: '24px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
+                  <div style={{ width: '80%', height: '24px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
+                  <div style={{ marginTop: 'auto', width: '100%', height: '32px', backgroundColor: '#17191a', borderRadius: '50px' }}></div>
+                </div>
+                <div style={{ width: '60%', backgroundColor: '#e3e2da', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+                  <div style={{ width: '100%', height: '100%', backgroundColor: '#fffef9', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ width: '40%', height: '12px', backgroundColor: '#17191a', borderRadius: '2px' }}></div>
+                    <div style={{ width: '30%', height: '8px', backgroundColor: '#8b918a', borderRadius: '2px' }}></div>
+                    <div style={{ width: '100%', height: '1px', backgroundColor: '#d7d7ce', margin: '4px 0' }}></div>
+                    <div style={{ width: '100%', height: '8px', backgroundColor: '#e3e2da', borderRadius: '2px' }}></div>
+                    <div style={{ width: '90%', height: '8px', backgroundColor: '#e3e2da', borderRadius: '2px' }}></div>
+                    <div style={{ width: '95%', height: '8px', backgroundColor: '#e3e2da', borderRadius: '2px' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="visual-note note-top" style={{ zIndex: 10 }}><span className="note-star">✳</span><span>Édition<br /><strong>en temps réel</strong></span></div>
           </div>
         </section>
 
@@ -2317,13 +2534,199 @@ function App() {
           <div className="step-grid">{steps.map((step) => <article className="step" key={step.number}><span className="step-number">{step.number}</span><h3>{step.title}</h3><p>{step.text}</p><span className="step-arrow" aria-hidden="true">↗</span></article>)}</div>
         </section>
 
+        {/* ── SECTION MODÈLES ── */}
+        <section className="templates-section section-wrap" id="modeles" aria-labelledby="modeles-title">
+          <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Quatre modèles pensés pour les recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
+          <div style={{ position: 'relative' }}>
+            <button className="carousel-nav carousel-nav-prev" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: -320, behavior: 'smooth' })} aria-label="Modèles précédents">←</button>
+            <button className="carousel-nav carousel-nav-next" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: 320, behavior: 'smooth' })} aria-label="Modèles suivants">→</button>
+            <div className="templates-grid" id="templates-carousel">
+              {resumeTemplates.map((item) => (
+                <article className="template-card" key={item.id} onClick={() => setSelectedTemplate(item.id)} style={{ cursor: 'pointer' }}>
+                  <div className="template-card-frame" style={{ position: 'relative', border: selectedTemplate === item.id ? '2px solid var(--ink)' : '2px solid transparent', backgroundColor: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', transition: 'border-color 0.2s', padding: 0 }}>
+                    {item.id !== 'gratuit' && (
+                      <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, background: '#fff', borderRadius: '50%', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                        <PremiumCrown />
+                      </div>
+                    )}
+                    <TemplateMiniPreview template={item} />
+                  </div>
+                  <div className="template-card-meta" style={{ marginTop: '16px', textAlign: 'center', display: 'block' }}>
+                    <div><strong>{item.name}</strong><br /><small>{item.description}</small></div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', marginTop: '24px' }}>
+            <button className="button button-dark button-pill" onClick={() => {
+              if (user) {
+                startBuilder(selectedTemplate)
+              } else {
+                pendingAuthDestinationRef.current = 'builder'
+                pendingTemplateRef.current = selectedTemplate
+                setAuthMode('signup')
+                setAuthOpen(true)
+              }
+            }}>Utiliser le modèle sélectionné</button>
+          </div>
+        </section>
+
+        {/* ── SECTION FEATURES ── */}
+        <section className="features-section section-wrap" id="features" aria-label="Fonctionnalités CVcraft">
+          <div className="features-heading">
+            <div className="eyebrow"><span className="eyebrow-dot" /> Ce qui nous distingue</div>
+            <h2>Tout ce qu'il vous faut<br /><em>pour décrocher le job.</em></h2>
+          </div>
+          <div className="features-grid">
+            <article className="feature-card">
+              <div className="feature-icon" aria-hidden="true">⚡</div>
+              <h3>Créez en 5 minutes</h3>
+              <p>Un formulaire guidé, clair et rapide. Votre CV est prêt avant même la fin de votre café.</p>
+            </article>
+            <article className="feature-card">
+              <div className="feature-icon" aria-hidden="true">📱</div>
+              <h3>100 % mobile</h3>
+              <p>Conçu pour fonctionner parfaitement sur téléphone. Créez et exportez depuis n'importe où.</p>
+            </article>
+            <article className="feature-card">
+              <div className="feature-icon" aria-hidden="true">🎨</div>
+              <h3>Modèles élégants</h3>
+              <p>Des templates pensés par des designers, adaptés aux recruteurs africains et internationaux.</p>
+            </article>
+            <article className="feature-card">
+              <div className="feature-icon" aria-hidden="true">📄</div>
+              <h3>Export PDF net</h3>
+              <p>Un PDF haute qualité, prêt à envoyer par email ou à déposer sur une plateforme RH.</p>
+            </article>
+            <article className="feature-card">
+              <div className="feature-icon" aria-hidden="true">☁️</div>
+              <h3>Sauvegarde cloud</h3>
+              <p>Vos CV sont enregistrés en ligne. Reprenez votre travail sur n'importe quel appareil.</p>
+            </article>
+            <article className="feature-card">
+              <div className="feature-icon" aria-hidden="true">🔒</div>
+              <h3>Paiement sécurisé</h3>
+              <p>Mobile Money MTN &amp; Orange intégré via Tara. Simple, rapide et sans carte bancaire.</p>
+            </article>
+          </div>
+        </section>
+
         <section className="pricing section-wrap" id="pricing">
           <div className="pricing-heading"><div className="eyebrow">Investissez en vous</div><h2>Le bon plan pour<br /><em>chaque étape.</em></h2><p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p></div>
           <div className="plans">{plans.map((plan) => <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>{plan.featured && <div className="popular">Le plus choisi</div>}<div className="plan-top"><span className="plan-name">{plan.name}</span><span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span></div><div className="plan-price">{plan.price}<small> FCFA / {plan.suffix}</small></div><p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><span>✓</span>{feature}</li>)}</ul><button className={`button ${plan.featured ? 'button-light' : 'button-outline'}`} onClick={() => plan.id === 'free' ? startBuilder() : requestPlanCheckout(plan.id)}>{plan.action}<span aria-hidden="true">↗</span></button></article>)}</div>
         </section>
+
+        {/* ── SECTION TÉMOIGNAGES ── */}
+        <section className="testimonials-section" id="testimonials" aria-label="Témoignages clients">
+          <div className="testimonials-inner section-wrap">
+            <div className="testimonials-heading">
+              <div className="eyebrow"><span className="eyebrow-dot" /> Ils nous font confiance</div>
+              <h2>Ce que disent<br /><em>nos utilisateurs.</em></h2>
+            </div>
+            <div className="testimonials-grid">
+              <blockquote className="testimonial-card testimonial-featured">
+                <p>"J'ai créé mon CV en moins de 10 minutes depuis mon téléphone. Le lendemain, j'avais un entretien. CVcraft a changé la donne pour moi."</p>
+                <footer>
+                  <div className="testimonial-avatar">AM</div>
+                  <div>
+                    <strong>Aminata M.</strong>
+                    <span>Étudiante en Master, Dakar</span>
+                  </div>
+                </footer>
+              </blockquote>
+              <blockquote className="testimonial-card">
+                <p>"Le design est vraiment professionnel. Mes recruteurs ont commenté la qualité de mon CV. Je le recommande à tous mes amis."</p>
+                <footer>
+                  <div className="testimonial-avatar">KD</div>
+                  <div>
+                    <strong>Kofi D.</strong>
+                    <span>Développeur, Abidjan</span>
+                  </div>
+                </footer>
+              </blockquote>
+              <blockquote className="testimonial-card">
+                <p>"Enfin un outil pensé pour l'Afrique. Le paiement par Mobile Money, c'est exactement ce qu'il nous fallait. Simple et efficace."</p>
+                <footer>
+                  <div className="testimonial-avatar">NB</div>
+                  <div>
+                    <strong>Nadia B.</strong>
+                    <span>Freelance RH, Douala</span>
+                  </div>
+                </footer>
+              </blockquote>
+              <blockquote className="testimonial-card">
+                <p>"Interface super intuitive. J'ai pu aider ma sœur à créer son premier CV. Elle a décroché son stage la semaine suivante !"</p>
+                <footer>
+                  <div className="testimonial-avatar">JT</div>
+                  <div>
+                    <strong>Jean-Paul T.</strong>
+                    <span>Ingénieur, Yaoundé</span>
+                  </div>
+                </footer>
+              </blockquote>
+            </div>
+          </div>
+        </section>
+
+        {/* ── SECTION FAQ ── */}
+        <section className="faq-section section-wrap" id="faq" aria-label="Questions fréquentes">
+          <div className="faq-heading">
+            <div className="eyebrow"><span className="eyebrow-dot" /> Questions fréquentes</div>
+            <h2>On répond à<br /><em>vos questions.</em></h2>
+          </div>
+          <div className="faq-list">
+            {[
+              { q: 'CVcraft est-il vraiment gratuit ?', a: 'Oui ! Le plan gratuit vous permet de créer un CV complet et de le télécharger en PDF. Les plans payants débloquent des modèles premium et des fonctionnalités avancées.' },
+              { q: 'Comment fonctionne le paiement Mobile Money ?', a: 'Nous utilisons Tara Money pour les paiements. Entrez votre numéro MTN ou Orange Cameroun, validez la demande sur votre téléphone. Simple et sécurisé.' },
+              { q: 'Puis-je créer plusieurs CV ?', a: 'Avec le plan Pro, vous pouvez créer jusqu\'à 3 CV différents. Le plan Gold vous offre des CV illimités, parfait si vous postulez à plusieurs types de postes.' },
+              { q: 'Mon CV est-il sauvegardé automatiquement ?', a: 'Oui, avec un compte CVcraft, votre travail est sauvegardé en temps réel dans le cloud. Vous pouvez reprendre depuis n\'importe quel appareil.' },
+              { q: 'Quelle est la qualité du PDF exporté ?', a: 'Nos PDF sont générés en haute résolution et formatés pour l\'impression A4. Ils sont compatibles avec toutes les plateformes de dépôt de candidature.' },
+            ].map((item, index) => (
+              <details className="faq-item" key={index}>
+                <summary className="faq-question">{item.q}<span className="faq-arrow" aria-hidden="true">↓</span></summary>
+                <p className="faq-answer">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {/* ── SECTION CTA FINAL ── */}
+        <section className="cta-section" id="cta" aria-label="Appel à l'action">
+          <div className="cta-inner section-wrap">
+            <div className="cta-content">
+              <div className="eyebrow cta-eyebrow"><span className="eyebrow-dot" /> Prêt à commencer ?</div>
+              <h2>Votre prochain emploi<br /><em>commence ici.</em></h2>
+              <p>Rejoignez 12 000+ candidats qui ont déjà transformé leur parcours en opportunité. Créez votre CV professionnel en moins de 5 minutes, gratuitement.</p>
+              <div className="cta-actions">
+                <button className="button button-dark cta-btn" onClick={startBuilder}>Créer mon CV gratuitement <span aria-hidden="true">↗</span></button>
+                <a className="text-link" href="#pricing">Voir les tarifs <span aria-hidden="true">↓</span></a>
+              </div>
+              <div className="cta-badges">
+                <span className="cta-badge">✓ Sans carte bancaire</span>
+                <span className="cta-badge">✓ CV en 5 minutes</span>
+                <span className="cta-badge">✓ Mobile Money accepté</span>
+              </div>
+            </div>
+            <div className="cta-visual" aria-hidden="true">
+              <div className="cta-stat">
+                <span className="cta-stat-number">12k+</span>
+                <span className="cta-stat-label">Candidats actifs</span>
+              </div>
+              <div className="cta-stat">
+                <span className="cta-stat-number">98%</span>
+                <span className="cta-stat-label">Satisfaction</span>
+              </div>
+              <div className="cta-stat">
+                <span className="cta-stat-number">5min</span>
+                <span className="cta-stat-label">Pour un CV complet</span>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
 
-      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2024 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
+      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
       {notice && <div className="toast" role="status">{notice}</div>}
     </div>
       {planMobilePayDialog}
