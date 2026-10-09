@@ -3804,18 +3804,6 @@ function App() {
               ))}
             </div>
           </div>
-          <div style={{ textAlign: 'center', marginTop: '24px' }}>
-            <button className="button button-dark button-pill" onClick={() => {
-              if (user) {
-                handleRequestCreateResume(selectedTemplate)
-              } else {
-                pendingAuthDestinationRef.current = 'builder'
-                pendingTemplateRef.current = selectedTemplate
-                setAuthMode('signup')
-                setAuthOpen(true)
-              }
-            }}>Utiliser le modèle sélectionné</button>
-          </div>
         </section>
 
         {/* ── SECTION FEATURES ── */}
