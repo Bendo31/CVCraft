@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useRef, useState } from 'react'
+import { StrictMode, useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
@@ -712,6 +712,8 @@ function ResumeBuilder({
   onPaymentStarted,
   paymentStatus,
   onRetryPayment,
+  onSwitchResume,
+  onCreateResume,
   showNotice,
   notice,
 }) {
@@ -739,11 +741,35 @@ function ResumeBuilder({
   const [saveError, setSaveError] = useState('')
   const [loadRetry, setLoadRetry] = useState(0)
   const [saveRetry, setSaveRetry] = useState(0)
+  const [userResumes, setUserResumes] = useState([])
+  const [resumesLoading, setResumesLoading] = useState(false)
   const editVersion = useRef(0)
   const cloudSaveQueue = useRef(Promise.resolve())
   const autoDownloadStarted = useRef(false)
   const dashboardDownloadStarted = useRef(false)
   const guestMigrationPending = useRef(false)
+
+  useEffect(() => {
+    if (!userId) {
+      setUserResumes([])
+      return undefined
+    }
+    let active = true
+    setResumesLoading(true)
+    loadUserResumesFromCloud(userId)
+      .then((list) => {
+        if (active) setUserResumes(Array.isArray(list) ? list : [])
+      })
+      .catch((err) => {
+        console.warn('Erreur chargement des CV pour le rail:', err)
+      })
+      .finally(() => {
+        if (active) setResumesLoading(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [userId, resumeId, saveStatus])
 
   const saveCloudDraft = (draft) => {
     const save = cloudSaveQueue.current.then(async () => {
@@ -958,6 +984,52 @@ function ResumeBuilder({
       showNotice('La déconnexion a échoué. Votre session est toujours active.')
     }
   })
+
+  const resumeQuota = accountPlan?.planId === 'gold' ? 3 : 1
+
+  const getResumeItemTitle = (item) => {
+    const name = `${item.resume?.firstName || ''} ${item.resume?.lastName || ''}`.trim()
+    return item.name || (name ? `CV de ${name}` : 'Mon CV')
+  }
+
+  const handleSelectResume = (item) => {
+    if (item.id === resumeId) return
+    saveBeforeNavigation(() => {
+      if (onSwitchResume) {
+        onSwitchResume(item.id, item.template)
+      } else {
+        setResumeId(item.id)
+        resumeIdRef.current = item.id
+        setLoadRetry((current) => current + 1)
+      }
+    })
+  }
+
+  const handleCreateResume = () => {
+    if (userResumes.length >= resumeQuota) {
+      showNotice(
+        accountPlan?.planId === 'gold'
+          ? 'Limite de 3 CV atteinte pour l’offre Gold.'
+          : 'Limite de 1 CV atteinte. Passez à l’offre Gold pour créer plusieurs CV.'
+      )
+      return
+    }
+    saveBeforeNavigation(() => {
+      if (onCreateResume) {
+        onCreateResume()
+      } else {
+        setResumeId(null)
+        resumeIdRef.current = null
+        setResume(defaultResume)
+        setPhoto('')
+        setTemplate('gratuit')
+        setModelStatus('free')
+        editVersion.current += 1
+        setIsDirty(true)
+        setSaveStatus('saving')
+      }
+    })
+  }
 
   useEffect(() => {
     if (!resumeLoaded || !isDirty) return undefined
@@ -1276,87 +1348,235 @@ function ResumeBuilder({
 
   return (
     <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
-      <header className="builder-header">
-        <div className="builder-header-left">
-          <button className="brand builder-brand" onClick={() => saveBeforeNavigation(onHome)} aria-label="Retour à l'accueil">
+      <aside className="builder-nav-rail" aria-label="Menu de navigation">
+        {/* LOGO CVcraft (sans bouton accueil) */}
+        <div className="nav-rail-top">
+          <div className="nav-rail-brand" title="CVcraft Studio">
             <span className="brand-mark">c</span>
-            <span>CVcraft</span>
-          </button>
+            <span className="nav-rail-text brand-text">CVcraft</span>
+          </div>
         </div>
-        <div className="builder-header-center">
-          {user?.email ? (
-            <>
-              <span className="builder-user-email">
-                <span>{user.email}</span>
-                {accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) && (
-                  <span className="user-pro-crown" title={`Abonnement ${accountPlan?.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
-                    <PremiumCrown />
-                  </span>
-                )}
-              </span>
-              {saveStatus === 'error' && (
-                <button
-                  type="button"
-                  className="builder-header-error-badge"
-                  title={saveError}
-                  onClick={() => {
-                    setSaveStatus('saving')
-                    setSaveRetry((current) => current + 1)
-                    if (!isDirty) {
-                      editVersion.current += 1
-                      setIsDirty(true)
-                    }
-                  }}
-                >
-                  <span className="save-dot is-error" />
-                  <span>Échec serveur — Réessayer</span>
-                </button>
-              )}
-            </>
-          ) : (
-            (!userId && (saveStatus !== 'saving' || saveStatus === 'error')) && (
-              <div className={`builder-guest-status save-status-${saveStatus}`} role={saveStatus === 'error' ? 'alert' : undefined}>
-                <span className="save-dot" />
-                {saveStatus === 'error' ? (
-                  <button type="button" onClick={() => {
-                    setSaveStatus('saving')
-                    setSaveRetry((current) => current + 1)
-                    if (!isDirty) {
-                      editVersion.current += 1
-                      setIsDirty(true)
-                    }
-                  }}>Échec de sauvegarde locale — Réessayer</button>
-                ) : 'CV gratuit · sauvegarde locale automatique'}
-              </div>
-            )
-          )}
-        </div>
-        <div className="builder-header-right">
-          <button className="mobile-change-template" onClick={() => setTemplateChooserOpen(true)}>Changer de modèle</button>
-          {userId && (
-            <button className="builder-header-btn" type="button" onClick={() => saveBeforeNavigation(onDashboard)} title="Accéder à mes CV">
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="header-btn-icon">
+
+        {/* RUBRIQUE MES CV (directement après le logo) */}
+        <div className="nav-rail-section nav-rail-resumes-section">
+          <div className="nav-rail-section-header" title="Mes CV">
+            <div className="nav-rail-icon-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
                 <line x1="16" y1="13" x2="8" y2="13" />
                 <line x1="16" y1="17" x2="8" y2="17" />
                 <polyline points="10 9 9 9 8 9" />
               </svg>
-              <span>Mes CV</span>
+              {userId && userResumes.length > 0 && (
+                <span className="nav-rail-badge">{userResumes.length}</span>
+              )}
+            </div>
+            <div className="nav-rail-text nav-rail-section-meta">
+              <span className="nav-rail-section-title">Mes CV</span>
+              {userId && (
+                <span className="nav-rail-quota-pill">
+                  {userResumes.length}/{resumeQuota}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="nav-rail-text nav-rail-cv-list-wrap">
+            {userId ? (
+              <div className="nav-rail-cv-list">
+                {userResumes.length > 0 ? (
+                  userResumes.map((item) => {
+                    const isActive = item.id === resumeId
+                    const title = getResumeItemTitle(item)
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`nav-rail-cv-item ${isActive ? 'is-active' : ''}`}
+                        onClick={() => handleSelectResume(item)}
+                        title={isActive ? `${title} (actuellement ouvert)` : `Basculer vers ${title}`}
+                      >
+                        <span className="nav-rail-cv-bullet" />
+                        <div className="nav-rail-cv-info">
+                          <strong className="nav-rail-cv-title">{title}</strong>
+                          <span className="nav-rail-cv-sub">
+                            Modèle {item.template || 'gratuit'}
+                          </span>
+                        </div>
+                        {isActive && <span className="nav-rail-active-pill">Actif</span>}
+                      </button>
+                    )
+                  })
+                ) : (
+                  <div className="nav-rail-cv-empty">
+                    <span>1 CV en cours</span>
+                  </div>
+                )}
+
+                {userResumes.length < resumeQuota && (
+                  <button
+                    type="button"
+                    className="nav-rail-add-cv-btn"
+                    onClick={handleCreateResume}
+                    title="Créer un nouveau CV"
+                  >
+                    <span className="add-cv-icon">＋</span>
+                    <span>Nouveau CV</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="nav-rail-guest-hint">
+                <span className="nav-rail-cv-title">Mon CV (invité)</span>
+                <button
+                  type="button"
+                  className="nav-rail-signin-link"
+                  onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
+                >
+                  Connectez-vous pour plusieurs CV
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* OUTILS DU BUILDER */}
+        <div className="nav-rail-section nav-rail-tools">
+          <button
+            type="button"
+            className="nav-rail-item"
+            onClick={() => setTemplateChooserOpen(true)}
+            title="Changer de modèle"
+          >
+            <div className="nav-rail-icon-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <line x1="3" y1="9" x2="21" y2="9" />
+                <line x1="9" y1="21" x2="9" y2="9" />
+              </svg>
+            </div>
+            <span className="nav-rail-text">Modèles</span>
+          </button>
+
+          <button
+            type="button"
+            className="nav-rail-item"
+            disabled={!userId && template !== 'gratuit'}
+            onClick={handleExport}
+            title={!userId && template !== 'gratuit' ? 'Débloquez ce modèle pour télécharger' : 'Télécharger en PDF'}
+          >
+            <div className="nav-rail-icon-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </div>
+            <span className="nav-rail-text">Télécharger PDF</span>
+          </button>
+        </div>
+
+        {/* PIED DU RAIL : STATUT, PROFIL ET DÉCONNEXION */}
+        <div className="nav-rail-bottom">
+          {/* Statut de sauvegarde */}
+          <div
+            className={`nav-rail-save-status ${saveStatus === 'error' ? 'is-error' : saveStatus === 'saving' ? 'is-saving' : 'is-saved'}`}
+            title={saveStatus === 'error' ? saveError || 'Erreur de sauvegarde' : saveStatus === 'saving' ? 'Sauvegarde en cours…' : 'Modifications enregistrées'}
+            onClick={() => {
+              if (saveStatus === 'error') {
+                setSaveStatus('saving')
+                setSaveRetry((current) => current + 1)
+                if (!isDirty) {
+                  editVersion.current += 1
+                  setIsDirty(true)
+                }
+              }
+            }}
+            style={{ cursor: saveStatus === 'error' ? 'pointer' : 'default' }}
+          >
+            <div className="nav-rail-icon-wrap">
+              <span className={`save-dot ${saveStatus === 'error' ? 'is-error' : ''}`} />
+            </div>
+            <span className="nav-rail-text save-status-text">
+              {saveStatus === 'saving'
+                ? 'Sauvegarde…'
+                : saveStatus === 'error'
+                  ? 'Erreur — Réessayer'
+                  : 'Sauvegardé'}
+            </span>
+          </div>
+
+          {/* Profil avec icône illustrative et couronne Pro si abonné */}
+          {userId ? (
+            <button
+              type="button"
+              className="nav-rail-item nav-rail-profile"
+              onClick={() => saveBeforeNavigation(onDashboard)}
+              title={`Profil (${user?.email || ''})`}
+            >
+              <div className="nav-rail-icon-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                {accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) && (
+                  <span className="nav-rail-crown-badge">
+                    <PremiumCrown />
+                  </span>
+                )}
+              </div>
+              <div className="nav-rail-text nav-rail-profile-info">
+                <div className="nav-rail-profile-row">
+                  <span className="nav-rail-profile-name">Profil</span>
+                  {accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) && (
+                    <span className="user-pro-crown" title={`Abonnement ${accountPlan?.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
+                      <PremiumCrown />
+                    </span>
+                  )}
+                </div>
+                {user?.email && (
+                  <span className="nav-rail-profile-email">{user.email}</span>
+                )}
+              </div>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="nav-rail-item nav-rail-profile"
+              onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
+              title="Profil / Se connecter"
+            >
+              <div className="nav-rail-icon-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </div>
+              <span className="nav-rail-text">Profil</span>
             </button>
           )}
+
+          {/* Bouton Déconnexion avec icône */}
           {userId && (
-            <button className="builder-header-btn builder-logout-button" type="button" onClick={handleLogout} title="Déconnexion">
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="header-btn-icon">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              <span>Déconnexion</span>
+            <button
+              type="button"
+              className="nav-rail-item nav-rail-logout"
+              onClick={handleLogout}
+              title="Déconnexion"
+            >
+              <div className="nav-rail-icon-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </div>
+              <span className="nav-rail-text">Déconnexion</span>
             </button>
           )}
         </div>
-      </header>
+      </aside>
       <main className="builder-main">
         <aside className="builder-sidebar">
           <div className="builder-sidebar-heading"><div><span className="section-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
@@ -3012,6 +3232,22 @@ function App() {
     )
   }
 
+  const switchBuilderResume = (resumeId, template) => {
+    const resumeTemplate = resumeTemplates.some((item) => item.id === template)
+      ? template
+      : 'gratuit'
+    setSelectedTemplate(resumeTemplate)
+    setSelectedResumeId(resumeId)
+    setCreateNewResume(false)
+    setTemplateSelectionMade(true)
+    setDownloadAfterPayment(false)
+    setView('builder')
+  }
+
+  const createBuilderResume = () => {
+    startBuilder('gratuit')
+  }
+
   if (view === 'builder') {
     return (
       <>
@@ -3036,6 +3272,8 @@ function App() {
           onPaymentStarted={handleMobilePayStarted}
           paymentStatus={paymentReturnStatus?.state}
           onRetryPayment={() => setPaymentVerifyAttempt((current) => current + 1)}
+          onSwitchResume={switchBuilderResume}
+          onCreateResume={createBuilderResume}
           showNotice={showNotice}
           notice={notice}
         />
