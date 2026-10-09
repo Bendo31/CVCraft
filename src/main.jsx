@@ -512,9 +512,52 @@ const steps = [
 ]
 
 const plans = [
-  { id: 'free', name: 'Gratuit', price: '0', suffix: 'sans limite de durée', description: 'Pour tester CV Craft.', features: ['1 CV', '1 template gratuit', 'Téléchargement PDF', 'Sauvegarde'], action: 'Commencer gratuitement' },
-  { id: 'pro', name: 'Pro', price: '100', suffix: 'pour 3 mois (test)', description: 'Pour créer un CV professionnel.', features: ['1 CV', 'Modèles premium', 'PDF sans logo', 'Modifications illimitées', 'Réactivation à payer après 3 mois'], action: 'Choisir Pro', featured: true },
-  { id: 'gold', name: 'Gold', price: '100', suffix: 'par mois (test)', description: 'Pour les chercheurs d’emploi actifs.', features: ['Jusqu’à 3 CV', 'Templates premium', 'Optimisation ATS · bientôt', 'Historique des versions · bientôt', 'Lien public · bientôt'], action: 'Choisir Gold' },
+  {
+    id: 'free',
+    name: 'Gratuit',
+    price: '0',
+    suffix: 'à vie',
+    description: 'Pour découvrir la plateforme et créer un premier CV.',
+    features: [
+      '1 CV complet',
+      'Modèle classique inclus',
+      'Téléchargement PDF haute qualité',
+      'Sauvegarde cloud sécurisée',
+      'Accès libre sans carte bancaire',
+    ],
+    action: 'Démarrer gratuitement',
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: '100',
+    suffix: 'pour 3 mois',
+    description: 'Pour valoriser son profil et convaincre les recruteurs.',
+    features: [
+      '1 CV professionnel',
+      'Tous les modèles premium',
+      'Téléchargement PDF sans filigrane',
+      'Modifications illimitées 3 mois',
+      'Paiement Mobile Money instantané',
+    ],
+    action: 'Choisir le plan Pro',
+    featured: true,
+  },
+  {
+    id: 'gold',
+    name: 'Gold',
+    price: '100',
+    suffix: 'par mois',
+    description: 'Pour les candidats actifs postulant à plusieurs offres.',
+    features: [
+      'Jusqu’à 3 CV distincts',
+      'Tous les modèles premium',
+      'Téléchargement PDF illimité',
+      'Modifications illimitées en continu',
+      'Accès prioritaire aux nouveautés',
+    ],
+    action: 'Choisir le plan Gold',
+  },
 ]
 
 const resumeTemplates = [
@@ -3813,9 +3856,45 @@ function App() {
           </div>
         </section>
 
-        <section className="pricing section-wrap" id="pricing">
-          <div className="pricing-heading"><div className="eyebrow">Investissez en vous</div><h2>Le bon plan pour<br /><em>chaque étape.</em></h2><p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p></div>
-          <div className="plans">{plans.map((plan) => <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>{plan.featured && <div className="popular">Le plus choisi</div>}<div className="plan-top"><span className="plan-name">{plan.name}</span><span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span></div><div className="plan-price">{plan.price}<small> FCFA / {plan.suffix}</small></div><p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><span>✓</span>{feature}</li>)}</ul><button className={`button ${plan.featured ? 'button-light' : 'button-outline'}`} onClick={() => plan.id === 'free' ? handleRequestCreateResume() : requestPlanCheckout(plan.id)}>{plan.action}<span aria-hidden="true">↗</span></button></article>)}</div>
+        <section className="pricing section-wrap" id="pricing" aria-labelledby="pricing-title">
+          <div className="pricing-heading">
+            <div className="eyebrow"><span className="eyebrow-dot" /> Tarifs transparents</div>
+            <h2 id="pricing-title">Le bon plan pour<br /><em>chaque étape.</em></h2>
+            <p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p>
+          </div>
+          <div className="plans">
+            {plans.map((plan) => (
+              <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>
+                {plan.featured && <div className="popular">Le plus populaire</div>}
+                <div className="plan-top">
+                  <span className="plan-name">{plan.name}</span>
+                  <span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span>
+                </div>
+                <div className="plan-price">
+                  <span>{plan.price}</span>
+                  <span className="plan-currency">FCFA</span>
+                  <small>/ {plan.suffix}</small>
+                </div>
+                <p className="plan-desc">{plan.description}</p>
+                <ul className="plan-features">
+                  {plan.features.map((feature) => (
+                    <li key={feature}>
+                      <span className="feature-check" aria-hidden="true">✓</span>
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="plan-action-wrap">
+                  <button
+                    className={`button ${plan.featured ? 'button-light' : 'button-outline'}`}
+                    onClick={() => plan.id === 'free' ? handleRequestCreateResume() : requestPlanCheckout(plan.id)}
+                  >
+                    {plan.action} <span aria-hidden="true">→</span>
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
         </section>
 
         {/* ── SECTION TÉMOIGNAGES ── */}
