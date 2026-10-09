@@ -2374,33 +2374,6 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 }
 
 /* Boutons Revenir à l'accueil pour les utilisateurs invités */
-.builder-guest-topbar {
-  margin-bottom: 20px;
-}
-
-.builder-back-home-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-radius: 50px;
-  background: #ffffff;
-  border: 1px solid #d5d7cd;
-  color: var(--ink);
-  font: 600 12px 'Sora', sans-serif;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
-}
-
-.builder-back-home-btn:hover {
-  background: var(--ink);
-  color: #ffffff;
-  border-color: var(--ink);
-  transform: translateX(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-}
-
 .nav-rail-brand-btn {
   background: transparent;
   border: none;
@@ -2415,13 +2388,23 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 }
 
 .nav-rail-home-btn {
-  color: #d7f76b !important;
-  font-weight: 600;
+  color: #c9ccc5;
+  transition: all 0.15s ease;
+}
+
+.nav-rail-home-btn .nav-rail-icon {
+  stroke: #c9ccc5;
+  transition: stroke 0.15s ease, transform 0.15s ease;
 }
 
 .nav-rail-home-btn:hover {
-  background: rgba(215, 247, 107, 0.12) !important;
-  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.nav-rail-home-btn:hover .nav-rail-icon {
+  stroke: var(--lime);
+  transform: translateX(-2px);
 }
 
 .mobile-home-btn {
@@ -2438,3 +2421,4 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 .mobile-home-btn:hover {
   background: #f0efe8;
 }
+

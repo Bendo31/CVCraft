@@ -1494,24 +1494,6 @@ function ResumeBuilder({
           )}
         </div>
 
-        {/* BOUTON REVENIR À L'ACCUEIL POUR LES INVITÉS */}
-        {!userId && (
-          <div className="nav-rail-section nav-rail-home-section">
-            <button
-              type="button"
-              className="nav-rail-item nav-rail-home-btn"
-              onClick={() => saveBeforeNavigation(onHome)}
-              title="Sortir du CV Builder et retourner à la page d'accueil"
-            >
-              <div className="nav-rail-icon-wrap">
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
-                  <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5h-4v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
-                </svg>
-              </div>
-              <span className="nav-rail-text">Accueil</span>
-            </button>
-          </div>
-        )}
 
         {/* RUBRIQUE MES CV (directement après le logo) */}
         <div className="nav-rail-section nav-rail-resumes-section">
@@ -1610,14 +1592,6 @@ function ResumeBuilder({
                 >
                   📄 Importer un CV existant
                 </button>
-                <button
-                  type="button"
-                  className="nav-rail-signin-link"
-                  style={{ marginTop: '8px', color: 'var(--lime)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                  onClick={() => saveBeforeNavigation(onHome)}
-                >
-                  ← Revenir à l'accueil
-                </button>
               </div>
             )}
           </div>
@@ -1652,6 +1626,23 @@ function ResumeBuilder({
                   : 'Sauvegardé'}
             </span>
           </div>
+
+          {/* Bouton Revenir à l'accueil */}
+          {!userId && (
+            <button
+              type="button"
+              className="nav-rail-item nav-rail-home-btn"
+              onClick={() => saveBeforeNavigation(onHome)}
+              title="Revenir à l'accueil"
+            >
+              <div className="nav-rail-icon-wrap">
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                  <path d="M3 9.5L12 3l9 6.5V20a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-5h-4v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5z" />
+                </svg>
+              </div>
+              <span className="nav-rail-text">Revenir à l'accueil</span>
+            </button>
+          )}
 
           {/* Bouton Profil */}
           {userId ? (
@@ -1734,18 +1725,6 @@ function ResumeBuilder({
       </aside>
       <main className="builder-main">
         <aside className="builder-sidebar">
-          {!userId && (
-            <div className="builder-guest-topbar">
-              <button
-                type="button"
-                className="builder-back-home-btn"
-                onClick={() => saveBeforeNavigation(onHome)}
-                title="Sortir du CV Builder et retourner à la page d'accueil"
-              >
-                <span aria-hidden="true">←</span> Revenir à l'accueil
-              </button>
-            </div>
-          )}
           <div className="builder-sidebar-heading"><div><span className="section-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
           <div className="builder-progress"><span className="active" /><span /><span /></div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
