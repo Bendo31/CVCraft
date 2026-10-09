@@ -1654,7 +1654,6 @@ function ResumeBuilder({
           </div>
         </aside>
         <section className="builder-preview-area">
-          <div className="preview-toolbar"><div><span className="preview-kicker">Aperçu en direct</span><strong>Modèle {resumeTemplates.find((item) => item.id === template)?.name}</strong></div><div className="preview-actions"><button title="Réduire">−</button><span>85%</span><button title="Agrandir">+</button><button className="preview-export" disabled={!userId && template !== 'gratuit'} title={!userId && template !== 'gratuit' ? 'Cliquez sur Débloquer pour continuer' : undefined} onClick={handleExport}>Exporter en PDF <span>↗</span></button></div></div>
           <ResumeDocument
             resume={resume}
             photo={photo}
@@ -1882,7 +1881,7 @@ function MobileTemplateSelection({ currentTemplate, isAuthenticated, onSelect, o
 
   return (
     <div className="mobile-template-page">
-      <header className="builder-header"><button className="brand builder-brand" onClick={onHome} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button><button className="builder-user-button" onClick={onHome}>Quitter</button></header>
+      <div className="mobile-template-top-bar"><button type="button" className="mobile-template-close-btn" onClick={onHome} aria-label="Fermer">✕</button></div>
       <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><TemplateMiniPreview template={selectedTemplate} /><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><div className="mobile-template-actions"><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>{isLocked ? 'Prévisualiser mon CV' : 'Choisir le modèle'} <span aria-hidden="true">↗</span></button>{isLocked && <button className="button-outline mobile-template-unlock" onClick={() => onUnlock(selectedTemplate.id)}><PremiumCrown /> Débloquer</button>}</div></main>
     </div>
   )
@@ -2584,7 +2583,11 @@ function hasPersistedSupabaseSession() {
 
 function App() {
   const [notice, setNotice] = useState('')
-  const [view, setView] = useState(() => hasPersistedSupabaseSession() ? 'dashboard' : 'landing')
+  const [view, setView] = useState(() => {
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    if (params?.get('view') === 'builder') return 'builder'
+    return hasPersistedSupabaseSession() ? 'dashboard' : 'landing'
+  })
   const [user, setUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
   const [accountPlan, setAccountPlan] = useState({ planId: 'free', active: true, validUntil: null, ready: false })
