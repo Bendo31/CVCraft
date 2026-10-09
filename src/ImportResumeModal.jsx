@@ -1,12 +1,10 @@
 import React, { useState, useRef } from 'react'
-import { extractTextFromFile, parseResumeText, extractLinkedInUserData } from './resumeParser'
+import { extractTextFromFile, parseResumeText } from './resumeParser'
 
 export function ImportResumeModal({
   isOpen,
   onClose,
   onApplyResume,
-  currentUser,
-  onLinkedInLogin,
   templates = [
     { id: 'sillage', name: 'Sillage', description: 'Éditorial', color: 'blue' },
     { id: 'atlas', name: 'Atlas', description: 'Structuré', color: 'lime' },
@@ -14,7 +12,7 @@ export function ImportResumeModal({
     { id: 'gratuit', name: 'Gratuit', description: 'Basique', color: 'gratuit' },
   ],
 }) {
-  const [activeTab, setActiveTab] = useState('file') // 'file' | 'paste' | 'linkedin'
+  const [activeTab, setActiveTab] = useState('file') // 'file' | 'paste'
   const [file, setFile] = useState(null)
   const [pastedText, setPastedText] = useState('')
   const [isParsing, setIsParsing] = useState(false)
@@ -67,7 +65,6 @@ export function ImportResumeModal({
   const handleParsePasted = () => {
     if (!pastedText.trim()) {
       setParseError('Veuillez coller le texte de votre CV.')
-      return
     }
     setIsParsing(true)
     setParseError('')
@@ -78,28 +75,6 @@ export function ImportResumeModal({
       setParseError(err.message || 'Erreur lors de l’analyse.')
     } finally {
       setIsParsing(false)
-    }
-  }
-
-  const handleSyncLinkedInUser = () => {
-    if (!currentUser) {
-      if (onLinkedInLogin) {
-        onClose()
-        onLinkedInLogin()
-      }
-      return
-    }
-    const linkedInData = extractLinkedInUserData(currentUser)
-    if (linkedInData) {
-      setParsedData((prev) => ({
-        ...(prev || {}),
-        firstName: linkedInData.firstName || prev?.firstName || '',
-        lastName: linkedInData.lastName || prev?.lastName || '',
-        email: linkedInData.email || prev?.email || '',
-        role: linkedInData.role || prev?.role || '',
-        linkedin: linkedInData.linkedin || prev?.linkedin || '',
-        photo: linkedInData.photo || '',
-      }))
     }
   }
 
@@ -138,7 +113,7 @@ export function ImportResumeModal({
           <h2 id="import-title">Importez et sublimez votre CV</h2>
           <p>
             Donnez une nouvelle dimension à votre profil. Importez votre ancien CV (PDF, Word, texte)
-            ou connectez LinkedIn pour le régénérer dans l'un de nos modèles de designers.
+            pour le régénérer dans l'un de nos modèles de designers.
           </p>
         </div>
 
@@ -158,15 +133,6 @@ export function ImportResumeModal({
                   <polyline points="9 15 12 12 15 15" />
                 </svg>
                 <span>Fichier (PDF, TXT)</span>
-              </button>
-
-              <button
-                type="button"
-                className={`import-tab ${activeTab === 'linkedin' ? 'is-active' : ''}`}
-                onClick={() => { setActiveTab('linkedin'); setParseError('') }}
-              >
-                <span className="tab-linkedin-icon">in</span>
-                <span>Depuis LinkedIn</span>
               </button>
 
               <button
@@ -215,59 +181,10 @@ export function ImportResumeModal({
                       </svg>
                     </div>
                     <strong>Glissez votre CV ici ou cliquez pour parcourir</strong>
-                    <p>Formats supportés : PDF, TXT, JSON (CV Canva, Word, LinkedIn exportés)</p>
+                    <p>Formats supportés : PDF, TXT, JSON (CV Word, Canva ou texte exportés)</p>
                     <span className="import-browse-badge">Choisir un fichier</span>
                   </div>
                 )}
-              </div>
-            )}
-
-            {/* Contenu de l'onglet LinkedIn */}
-            {activeTab === 'linkedin' && (
-              <div className="import-linkedin-pane">
-                <div className="import-linkedin-card">
-                  <div className="import-linkedin-header">
-                    <span className="provider-linkedin-mark" aria-hidden="true">in</span>
-                    <div>
-                      <strong>Synchroniser votre profil professionnel LinkedIn</strong>
-                      <p>Récupérez automatiquement vos nom, prénom, titre actuel, photo et coordonnées.</p>
-                    </div>
-                  </div>
-
-                  {currentUser ? (
-                    <div className="import-linkedin-connected">
-                      <div className="import-user-badge">
-                        <span>Compte connecté : <strong>{currentUser.email}</strong></span>
-                      </div>
-                      <button
-                        type="button"
-                        className="button button-dark"
-                        onClick={handleSyncLinkedInUser}
-                      >
-                        Importer mes infos LinkedIn vers mon CV
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="import-linkedin-actions">
-                      <button
-                        type="button"
-                        className="account-provider"
-                        onClick={() => {
-                          if (onLinkedInLogin) {
-                            onClose()
-                            onLinkedInLogin()
-                          }
-                        }}
-                      >
-                        <span className="provider-linkedin-mark" aria-hidden="true">in</span>
-                        Se connecter avec LinkedIn pour importer mon profil
-                      </button>
-                      <small className="import-linkedin-tip">
-                        💡 Astuce : Vous pouvez aussi exporter votre CV depuis LinkedIn en cliquant sur <em>« Plus » → « Enregistrer au format PDF »</em> sur votre profil LinkedIn, puis déposer le PDF dans l'onglet <strong>Fichier</strong> !
-                      </small>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 

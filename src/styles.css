@@ -1770,59 +1770,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   animation: loading-spin 0.8s linear infinite;
 }
 
-/* Onglet LinkedIn */
-.import-linkedin-card {
-  border: 1px solid #d4d7cd;
-  border-radius: 8px;
-  background: #fff;
-  padding: 24px;
-}
 
-.import-linkedin-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  margin-bottom: 18px;
-}
-
-.import-linkedin-header .provider-linkedin-mark {
-  position: static;
-  width: 28px;
-  height: 28px;
-  font-size: 15px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-
-.import-linkedin-header strong {
-  display: block;
-  font-size: 15px;
-  margin-bottom: 4px;
-}
-
-.import-linkedin-header p {
-  margin: 0;
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-.import-linkedin-tip {
-  display: block;
-  margin-top: 14px;
-  padding: 10px 14px;
-  background: #faf9f4;
-  border-left: 3px solid #0a66c2;
-  border-radius: 4px;
-  font-size: 11.5px;
-  color: #4b5248;
-  line-height: 1.5;
-}
-
-.import-user-badge {
-  font-size: 12.5px;
-  margin-bottom: 14px;
-  color: #333941;
-}
 
 /* Onglet Copier-Coller */
 .import-paste-pane label {
@@ -2044,28 +1992,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   border-color: var(--ink);
 }
 
-.builder-quick-linkedin-btn {
-  background: #0a66c2;
-  border: 1px solid #0a66c2;
-  color: #ffffff;
-}
 
-.builder-quick-linkedin-btn:hover {
-  background: #084e96;
-}
-
-.mini-in-badge {
-  display: inline-grid;
-  place-items: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  background: rgba(255, 255, 255, 0.25);
-  color: #fff;
-  font-size: 9px;
-  font-weight: 700;
-  line-height: 1;
-}
 
 .dashboard-import-button {
   min-height: 38px;
@@ -2278,51 +2205,6 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   gap: 6px;
 }
 
-.choice-linkedin-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  background: #f3f7fb;
-  border: 1px dashed #b5d0ed;
-  border-radius: 10px;
-}
-
-.choice-linkedin-text {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: #2b3b4f;
-}
-
-.choice-linkedin-text strong {
-  display: block;
-  font-size: 13px;
-  color: #004182;
-}
-
-.choice-linkedin-text p {
-  margin: 2px 0 0;
-  font-size: 11.5px;
-  color: #4a5c6e;
-}
-
-.choice-linkedin-btn {
-  white-space: nowrap;
-  font-size: 11.5px;
-  font-weight: 700;
-  background: #ffffff;
-  border-color: #0a66c2;
-  color: #0a66c2;
-}
-
-.choice-linkedin-btn:hover {
-  background: #0a66c2;
-  color: #ffffff;
-}
-
 /* Dashboard Empty State & Welcome Banner */
 .dashboard-welcome-banner {
   margin-bottom: 24px;
@@ -2361,13 +2243,6 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 @media (max-width: 680px) {
   .choice-cards-grid {
     grid-template-columns: 1fr;
-  }
-  .choice-linkedin-banner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .choice-linkedin-btn {
-    width: 100%;
   }
   .dashboard-welcome-banner {
     flex-direction: column;

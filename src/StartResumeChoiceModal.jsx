@@ -5,7 +5,6 @@ export function StartResumeChoiceModal({
   onClose,
   onSelectBlank,
   onSelectImport,
-  onSelectLinkedIn,
 }) {
   if (!isOpen) return null
 
@@ -124,25 +123,6 @@ export function StartResumeChoiceModal({
             </button>
           </div>
         </div>
-
-        {onSelectLinkedIn && (
-          <div className="choice-linkedin-banner">
-            <div className="choice-linkedin-text">
-              <span className="provider-linkedin-mark" aria-hidden="true">in</span>
-              <div>
-                <strong>Vous avez un profil LinkedIn ?</strong>
-                <p>Importez directement votre titre, photo et coordonnées professionnelles en un clic.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              className="button button-small button-outline choice-linkedin-btn"
-              onClick={onSelectLinkedIn}
-            >
-              Synchroniser LinkedIn
-            </button>
-          </div>
-        )}
       </div>
     </div>
   )

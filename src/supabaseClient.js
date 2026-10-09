@@ -173,49 +173,31 @@ export async function resendSignupOtp(email) {
 }
 
 /**
- * Connexion avec un fournisseur OAuth (Google, LinkedIn, etc.)
+ * Connexion avec un fournisseur OAuth (Google, etc.)
  */
 export async function signInWithOAuth(provider, customOptions = {}) {
   const client = getSupabaseClient()
   if (!client) throw new Error('Supabase n\'est pas encore configuré.')
 
-  const isLinkedIn = provider === 'linkedin_oidc' || provider === 'linkedin'
-  const scopes = customOptions.scopes || (isLinkedIn ? 'openid profile email' : undefined)
-
-  let result = await client.auth.signInWithOAuth({
+  const { data, error } = await client.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-      ...(scopes ? { scopes } : {}),
       ...customOptions,
     },
   })
 
-  // Fallback automatique si linkedin_oidc n'est pas activé mais linkedin classique l'est
-  if (result.error && provider === 'linkedin_oidc') {
-    const fallback = await client.auth.signInWithOAuth({
-      provider: 'linkedin',
-      options: {
-        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        ...customOptions,
-      },
-    })
-    if (!fallback.error) {
-      result = fallback
-    }
-  }
-
-  if (result.error) {
-    const msg = (result.error.message || result.error.msg || '').toLowerCase()
+  if (error) {
+    const msg = (error.message || error.msg || '').toLowerCase()
     if (msg.includes('provider is not enabled') || msg.includes('unsupported provider')) {
-      const providerLabel = isLinkedIn ? 'LinkedIn' : provider === 'google' ? 'Google' : provider
+      const providerLabel = provider === 'google' ? 'Google' : provider
       throw new Error(
-        `La connexion ${providerLabel} n'est pas encore activée dans votre projet Supabase. Veuillez activer "${providerLabel} (OIDC)" dans le tableau de bord Supabase (Authentication > Providers) avec votre Client ID et Client Secret.`
+        `La connexion ${providerLabel} n'est pas activée dans votre projet Supabase.`
       )
     }
-    throw result.error
+    throw error
   }
-  return result.data
+  return data
 }
 
 /**

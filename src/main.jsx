@@ -29,7 +29,6 @@ import {
 import './styles.css'
 import { ImportResumeModal } from './ImportResumeModal.jsx'
 import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
-import { extractLinkedInUserData } from './resumeParser.js'
 
 
 const CROP_VIEW_SIZE = 280
@@ -1036,30 +1035,7 @@ function ResumeBuilder({
     })
   }
 
-  const handleSyncLinkedIn = () => {
-    if (!user) {
-      if (onImportResume) onImportResume()
-      return
-    }
-    const linkedInData = extractLinkedInUserData(user)
-    if (linkedInData && (linkedInData.firstName || linkedInData.lastName || linkedInData.role)) {
-      markEdited()
-      setResume((current) => ({
-        ...current,
-        firstName: linkedInData.firstName || current.firstName,
-        lastName: linkedInData.lastName || current.lastName,
-        role: linkedInData.role || current.role,
-        email: linkedInData.email || current.email,
-        linkedin: linkedInData.linkedin || current.linkedin,
-      }))
-      if (linkedInData.photo && !photo) {
-        setPhoto(linkedInData.photo)
-      }
-      showNotice('Informations professionnelles LinkedIn synchronisées avec succès !')
-    } else {
-      if (onImportResume) onImportResume()
-    }
-  }
+
 
   useEffect(() => {
     if (!resumeLoaded || !isDirty) return undefined
@@ -1613,15 +1589,6 @@ function ResumeBuilder({
               <span className="quick-import-icon">📄</span>
               <span>Améliorer un CV existant</span>
             </button>
-            <button
-              type="button"
-              className="builder-quick-linkedin-btn"
-              onClick={handleSyncLinkedIn}
-              title="Synchroniser vos informations professionnelles depuis LinkedIn"
-            >
-              <span className="mini-in-badge">in</span>
-              <span>Synchroniser LinkedIn</span>
-            </button>
           </div>
           <div className="builder-form">
             <SectionHeading number="01" title="Informations personnelles" enabled={sectionEnabled('personal')} onToggle={() => toggleSection('personal')} onReset={() => resetSection('personal')} />
@@ -2148,14 +2115,6 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
                     </span>
                     Continuer avec Google
                   </button>
-                  <button type="button" className="account-provider" disabled={isSubmitting} onClick={() => handleOAuth('linkedin_oidc')}>
-                    <span className="provider-linkedin-mark" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="#0077B5" width="18" height="18">
-                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
-                      </svg>
-                    </span>
-                    Continuer avec LinkedIn
-                  </button>
                 </div>
                 <div className="account-divider"><span>ou par e-mail</span></div>
               </>
@@ -2537,7 +2496,7 @@ function ResumeDashboard({
             <div className="dashboard-welcome-banner">
               <div className="dashboard-welcome-info">
                 <h2>Bienvenue sur votre espace CVCraft !</h2>
-                <p>Prêt à créer votre CV ? Améliorez un document existant (PDF, Word, LinkedIn) avec nos modèles professionnels ou débutez sur une page blanche.</p>
+                <p>Prêt à créer votre CV ? Améliorez un document existant (PDF, Word, texte) avec nos modèles professionnels ou débutez sur une page blanche.</p>
               </div>
               <div className="dashboard-welcome-actions">
                 <button
@@ -2773,17 +2732,6 @@ function App() {
     setStartChoiceModalOpen(true)
   }
 
-  const handleDirectLinkedInAuth = async () => {
-    setStartChoiceModalOpen(false)
-    prepareOAuth('signin')
-    try {
-      await signInWithOAuth('linkedin_oidc')
-    } catch (err) {
-      console.error('Erreur LinkedIn OAuth:', err)
-      showNotice(err.message || 'La connexion avec LinkedIn a échoué.')
-    }
-  }
-
   const handleApplyImportedResume = ({ resumeData, template, photo }) => {
     const templateToApply = resumeTemplates.some((item) => item.id === template) ? template : 'sillage'
     setSelectedTemplate(templateToApply)
@@ -2848,11 +2796,6 @@ function App() {
       setDownloadAfterPayment(Boolean(intent.downloadAfterAuth))
       setUser(session.user)
       setAuthOpen(false)
-
-      const linkedInData = extractLinkedInUserData(session.user)
-      if (linkedInData && (linkedInData.firstName || linkedInData.role)) {
-        showNotice(`Connexion réussie ! Vos informations professionnelles ont été synchronisées.`)
-      }
 
       if (['pro', 'gold'].includes(intent.planId)) {
         setMobilePayPhone('')
@@ -3485,17 +3428,11 @@ function App() {
             setStartChoiceModalOpen(false)
             setImportModalOpen(true)
           }}
-          onSelectLinkedIn={handleDirectLinkedInAuth}
         />
         <ImportResumeModal
           isOpen={importModalOpen}
           onClose={() => setImportModalOpen(false)}
           onApplyResume={handleApplyImportedResume}
-          currentUser={user}
-          onLinkedInLogin={() => {
-            prepareOAuth('signin')
-            signInWithOAuth('linkedin_oidc')
-          }}
           templates={resumeTemplates}
         />
         {authOpen && (
@@ -3540,17 +3477,11 @@ function App() {
             setStartChoiceModalOpen(false)
             setImportModalOpen(true)
           }}
-          onSelectLinkedIn={handleDirectLinkedInAuth}
         />
         <ImportResumeModal
           isOpen={importModalOpen}
           onClose={() => setImportModalOpen(false)}
           onApplyResume={handleApplyImportedResume}
-          currentUser={user}
-          onLinkedInLogin={() => {
-            prepareOAuth('signin')
-            signInWithOAuth('linkedin_oidc')
-          }}
           templates={resumeTemplates}
         />
         {notice && <div className="toast" role="status">{notice}</div>}
@@ -3867,17 +3798,11 @@ function App() {
           setStartChoiceModalOpen(false)
           setImportModalOpen(true)
         }}
-        onSelectLinkedIn={handleDirectLinkedInAuth}
       />
       <ImportResumeModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
         onApplyResume={handleApplyImportedResume}
-        currentUser={user}
-        onLinkedInLogin={() => {
-          prepareOAuth('signin')
-          signInWithOAuth('linkedin_oidc')
-        }}
         templates={resumeTemplates}
       />
       {planMobilePayDialog}
