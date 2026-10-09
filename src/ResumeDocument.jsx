@@ -2,9 +2,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 export const RESUME_SHEET_WIDTH = 650
 export const RESUME_SHEET_HEIGHT = Math.round(RESUME_SHEET_WIDTH / (210 / 297))
-const FOOTER_RESERVE = 110
 const PAGE_GAP = 28
-const BLOCK_GAP = 14
 
 function formatPageLabel(pageIndex, totalPages) {
   return `${String(pageIndex + 1).padStart(2, '0')} / ${String(totalPages).padStart(2, '0')}`
@@ -455,11 +453,32 @@ export function ResumeDocument({
     if (!root) return undefined
 
     const frame = window.requestAnimationFrame(() => {
+      // 1. Hauteur réelle occupée par chaque bloc dans le flux live (avec inter-blocs réels)
       const heights = {}
-      root.querySelectorAll('[data-block-id]').forEach((node) => {
+      const rightNodes = Array.from(root.querySelectorAll('.resume-right [data-block-id]'))
+      rightNodes.forEach((node, index) => {
         const id = node.getAttribute('data-block-id')
         if (!id) return
-        heights[id] = node.getBoundingClientRect().height + BLOCK_GAP
+        const nextNode = rightNodes[index + 1]
+        if (nextNode) {
+          const gap = nextNode.getBoundingClientRect().top - node.getBoundingClientRect().top
+          heights[id] = Math.max(node.getBoundingClientRect().height, gap)
+        } else {
+          heights[id] = node.getBoundingClientRect().height
+        }
+      })
+
+      const leftNodes = Array.from(root.querySelectorAll('.resume-left [data-block-id]'))
+      leftNodes.forEach((node, index) => {
+        const id = node.getAttribute('data-block-id')
+        if (!id) return
+        const nextNode = leftNodes[index + 1]
+        if (nextNode) {
+          const gap = nextNode.getBoundingClientRect().top - node.getBoundingClientRect().top
+          heights[id] = Math.max(node.getBoundingClientRect().height, gap)
+        } else {
+          heights[id] = node.getBoundingClientRect().height
+        }
       })
 
       const expLabel = root.querySelector('[data-measure="exp-label"]')
@@ -471,16 +490,32 @@ export function ResumeDocument({
         project: projectLabel ? projectLabel.getBoundingClientRect().height + 10 : 26,
       }
 
-      const fullHeader = root.querySelector('[data-measure="header-full"]')
-      const continuedHeader = root.querySelector('[data-measure="header-continued"]')
-      const rule = root.querySelector('[data-measure="rule"]')
-      const fullHeaderHeight = (fullHeader?.getBoundingClientRect().height || 0)
-        + (rule?.getBoundingClientRect().height || 0)
-        + 24
-      const continuedHeaderHeight = (continuedHeader?.getBoundingClientRect().height || 64) + 20
+      const sheet1 = root.querySelector('.resume-sheet')
+      const content1 = sheet1?.querySelector('[data-measure="content"]')
+      const footer1 = sheet1?.querySelector('.resume-sheet-footer')
+      const footerHeight = footer1?.getBoundingClientRect().height || 22
 
-      const page1Capacity = Math.max(120, RESUME_SHEET_HEIGHT - fullHeaderHeight - FOOTER_RESERVE)
-      const nextCapacity = Math.max(180, RESUME_SHEET_HEIGHT - continuedHeaderHeight - FOOTER_RESERVE)
+      // Position absolue de la limite supérieure de resume-sheet-footer depuis le haut de la feuille A4 (919px)
+      // Le footer est positionné en absolute avec bottom: 28px
+      const footerTopInSheet = RESUME_SHEET_HEIGHT - 28 - footerHeight
+
+      // Position de début du contenu depuis le haut de la feuille
+      const fullHeader = root.querySelector('[data-measure="header-full"]')
+      const rule = root.querySelector('[data-measure="rule"]')
+      const defaultContentTop = (fullHeader?.getBoundingClientRect().height || 0) + (rule?.getBoundingClientRect().height || 0) + 63
+      const content1Top = content1 && sheet1
+        ? (content1.getBoundingClientRect().top - sheet1.getBoundingClientRect().top)
+        : defaultContentTop
+
+      // Capacité de la page 1 : le contenu s'étend jusqu'à atteindre la div resume-sheet-footer
+      const page1Capacity = Math.max(120, footerTopInSheet - content1Top - 2)
+
+      // Position du contenu sur les pages suivantes (continuation)
+      const continuedHeader = root.querySelector('[data-measure="header-continued"]')
+      const continuedHeaderHeight = continuedHeader?.getBoundingClientRect().height || 50
+      const continuedContentTop = 42 + continuedHeaderHeight + 18
+      const nextCapacity = Math.max(180, footerTopInSheet - continuedContentTop - 2)
+
       const capacities = [page1Capacity, nextCapacity]
 
       fixPassRef.current = 0

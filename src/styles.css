@@ -123,7 +123,7 @@ a { color: inherit; text-decoration: none; }
 	body.pdf-exporting .builder-page { overflow: visible; }
 	body.pdf-exporting .resume-pages-wrap { width: 650px; height: auto !important; }
 	body.pdf-exporting .resume-pages { width: 650px; gap: 0; transform: none !important; }
-	body.pdf-exporting .resume-sheet { width: 650px !important; height: 919px !important; min-height: 0 !important; aspect-ratio: auto !important; padding: 63px 66px 78px !important; zoom: 1 !important; overflow: hidden !important; }
+	body.pdf-exporting .resume-sheet { width: 650px !important; height: 919px !important; min-height: 0 !important; aspect-ratio: auto !important; padding: 63px 66px 48px !important; zoom: 1 !important; overflow: hidden !important; }
 	body.pdf-exporting .resume-sheet-top h2 { font-size: 43px; }
 	body.pdf-exporting .resume-sheet-top h2 strong { font-size: 43px; }
 	body.pdf-exporting .resume-sheet-top > div > span { font-size: 8px; }
@@ -975,9 +975,9 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 .pdf-export-root { position: fixed; top: 0; left: -10000px; width: 650px; height: 919px; overflow: hidden; pointer-events: none; }
 .resume-pages { display: flex; flex-direction: column; align-items: stretch; gap: 28px; transform-origin: top left; }
 .resume-measure-root { position: fixed; left: -10000px; top: 0; width: 650px; visibility: hidden; pointer-events: none; z-index: -1; }
-.resume-sheet { position: relative; box-sizing: border-box; width: min(100%, 650px); aspect-ratio: 210 / 297; height: auto; min-height: 0; margin: 0 auto; padding: 63px 66px 78px; overflow: hidden; overflow-wrap: anywhere; background: #fffef9; box-shadow: 0 20px 50px rgba(30, 34, 29, .13); font-family: var(--cv-font, 'DM Sans', sans-serif); --cv-accent: #e49a68; --signal-color: var(--cv-accent); }
+.resume-sheet { position: relative; box-sizing: border-box; width: min(100%, 650px); aspect-ratio: 210 / 297; height: auto; min-height: 0; margin: 0 auto; padding: 63px 66px 48px; overflow: hidden; overflow-wrap: anywhere; background: #fffef9; box-shadow: 0 20px 50px rgba(30, 34, 29, .13); font-family: var(--cv-font, 'DM Sans', sans-serif); --cv-accent: #e49a68; --signal-color: var(--cv-accent); }
 .resume-sheet-measure { aspect-ratio: auto !important; height: auto !important; overflow: visible !important; min-height: 0 !important; box-shadow: none; }
-.resume-sheet-continued { padding-top: 42px; }
+.resume-sheet-continued { padding-top: 42px; padding-bottom: 48px; }
 .resume-sheet-top-continued { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .resume-sheet-top-continued h2 { margin: 0 0 6px; font: 700 28px/.85 var(--cv-font, 'DM Sans', sans-serif); letter-spacing: -.05em; }
 .resume-sheet-top-continued h2 strong { font: italic 500 28px/.85 var(--cv-font-display, 'Fraunces', Georgia, serif); }

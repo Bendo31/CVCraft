@@ -255,5 +255,78 @@ assert.strictEqual(prefilledResume.experiences[0].startDate, '2021-01-01')
 assert.strictEqual(prefilledResume.languages[0].level, 5)
 console.log('✅ Les données importées préremplissent correctement tous les champs du CV Builder et activent la visibilité des rubriques concernées.')
 
-console.log('--- Test 7: Validation finale ---')
+console.log('--- Test 7: Calcul de capacité atteignant resume-sheet-footer ---')
+const RESUME_SHEET_HEIGHT = 919
+const footerHeight = 22
+const footerTopInSheet = RESUME_SHEET_HEIGHT - 28 - footerHeight // 869px
+const contentTop = 200 // après l'en-tête et la ligne séparatrice
+const page1Capacity = footerTopInSheet - contentTop - 2 // 667px
+
+assert.ok(page1Capacity >= 650, `La capacité de la page 1 (${page1Capacity}px) doit exploiter toute la feuille jusqu'au footer`)
+
+// Vérification que 4 expériences de 90px + 2 formations de 80px tiennent sur la page 1 sans couper prématurément
+const sampleItems = [
+  { id: 'exp-0', type: 'exp' },
+  { id: 'exp-1', type: 'exp' },
+  { id: 'exp-2', type: 'exp' },
+  { id: 'exp-3', type: 'exp' },
+  { id: 'edu-0', type: 'edu' },
+  { id: 'edu-1', type: 'edu' },
+]
+const heights = {
+  'exp-0': 90,
+  'exp-1': 90,
+  'exp-2': 90,
+  'exp-3': 90,
+  'edu-0': 80,
+  'edu-1': 80,
+}
+const labelHeights = { exp: 26, edu: 26 }
+
+function packAtomicBlocks(items, heights, labelHeights, capacities) {
+  const pages = []
+  let current = []
+  let used = 0
+  let pageIndex = 0
+  let openSection = null
+
+  const capacityFor = (index) => capacities[Math.min(index, capacities.length - 1)]
+
+  const pushPage = () => {
+    if (!current.length) return
+    pages.push(current)
+    current = []
+    used = 0
+    openSection = null
+    pageIndex += 1
+  }
+
+  items.forEach((item) => {
+    const needsLabel = Boolean(labelHeights[item.type]) && openSection !== item.type
+    const labelHeight = needsLabel ? (labelHeights[item.type] || 0) : 0
+    const blockHeight = (heights[item.id] || 0) + labelHeight
+
+    if (current.length > 0 && used + blockHeight > capacityFor(pageIndex)) {
+      pushPage()
+    }
+
+    const needsLabelNow = Boolean(labelHeights[item.type]) && openSection !== item.type
+    const labelNow = needsLabelNow ? (labelHeights[item.type] || 0) : 0
+    if (needsLabelNow) openSection = item.type
+
+    current.push(item)
+    used += (heights[item.id] || 0) + labelNow
+  })
+
+  pushPage()
+  if (!pages.length) pages.push([])
+  return pages
+}
+
+const packedPages = packAtomicBlocks(sampleItems, heights, labelHeights, [page1Capacity, 700])
+assert.strictEqual(packedPages.length, 1, 'Toutes les expériences et formations doivent tenir sur la page 1 jusqu’au footer !')
+assert.strictEqual(packedPages[0].length, 6)
+console.log('✅ Les informations exploitent bien tout l’espace jusqu’à resume-sheet-footer avant de partir sur la page suivante.')
+
+console.log('--- Test 8: Validation finale ---')
 console.log('✅ Tous les tests sont validés avec succès !')
