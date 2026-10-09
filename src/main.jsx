@@ -689,6 +689,7 @@ function SectionHeading({ number, title, enabled, onToggle, onReset, locked = fa
 }
 
 function ResumeBuilder({
+  user,
   userId,
   initialResumeId,
   createNewResume,
@@ -806,18 +807,26 @@ function ResumeBuilder({
         setResumeId(savedData.id || null)
         resumeIdRef.current = savedData.id || null
         window.localStorage.removeItem(GUEST_RESUME_KEY)
-        const savedResume = savedData.resume || savedData
+        const savedResume = savedData.resume || savedData || {}
         setResume({
           ...defaultResume,
           ...savedResume,
           sectionVisibility: {
             ...defaultResume.sectionVisibility,
-            ...savedResume.sectionVisibility,
+            ...(savedResume.sectionVisibility || {}),
             personal: savedResume.sectionVisibility?.personal
               ?? (savedResume.sectionVisibility?.contact !== false && savedResume.sectionVisibility?.summary !== false),
           },
+          experiences: Array.isArray(savedResume.experiences) ? savedResume.experiences : defaultResume.experiences,
+          educations: Array.isArray(savedResume.educations) ? savedResume.educations : defaultResume.educations,
+          skills: Array.isArray(savedResume.skills) ? savedResume.skills : defaultResume.skills,
+          languages: Array.isArray(savedResume.languages) ? savedResume.languages : defaultResume.languages,
+          projects: Array.isArray(savedResume.projects) ? savedResume.projects : defaultResume.projects,
+          references: Array.isArray(savedResume.references) ? savedResume.references : defaultResume.references,
+          certifications: Array.isArray(savedResume.certifications) ? savedResume.certifications : defaultResume.certifications,
+          interests: Array.isArray(savedResume.interests) ? savedResume.interests : defaultResume.interests,
         })
-        setPhoto(savedData.resume ? savedData.photo || '' : '')
+        setPhoto(savedData.photo || savedResume.photo || '')
         const resolvedTemplate = preferInitialTemplate
           ? initialTemplate
           : resumeTemplates.some((item) => item.id === savedData.template)
@@ -1087,8 +1096,13 @@ function ResumeBuilder({
   const selectedFont = resumeFonts.find((item) => item.id === resumeFont) || resumeFonts[0]
 
   const downloadPdf = async () => {
+    // Laisser le temps à React et ResumeDocument de stabiliser le DOM et la pagination
+    await new Promise((resolve) => window.setTimeout(resolve, 350))
     const sheets = document.querySelectorAll('#resume-preview .resume-sheet')
-    if (!sheets.length) return false
+    if (!sheets.length) {
+      console.warn('downloadPdf: aucune feuille #resume-preview .resume-sheet trouvée.')
+      return false
+    }
 
     document.body.classList.add('pdf-exporting')
     await new Promise((resolve) => window.requestAnimationFrame(resolve))
@@ -1122,7 +1136,8 @@ function ResumeBuilder({
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, pageHeight)
       }
 
-      const fileName = `${resume.lastName.trim()} ${resume.firstName.trim()} CvCraft.pdf`.trim()
+      const fullName = `${(resume.lastName || '').trim()} ${(resume.firstName || '').trim()}`.trim()
+      const fileName = `${fullName ? fullName + ' ' : ''}CvCraft.pdf`
       pdf.save(fileName)
 
       if (userId) {
@@ -1272,7 +1287,22 @@ function ResumeBuilder({
             }}>Échec serveur — Réessayer</button>
           )}
         </div>}
-        <div className="builder-user"><button className="mobile-change-template" onClick={() => setTemplateChooserOpen(true)}>Changer de modèle</button>{userId && <button onClick={() => saveBeforeNavigation(onDashboard)}>Mes CV</button>}{userId && <button onClick={handleLogout}>Déconnexion</button>}<button onClick={() => saveBeforeNavigation(onHome)}>Quitter</button></div>
+        <div className="builder-user">
+          {user?.email && (
+            <span className="builder-user-email">
+              {user.email}
+              {accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) && (
+                <span className="user-pro-crown" title={`Abonnement ${accountPlan?.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
+                  <PremiumCrown />
+                </span>
+              )}
+            </span>
+          )}
+          <button className="mobile-change-template" onClick={() => setTemplateChooserOpen(true)}>Changer de modèle</button>
+          {userId && <button onClick={() => saveBeforeNavigation(onDashboard)}>Mes CV</button>}
+          {userId && <button onClick={handleLogout}>Déconnexion</button>}
+          <button onClick={() => saveBeforeNavigation(onHome)}>Quitter</button>
+        </div>
       </header>
       <main className="builder-main">
         <aside className="builder-sidebar">
@@ -1812,7 +1842,19 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
   )
 }
 
-function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResume, onOpenResume, onDownloadResume, onPurchasePlan, onLogout }) {
+function ResumeDashboard({
+  user,
+  accountPlan,
+  onPlanUpdate,
+  onHome,
+  onCreateResume,
+  onOpenResume,
+  onDownloadResume,
+  onPurchasePlan,
+  onLogout,
+  showNotice,
+  downloadInProgressId,
+}) {
   const [resumes, setResumes] = useState([])
   const [plan, setPlan] = useState(() => accountPlan || { planId: 'free', active: true, validUntil: null })
   const [isLoading, setIsLoading] = useState(true)
@@ -1886,11 +1928,13 @@ function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResu
   }
   const handleDeleteResume = async (resume) => {
     const title = getResumeTitle(resume)
-    if (!window.confirm(`Supprimer définitivement « ${title} » ?`)) return
+    if (!window.confirm(`Supprimer définitivement « ${title} » de votre compte et de la base de données ?`)) return
     try {
       await deleteUserResumeFromCloud(user.id, resume.id)
       setResumes((current) => current.filter((item) => item.id !== resume.id))
       setActionsOpen(null)
+      setError('')
+      if (showNotice) showNotice(`Le CV « ${title} » a été supprimé de la base de données.`)
     } catch (deleteError) {
       console.error('Erreur lors de la suppression du CV:', deleteError)
       setError(deleteError.message || 'Impossible de supprimer ce CV.')
@@ -1974,7 +2018,14 @@ function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResu
       <header className="dashboard-header">
         <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CVcraft"><span className="brand-mark">c</span><span>CVcraft</span></button>
         <div className="dashboard-user">
-          <span>{user?.email || ''}</span>
+          <span className="dashboard-user-email">
+            {user?.email || ''}
+            {plan.active && ['pro', 'gold'].includes(plan.planId) && (
+              <span className="user-pro-crown" title={`Abonnement ${plan.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
+                <PremiumCrown />
+              </span>
+            )}
+          </span>
           <button className="dashboard-home-link" type="button" onClick={onHome}>Accueil</button>
           <button type="button" onClick={onLogout}>Déconnexion</button>
         </div>
@@ -2026,6 +2077,7 @@ function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResu
                     const selectedTemplate = resumeTemplates.find((item) => item.id === resume.template)
                     const resumeWithinQuota = resumeIndex < resumeQuota
                     const canDuplicate = resumeWithinQuota && plan.active && plan.planId === 'gold' && resumes.length < 3
+                    const isDownloadingThis = downloadInProgressId === resume.id
                     return <tr key={resume.id}>
                     <td>
                       <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
@@ -2050,8 +2102,19 @@ function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResu
                     <td>{formatRelativeDate(resume.updatedAt) || '—'}</td>
                     <td>
                       <div className="dashboard-document-actions">
-                        <button className="dashboard-icon-button" type="button" aria-label={`Télécharger ${resumeTitle}`} title={!resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'} disabled={!resumeWithinQuota} onClick={() => onDownloadResume(resume)}>
-                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3 13v3.5h14V13" /></svg>
+                        <button
+                          className={`dashboard-icon-button ${isDownloadingThis ? 'is-downloading' : ''}`}
+                          type="button"
+                          aria-label={`Télécharger ${resumeTitle}`}
+                          title={isDownloadingThis ? 'Téléchargement en cours...' : !resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'}
+                          disabled={!resumeWithinQuota || isDownloadingThis}
+                          onClick={() => onDownloadResume(resume)}
+                        >
+                          {isDownloadingThis ? (
+                            <span className="download-spinner" aria-hidden="true" />
+                          ) : (
+                            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3 13v3.5h14V13" /></svg>
+                          )}
                         </button>
                         <div className="dashboard-more-wrap">
                           <button
@@ -2108,6 +2171,23 @@ function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResu
                 <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
               </svg>
               <span>Modifier</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={downloadInProgressId === actionsOpen.resume.id}
+              onClick={() => {
+                const target = actionsOpen.resume
+                setActionsOpen(null)
+                onDownloadResume(target)
+              }}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Télécharger en PDF</span>
             </button>
             <button
               type="button"
@@ -2243,6 +2323,7 @@ function App() {
   const [templateSelectionMade, setTemplateSelectionMade] = useState(false)
   const [downloadAfterPayment, setDownloadAfterPayment] = useState(false)
   const [dashboardDownloadRequested, setDashboardDownloadRequested] = useState(false)
+  const [downloadingResumeId, setDownloadingResumeId] = useState(null)
   const [paymentVerifyAttempt, setPaymentVerifyAttempt] = useState(0)
   const [mobilePayPlan, setMobilePayPlan] = useState(null)
   const [mobilePayCountry, setMobilePayCountry] = useState(() => detectUserCountryCode())
@@ -2715,19 +2796,58 @@ function App() {
     setView('builder')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
-  const downloadDashboardResume = (savedResume) => {
+  const downloadDashboardResume = async (savedResume) => {
     const resumeTemplate = resumeTemplates.some((item) => item.id === savedResume.template)
       ? savedResume.template
       : 'gratuit'
+
+    if (resumeTemplate !== 'gratuit' && savedResume.modelStatus !== 'paid' && !(accountPlan.active && ['pro', 'gold'].includes(accountPlan.planId))) {
+      setSelectedTemplate(resumeTemplate)
+      setSelectedResumeId(savedResume.id)
+      setCreateNewResume(false)
+      setTemplateSelectionMade(true)
+      setView('builder')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+
+    if (savedResume.pdfUrl) {
+      const fileName = `${(savedResume.resume?.lastName || '').trim()} ${(savedResume.resume?.firstName || '').trim()} CvCraft.pdf`.trim() || 'CV.pdf'
+      try {
+        setDownloadingResumeId(savedResume.id)
+        showNotice('Téléchargement du CV en cours...')
+        const response = await fetch(savedResume.pdfUrl)
+        if (response.ok) {
+          const blob = await response.blob()
+          const blobUrl = window.URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = blobUrl
+          a.download = fileName
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+          window.URL.revokeObjectURL(blobUrl)
+          showNotice('CV téléchargé avec succès !')
+          setDownloadingResumeId(null)
+          return
+        }
+      } catch (err) {
+        console.warn('Téléchargement direct du PDF échoué, génération dynamique...', err)
+      }
+    }
+
     setSelectedTemplate(resumeTemplate)
     setSelectedResumeId(savedResume.id)
     setCreateNewResume(false)
     setTemplateSelectionMade(true)
+    setDownloadingResumeId(savedResume.id)
     setDashboardDownloadRequested(true)
-    if (resumeTemplate !== 'gratuit' && savedResume.modelStatus !== 'paid' && !(accountPlan.active && ['pro', 'gold'].includes(accountPlan.planId))) {
-      setView('builder')
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    }
+    showNotice('Génération du CV en cours...')
+  }
+
+  const handleDashboardDownloadComplete = () => {
+    setDashboardDownloadRequested(false)
+    setDownloadingResumeId(null)
   }
 
   if (paymentReturnStatus && view !== 'builder') {
@@ -2843,6 +2963,8 @@ function App() {
     return (
       <>
         <ResumeBuilder
+          key={selectedResumeId || 'new'}
+          user={user}
           userId={user?.id}
           initialResumeId={selectedResumeId}
           createNewResume={createNewResume}
@@ -2891,10 +3013,15 @@ function App() {
           onDownloadResume={downloadDashboardResume}
           onPurchasePlan={requestPlanCheckout}
           onLogout={logout}
+          showNotice={showNotice}
+          downloadInProgressId={downloadingResumeId}
         />
+        {notice && <div className="toast" role="status">{notice}</div>}
         {dashboardDownloadRequested && (
           <div className="dashboard-download-host" aria-hidden="true">
             <ResumeBuilder
+              key={`download-${selectedResumeId}`}
+              user={user}
               userId={user.id}
               initialResumeId={selectedResumeId}
               createNewResume={false}
@@ -2904,7 +3031,7 @@ function App() {
               preferInitialTemplate={templateSelectionMade}
               downloadAfterPayment={false}
               downloadRequested
-              onDownloadRequestComplete={() => setDashboardDownloadRequested(false)}
+              onDownloadRequestComplete={handleDashboardDownloadComplete}
               onAutoDownloadComplete={() => {}}
               onHome={goHome}
               onDashboard={goDashboard}

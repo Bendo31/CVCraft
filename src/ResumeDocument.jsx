@@ -106,11 +106,12 @@ function LeftBlock({ item, resume }) {
   }
 
   if (item.type === 'skills') {
+    const skills = Array.isArray(resume.skills) ? resume.skills : []
     return (
       <div className="resume-block" data-block-id="skills">
         <span className="resume-label">Compétences</span>
         <p>
-          {resume.skills.filter(Boolean).map((skill, index) => (
+          {skills.filter(Boolean).map((skill, index) => (
             <span className="resume-skill" key={`${skill}-${index}`}>
               <i aria-hidden="true">{['✦', '◌', '↗', '◇'][index % 4]}</i>
               {skill}
@@ -122,10 +123,11 @@ function LeftBlock({ item, resume }) {
   }
 
   if (item.type === 'certs') {
+    const certifications = Array.isArray(resume.certifications) ? resume.certifications : []
     return (
       <div className="resume-block" data-block-id="certs">
         <span className="resume-label">Certifications</span>
-        {resume.certifications.map((certification, index) => (
+        {certifications.map((certification, index) => (
           <div className="resume-entry resume-certification" key={`cert-${index}`}>
             <strong>{certification.name}</strong>
             <p>
@@ -139,10 +141,11 @@ function LeftBlock({ item, resume }) {
   }
 
   if (item.type === 'refs') {
+    const references = Array.isArray(resume.references) ? resume.references : []
     return (
       <div className="resume-block" data-block-id="refs">
         <span className="resume-label">Références</span>
-        {resume.references.map((reference, index) => (
+        {references.map((reference, index) => (
           <p className="resume-reference" key={`ref-${index}`}>
             <strong>{reference.name}</strong><br />
             {reference.role}<br />
@@ -154,10 +157,11 @@ function LeftBlock({ item, resume }) {
   }
 
   if (item.type === 'languages') {
+    const languages = Array.isArray(resume.languages) ? resume.languages : []
     return (
       <div className="resume-block" data-block-id="languages">
         <span className="resume-label">Langues</span>
-        {resume.languages.map((language, index) => (
+        {languages.map((language, index) => (
           <p className="resume-reference" key={`language-${index}`}>
             <strong>{language.name}</strong>{formatLanguageLevel(language.level)}
           </p>
@@ -167,10 +171,11 @@ function LeftBlock({ item, resume }) {
   }
 
   if (item.type === 'interests') {
+    const interests = Array.isArray(resume.interests) ? resume.interests : []
     return (
       <div className="resume-block" data-block-id="interests">
         <span className="resume-label">Centres d’intérêt</span>
-        <p>{resume.interests.filter(Boolean).join(' · ')}</p>
+        <p>{interests.filter(Boolean).join(' · ')}</p>
       </div>
     )
   }
@@ -180,7 +185,8 @@ function LeftBlock({ item, resume }) {
 
 function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
   if (item.type === 'exp') {
-    const experience = resume.experiences[item.index]
+    const experiences = Array.isArray(resume.experiences) ? resume.experiences : []
+    const experience = experiences[item.index]
     if (!experience) return null
     return (
       <div className={`resume-entry-wrap${showLabel ? ' resume-entry-wrap-labeled' : ''}`} data-block-id={item.id}>
@@ -204,7 +210,8 @@ function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
   }
 
   if (item.type === 'edu') {
-    const education = resume.educations[item.index]
+    const educations = Array.isArray(resume.educations) ? resume.educations : []
+    const education = educations[item.index]
     if (!education) return null
     return (
       <div className={`resume-entry-wrap${showLabel ? ' resume-entry-wrap-labeled' : ''}`} data-block-id={item.id}>
@@ -221,7 +228,8 @@ function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
   }
 
   if (item.type === 'project') {
-    const entry = resume[item.field][item.index]
+    const list = Array.isArray(resume[item.field]) ? resume[item.field] : []
+    const entry = list[item.index]
     if (!entry) return null
     return (
       <div className={`resume-entry-wrap${showLabel ? ' resume-entry-wrap-labeled' : ''}`} data-block-id={item.id}>
@@ -383,31 +391,41 @@ export function ResumeDocument({
     const visible = (section) => sectionVisibility[section] !== false
       && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
     const personalVisible = visible('personal')
+    const skills = Array.isArray(resume?.skills) ? resume.skills : []
+    const certifications = Array.isArray(resume?.certifications) ? resume.certifications : []
+    const references = Array.isArray(resume?.references) ? resume.references : []
+    const languages = Array.isArray(resume?.languages) ? resume.languages : []
+    const interests = Array.isArray(resume?.interests) ? resume.interests : []
+
     const items = []
-    if (personalVisible && resume.summary) items.push({ id: 'summary', type: 'summary' })
+    if (personalVisible && resume?.summary) items.push({ id: 'summary', type: 'summary' })
     if (template === 'sillage' && personalVisible) items.push({ id: 'contact', type: 'contact' })
-    if (visible('skills') && resume.skills.some(Boolean)) items.push({ id: 'skills', type: 'skills' })
-    if (visible('certifications') && resume.certifications.some((item) => item.name || item.issuer || item.year)) items.push({ id: 'certs', type: 'certs' })
-    if (visible('references') && resume.references.some((item) => item.name || item.role || item.contact)) items.push({ id: 'refs', type: 'refs' })
-    if (visible('languages') && resume.languages.some((item) => item.name || item.level)) items.push({ id: 'languages', type: 'languages' })
-    if (visible('interests') && resume.interests.some(Boolean)) items.push({ id: 'interests', type: 'interests' })
+    if (visible('skills') && skills.some(Boolean)) items.push({ id: 'skills', type: 'skills' })
+    if (visible('certifications') && certifications.some((item) => item.name || item.issuer || item.year)) items.push({ id: 'certs', type: 'certs' })
+    if (visible('references') && references.some((item) => item.name || item.role || item.contact)) items.push({ id: 'refs', type: 'refs' })
+    if (visible('languages') && languages.some((item) => item.name || item.level)) items.push({ id: 'languages', type: 'languages' })
+    if (visible('interests') && interests.some(Boolean)) items.push({ id: 'interests', type: 'interests' })
     return items
   }, [resume, sectionVisibility, template])
 
   const rightItems = useMemo(() => {
     const visible = (section) => sectionVisibility[section] !== false
       && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
+    const experiences = Array.isArray(resume?.experiences) ? resume.experiences : []
+    const educations = Array.isArray(resume?.educations) ? resume.educations : []
+
     const items = []
-    if (visible('experiences')) resume.experiences.slice(0, template === 'gratuit' ? 3 : undefined).forEach((entry, index) => {
-      if (Object.values(entry).some(Boolean)) items.push({ id: `exp-${index}`, type: 'exp', index })
+    if (visible('experiences')) experiences.slice(0, template === 'gratuit' ? 3 : undefined).forEach((entry, index) => {
+      if (entry && Object.values(entry).some(Boolean)) items.push({ id: `exp-${index}`, type: 'exp', index })
     })
-    if (visible('educations')) resume.educations.forEach((entry, index) => {
-      if (Object.values(entry).some(Boolean)) items.push({ id: `edu-${index}`, type: 'edu', index })
+    if (visible('educations')) educations.forEach((entry, index) => {
+      if (entry && Object.values(entry).some(Boolean)) items.push({ id: `edu-${index}`, type: 'edu', index })
     })
     const appendEntries = (field, type, label, isVisible) => {
       if (!isVisible) return
-      resume[field].forEach((entry, index) => {
-        if (!Object.values(entry).some(Boolean)) return
+      const list = Array.isArray(resume?.[field]) ? resume[field] : []
+      list.forEach((entry, index) => {
+        if (!entry || !Object.values(entry).some(Boolean)) return
         items.push({ id: `${type}-${index}`, type, field, index, label })
       })
     }

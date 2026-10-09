@@ -346,29 +346,63 @@ export async function updateResumeModelStatus(userId, templateId, modelStatus, r
   return { success: true }
 }
 
+function formatResumeRecord(record) {
+  if (!record) return null
+  const content = record.content || {}
+  const innerResume = content.resume || content || {}
+  const templateId = content.template || content.templateId || 'gratuit'
+  const modelStatus = content.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment')
+
+  return {
+    ...content,
+    id: record.id,
+    template: templateId,
+    modelStatus,
+    photo: content.photo || record.photo_url || '',
+    baseColor: content.baseColor || '#e49a68',
+    resumeFont: content.resumeFont || 'classic',
+    pdfUrl: record.pdf_url || content.pdfUrl || null,
+    createdAt: record.created_at,
+    updatedAt: record.updated_at,
+    resume: {
+      firstName: innerResume.firstName || record.first_name || '',
+      lastName: innerResume.lastName || record.last_name || '',
+      role: innerResume.role || record.role || '',
+      email: innerResume.email || record.email || '',
+      phone: innerResume.phone || record.phone || '',
+      city: innerResume.city || record.city || '',
+      website: innerResume.website || '',
+      linkedin: innerResume.linkedin || record.linkedin || '',
+      facebook: innerResume.facebook || '',
+      x: innerResume.x || '',
+      threads: innerResume.threads || '',
+      summary: innerResume.summary || record.summary || '',
+      sectionVisibility: innerResume.sectionVisibility || {},
+      experiences: Array.isArray(innerResume.experiences) ? innerResume.experiences : [],
+      educations: Array.isArray(innerResume.educations) ? innerResume.educations : [],
+      skills: Array.isArray(innerResume.skills) ? innerResume.skills : [],
+      languages: Array.isArray(innerResume.languages) ? innerResume.languages : [],
+      projects: Array.isArray(innerResume.projects) ? innerResume.projects : [],
+      references: Array.isArray(innerResume.references) ? innerResume.references : [],
+      certifications: Array.isArray(innerResume.certifications) ? innerResume.certifications : [],
+      interests: Array.isArray(innerResume.interests) ? innerResume.interests : [],
+    },
+  }
+}
+
 export async function loadUserResumesFromCloud(userId) {
   const client = getSupabaseClient()
   if (!client || !userId) throw new Error('Une session serveur est requise pour charger les CV.')
 
   const { data, error } = await client
     .from('resumes')
-    .select('id, content, created_at, updated_at')
+    .select('*')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false })
     .order('id', { ascending: false })
 
   if (error) throw error
-  return (data || []).map((record) => {
-    const templateId = record.content?.template || 'gratuit'
-    return {
-      ...record.content,
-      id: record.id,
-      template: templateId,
-      modelStatus: record.content?.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment'),
-      createdAt: record.created_at,
-      updatedAt: record.updated_at,
-    }
-  })
+  return (data || []).map(formatResumeRecord)
 }
 
 export async function getUserResumePlan(userId) {
@@ -406,15 +440,13 @@ export async function deleteUserResumeFromCloud(userId, resumeId) {
   const client = getSupabaseClient()
   if (!client || !userId || !resumeId) throw new Error('Une session serveur est requise pour supprimer le CV.')
 
-  const { data, error } = await client
+  const { error } = await client
     .from('resumes')
     .delete()
     .eq('user_id', userId)
     .eq('id', resumeId)
-    .select('id')
 
   if (error) throw error
-  if (!data?.length) throw new Error('Le CV à supprimer est introuvable.')
   return { success: true }
 }
 
@@ -456,21 +488,13 @@ export async function loadUserResumeFromCloud(userId, resumeId = null) {
     if (!client || !userId) throw new Error('Une session serveur est requise pour charger le CV.')
     const { data, error } = await client
       .from('resumes')
-      .select('id, content, created_at, updated_at')
+      .select('*')
       .eq('user_id', userId)
       .eq('id', resumeId)
       .maybeSingle()
     if (error) throw error
     if (!data) return null
-    const templateId = data.content?.template || 'gratuit'
-    return {
-      ...data.content,
-      id: data.id,
-      template: templateId,
-      modelStatus: data.content?.modelStatus || (templateId === 'gratuit' ? 'free' : 'pending_payment'),
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    }
+    return formatResumeRecord(data)
   }
 
   const resumes = await loadUserResumesFromCloud(userId)

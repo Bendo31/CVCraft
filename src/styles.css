@@ -763,10 +763,60 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 .dashboard-download-host { position: fixed; z-index: -1; top: 0; left: -10000px; width: 100vw; height: 100vh; overflow: hidden; opacity: 0; pointer-events: none; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 
+.dashboard-user-email,
+.builder-user-email {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.user-pro-crown {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #eab308;
+  animation: crown-glow 3s ease-in-out infinite;
+}
+
+.user-pro-crown svg,
+.user-pro-crown .premium-crown {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  filter: drop-shadow(0 1px 2px rgba(234, 179, 8, 0.45));
+}
+
+@keyframes crown-glow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 1px 2px rgba(234, 179, 8, 0.4)); }
+  50% { transform: scale(1.12); filter: drop-shadow(0 2px 4px rgba(234, 179, 8, 0.8)); }
+}
+
+.download-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(115, 81, 223, 0.25);
+  border-top-color: #7351df;
+  border-radius: 50%;
+  animation: downloadSpin 0.75s linear infinite;
+  display: inline-block;
+}
+
+@keyframes downloadSpin {
+  to { transform: rotate(360deg); }
+}
+
+.dashboard-icon-button.is-downloading {
+  cursor: wait;
+  opacity: 0.85;
+}
+
 @media (max-width: 760px) {
   .dashboard-header { height: 66px; padding: 0 20px; }
   .dashboard-user { gap: 10px; font-size: 8px; }
-  .dashboard-user > span { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .dashboard-user > span,
+  .dashboard-user-email { max-width: 34vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .dashboard-content { width: min(100% - 32px, 1240px); padding: 26px 0 48px; }
   .dashboard-documents-heading { min-height: 60px; padding: 10px 13px; }
   .dashboard-heading-actions { gap: 6px; }
