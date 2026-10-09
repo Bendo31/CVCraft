@@ -1598,3 +1598,509 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   flex-shrink: 0;
 }
 
+/* ==========================================================================
+   Modale d'importation et d'amélioration de CV (PDF, Word, LinkedIn)
+   ========================================================================== */
+.import-backdrop {
+  z-index: 130;
+}
+
+.import-dialog {
+  position: relative;
+  width: min(100%, 720px);
+  max-height: min(92vh, 840px);
+  overflow-y: auto;
+  padding: 34px 38px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
+  border-radius: 4px;
+}
+
+.import-header {
+  margin-bottom: 22px;
+}
+
+.import-header h2 {
+  margin: 6px 0 8px;
+  font-size: 26px;
+  letter-spacing: -0.04em;
+}
+
+.import-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Onglets d'importation */
+.import-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.import-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.import-tab:hover {
+  background: #f1efe7;
+  color: var(--ink);
+}
+
+.import-tab.is-active {
+  background: #fff;
+  border-color: #d1d4cb;
+  color: var(--ink);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.import-tab svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.tab-linkedin-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 2px;
+  background: #0a66c2;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Dropzone de fichier */
+.import-dropzone {
+  border: 2px dashed #b8bcaf;
+  border-radius: 10px;
+  background: #faf9f5;
+  padding: 42px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.import-dropzone:hover,
+.import-dropzone.is-dragover {
+  border-color: #17191a;
+  background: #f4f3ec;
+}
+
+.import-dropzone.is-loading {
+  cursor: wait;
+}
+
+.import-icon-wrap {
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #eae9df;
+  display: grid;
+  place-items: center;
+}
+
+.import-icon-wrap svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.8;
+}
+
+.import-dropzone strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.import-dropzone p {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.import-browse-badge {
+  display: inline-block;
+  padding: 7px 18px;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+
+.import-parsing-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.import-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(23, 25, 26, 0.15);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: loading-spin 0.8s linear infinite;
+}
+
+/* Onglet LinkedIn */
+.import-linkedin-card {
+  border: 1px solid #d4d7cd;
+  border-radius: 8px;
+  background: #fff;
+  padding: 24px;
+}
+
+.import-linkedin-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.import-linkedin-header .provider-linkedin-mark {
+  position: static;
+  width: 28px;
+  height: 28px;
+  font-size: 15px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.import-linkedin-header strong {
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.import-linkedin-header p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.import-linkedin-tip {
+  display: block;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #faf9f4;
+  border-left: 3px solid #0a66c2;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #4b5248;
+  line-height: 1.5;
+}
+
+.import-user-badge {
+  font-size: 12.5px;
+  margin-bottom: 14px;
+  color: #333941;
+}
+
+/* Onglet Copier-Coller */
+.import-paste-pane label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #4b5248;
+}
+
+.import-paste-pane textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #c9cbc0;
+  background: #fff;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  border-radius: 4px;
+  resize: vertical;
+  margin-bottom: 14px;
+}
+
+/* Écran de succès / Choix du modèle */
+.import-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  background: #edf8e9;
+  border: 1px solid #c6e6bf;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.import-check-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #2e7d32;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.import-summary-bar strong {
+  display: block;
+  font-size: 13.5px;
+  color: #1b5e20;
+}
+
+.import-summary-bar p {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #388e3c;
+}
+
+.import-reselect-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #2e7d32;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.import-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+
+.import-stat-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  background: #f1efe7;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #3d423e;
+}
+
+/* Grille des modèles pour sublimation */
+.import-template-picker {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.import-template-picker h3 {
+  margin: 4px 0 4px;
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.import-template-sub {
+  margin: 0 0 16px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.import-templates-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.import-template-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 10px;
+  border: 1.5px solid #d4d7cd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+
+.import-template-card:hover {
+  border-color: #17191a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.import-template-card.is-selected {
+  border-color: #7351df;
+  background: #f7f5ff;
+  box-shadow: 0 0 0 1px #7351df;
+}
+
+.import-template-swatch {
+  margin-bottom: 10px;
+}
+
+.import-template-meta strong {
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.import-template-meta small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.import-template-checked {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #7351df;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+.import-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.button-enhance-cv {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* Boutons dans le builder & dashboard */
+.builder-quick-imports {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.builder-quick-import-btn,
+.builder-quick-linkedin-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.builder-quick-import-btn {
+  background: #fffef9;
+  border: 1px solid #c9cbc0;
+  color: var(--ink);
+}
+
+.builder-quick-import-btn:hover {
+  background: #f0efe8;
+  border-color: var(--ink);
+}
+
+.builder-quick-linkedin-btn {
+  background: #0a66c2;
+  border: 1px solid #0a66c2;
+  color: #ffffff;
+}
+
+.builder-quick-linkedin-btn:hover {
+  background: #084e96;
+}
+
+.mini-in-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dashboard-import-button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 13px;
+  border-radius: 7px;
+  background: #fff;
+  border: 1px solid #d0d3dc;
+  color: #343a40;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-import-button:hover:not(:disabled) {
+  background: #f4f5f7;
+  border-color: #adb5bd;
+}
+
+.dashboard-import-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+@media (max-width: 680px) {
+  .import-templates-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .builder-quick-imports {
+    flex-direction: column;
+  }
+}
+
+

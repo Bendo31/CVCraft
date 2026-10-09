@@ -27,6 +27,8 @@ import {
   updateResumeModelStatus,
 } from './supabaseClient.js'
 import './styles.css'
+import { ImportResumeModal } from './ImportResumeModal.jsx'
+import { extractLinkedInUserData } from './resumeParser.js'
 
 
 const CROP_VIEW_SIZE = 280
@@ -714,6 +716,7 @@ function ResumeBuilder({
   onRetryPayment,
   onSwitchResume,
   onCreateResume,
+  onImportResume,
   showNotice,
   notice,
 }) {
@@ -1030,6 +1033,31 @@ function ResumeBuilder({
         setSaveStatus('saving')
       }
     })
+  }
+
+  const handleSyncLinkedIn = () => {
+    if (!user) {
+      if (onImportResume) onImportResume()
+      return
+    }
+    const linkedInData = extractLinkedInUserData(user)
+    if (linkedInData && (linkedInData.firstName || linkedInData.lastName || linkedInData.role)) {
+      markEdited()
+      setResume((current) => ({
+        ...current,
+        firstName: linkedInData.firstName || current.firstName,
+        lastName: linkedInData.lastName || current.lastName,
+        role: linkedInData.role || current.role,
+        email: linkedInData.email || current.email,
+        linkedin: linkedInData.linkedin || current.linkedin,
+      }))
+      if (linkedInData.photo && !photo) {
+        setPhoto(linkedInData.photo)
+      }
+      showNotice('Informations professionnelles LinkedIn synchronisées avec succès !')
+    } else {
+      if (onImportResume) onImportResume()
+    }
   }
 
   useEffect(() => {
@@ -1426,6 +1454,16 @@ function ResumeBuilder({
                     <span>Nouveau CV</span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  className="nav-rail-add-cv-btn nav-rail-import-btn"
+                  onClick={onImportResume}
+                  title="Importer et améliorer un CV existant (PDF, Word, texte)"
+                >
+                  <span className="add-cv-icon">📄</span>
+                  <span>Importer un CV</span>
+                </button>
               </div>
             ) : (
               <div className="nav-rail-guest-hint">
@@ -1436,6 +1474,14 @@ function ResumeBuilder({
                   onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
                 >
                   Connectez-vous pour plusieurs CV
+                </button>
+                <button
+                  type="button"
+                  className="nav-rail-signin-link"
+                  style={{ marginTop: '5px', color: '#f8f7f2' }}
+                  onClick={onImportResume}
+                >
+                  📄 Importer un CV existant
                 </button>
               </div>
             )}
@@ -1556,6 +1602,26 @@ function ResumeBuilder({
           <div className="builder-sidebar-heading"><div><span className="section-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
           <div className="builder-progress"><span className="active" /><span /><span /></div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
+          <div className="builder-quick-imports">
+            <button
+              type="button"
+              className="builder-quick-import-btn"
+              onClick={onImportResume}
+              title="Importer un CV existant (PDF, Word, texte) pour l'améliorer"
+            >
+              <span className="quick-import-icon">📄</span>
+              <span>Améliorer un CV existant</span>
+            </button>
+            <button
+              type="button"
+              className="builder-quick-linkedin-btn"
+              onClick={handleSyncLinkedIn}
+              title="Synchroniser vos informations professionnelles depuis LinkedIn"
+            >
+              <span className="mini-in-badge">in</span>
+              <span>Synchroniser LinkedIn</span>
+            </button>
+          </div>
           <div className="builder-form">
             <SectionHeading number="01" title="Informations personnelles" enabled={sectionEnabled('personal')} onToggle={() => toggleSection('personal')} onReset={() => resetSection('personal')} />
             <div className="photo-field">
@@ -2159,6 +2225,7 @@ function ResumeDashboard({
   onPlanUpdate,
   onHome,
   onCreateResume,
+  onImportResume,
   onOpenResume,
   onDownloadResume,
   onPurchasePlan,
@@ -2350,6 +2417,15 @@ function ResumeDashboard({
             </div>
             <div className="dashboard-heading-actions">
               {plan.planId === 'free' && <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>{isPlanExpired ? 'Renouveler mon offre' : 'Changer mon offre'}</button>}
+              <button
+                className="dashboard-import-button"
+                type="button"
+                disabled={isLoading || freeQuotaReached}
+                onClick={onImportResume}
+                title="Importer et améliorer un CV existant (PDF, Word, texte)"
+              >
+                <span aria-hidden="true">📄</span> Importer un CV
+              </button>
               <button className="dashboard-create-button" type="button" disabled={isLoading || freeQuotaReached} title={freeQuotaReached ? (isPlanExpired ? 'Votre offre a expiré et la limite de CV est atteinte. Réactivez votre offre pour créer d’autres CV.' : 'La limite de CV de votre offre est atteinte.') : undefined} onClick={onCreateResume}>
                 <span aria-hidden="true">＋</span> Créer
               </button>
@@ -2650,11 +2726,32 @@ function App() {
     return paymentId ? { state: 'checking' } : null
   })
   const [paymentReturnId, setPaymentReturnId] = useState(() => new URLSearchParams(window.location.search).get('tara_payment'))
+  const [importModalOpen, setImportModalOpen] = useState(false)
   const pendingTemplateRef = useRef(null)
   const pendingDraftRef = useRef(null)
   const pendingDownloadRef = useRef(false)
   const pendingAuthDestinationRef = useRef(null)
   const pendingPlanRef = useRef(null)
+
+  const handleApplyImportedResume = ({ resumeData, template, photo }) => {
+    const templateToApply = resumeTemplates.some((item) => item.id === template) ? template : 'sillage'
+    setSelectedTemplate(templateToApply)
+    setSelectedResumeId(null)
+    setCreateNewResume(true)
+    setTemplateSelectionMade(true)
+    setDownloadAfterPayment(false)
+    saveGuestResume({
+      resume: resumeData,
+      photo: photo || '',
+      template: templateToApply,
+      modelStatus: templateToApply === 'gratuit' ? 'free' : 'pending_payment',
+      baseColor: '#e49a68',
+      resumeFont: 'classic',
+    })
+    setView('builder')
+    showNotice(`Votre CV a été importé avec succès dans le modèle ${templateToApply} !`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   const prepareOAuth = (mode) => {
     if (pendingDraftRef.current) saveGuestResume(pendingDraftRef.current)
@@ -2684,7 +2781,7 @@ function App() {
           window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
           setAuthMode(intent.mode === 'signin' ? 'signin' : 'signup')
           setAuthOpen(true)
-          setNotice(`Connexion Google impossible : ${errorDescription}. Vérifiez que Google est activé dans Supabase Auth et que les URL de redirection sont autorisées.`)
+          setNotice(`Connexion impossible : ${errorDescription}. Vérifiez la configuration du fournisseur dans Supabase Auth.`)
         }
         return
       }
@@ -2700,6 +2797,12 @@ function App() {
       setDownloadAfterPayment(Boolean(intent.downloadAfterAuth))
       setUser(session.user)
       setAuthOpen(false)
+
+      const linkedInData = extractLinkedInUserData(session.user)
+      if (linkedInData && (linkedInData.firstName || linkedInData.role)) {
+        showNotice(`Connexion réussie ! Vos informations professionnelles ont été synchronisées.`)
+      }
+
       if (['pro', 'gold'].includes(intent.planId)) {
         setMobilePayPhone('')
         setMobilePayError('')
@@ -2712,7 +2815,7 @@ function App() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
       window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
-      console.error('Impossible de reprendre le parcours après la connexion Google:', error)
+      console.error('Impossible de reprendre le parcours après la connexion:', error)
       showNotice('Connexion réussie, mais le parcours précédent n’a pas pu être restauré.')
     }
   }
@@ -3316,8 +3419,20 @@ function App() {
           onRetryPayment={() => setPaymentVerifyAttempt((current) => current + 1)}
           onSwitchResume={switchBuilderResume}
           onCreateResume={createBuilderResume}
+          onImportResume={() => setImportModalOpen(true)}
           showNotice={showNotice}
           notice={notice}
+        />
+        <ImportResumeModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onApplyResume={handleApplyImportedResume}
+          currentUser={user}
+          onLinkedInLogin={() => {
+            prepareOAuth('signin')
+            signInWithOAuth('linkedin_oidc')
+          }}
+          templates={resumeTemplates}
         />
         {authOpen && (
           <AccountModal
@@ -3342,12 +3457,24 @@ function App() {
           onPlanUpdate={(plan) => setAccountPlan({ ...plan, ready: true })}
           onHome={goHome}
           onCreateResume={startBuilder}
+          onImportResume={() => setImportModalOpen(true)}
           onOpenResume={openDashboardResume}
           onDownloadResume={downloadDashboardResume}
           onPurchasePlan={requestPlanCheckout}
           onLogout={logout}
           showNotice={showNotice}
           downloadInProgressId={downloadingResumeId}
+        />
+        <ImportResumeModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onApplyResume={handleApplyImportedResume}
+          currentUser={user}
+          onLinkedInLogin={() => {
+            prepareOAuth('signin')
+            signInWithOAuth('linkedin_oidc')
+          }}
+          templates={resumeTemplates}
         />
         {notice && <div className="toast" role="status">{notice}</div>}
         {dashboardDownloadRequested && (
@@ -3396,6 +3523,7 @@ function App() {
           <a href="#faq">FAQ</a>
         </nav>
         <div className="header-actions">
+          <button className="header-link" type="button" onClick={() => setImportModalOpen(true)}>Améliorer mon CV</button>
           {user && <button className="header-link" onClick={goDashboard}>Mes CV</button>}
           <button className="header-link" onClick={() => {
             pendingAuthDestinationRef.current = 'dashboard'
@@ -3414,7 +3542,8 @@ function App() {
             <p className="hero-lede">Concevez un CV clair, singulier et mémorable. CVcraft vous aide à transformer votre parcours en prochaine opportunité.</p>
             <div className="hero-actions">
               <button className="button button-dark button-pill" onClick={() => startBuilder()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
-              <a className="button button-ghost" href="#modeles">Voir les modèles de CV</a>
+              <button className="button button-outline button-pill" type="button" onClick={() => setImportModalOpen(true)}>📄 Améliorer mon CV existant</button>
+              <a className="button button-ghost" href="#modeles">Voir les modèles</a>
             </div>
             <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
           </div>
@@ -3623,6 +3752,7 @@ function App() {
               <p>Rejoignez 12 000+ candidats qui ont déjà transformé leur parcours en opportunité. Créez votre CV professionnel en moins de 5 minutes, gratuitement.</p>
               <div className="cta-actions">
                 <button className="button button-dark cta-btn" onClick={startBuilder}>Créer mon CV gratuitement <span aria-hidden="true">↗</span></button>
+                <button className="button button-outline cta-btn" type="button" onClick={() => setImportModalOpen(true)}>📄 Améliorer mon CV existant</button>
                 <a className="text-link" href="#pricing">Voir les tarifs <span aria-hidden="true">↓</span></a>
               </div>
               <div className="cta-badges">
@@ -3652,6 +3782,17 @@ function App() {
       <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
       {notice && <div className="toast" role="status">{notice}</div>}
     </div>
+      <ImportResumeModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onApplyResume={handleApplyImportedResume}
+        currentUser={user}
+        onLinkedInLogin={() => {
+          prepareOAuth('signin')
+          signInWithOAuth('linkedin_oidc')
+        }}
+        templates={resumeTemplates}
+      />
       {planMobilePayDialog}
       {authOpen && (
         <AccountModal

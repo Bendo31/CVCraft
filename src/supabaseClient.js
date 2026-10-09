@@ -173,16 +173,21 @@ export async function resendSignupOtp(email) {
 }
 
 /**
- * Connexion avec un fournisseur OAuth (Google, GitHub, etc.)
+ * Connexion avec un fournisseur OAuth (Google, LinkedIn, etc.)
  */
-export async function signInWithOAuth(provider) {
+export async function signInWithOAuth(provider, customOptions = {}) {
   const client = getSupabaseClient()
   if (!client) throw new Error('Supabase n\'est pas encore configuré.')
+
+  const isLinkedIn = provider === 'linkedin_oidc' || provider === 'linkedin'
+  const scopes = customOptions.scopes || (isLinkedIn ? 'openid profile email' : undefined)
 
   const { data, error } = await client.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      ...(scopes ? { scopes } : {}),
+      ...customOptions,
     },
   })
 
