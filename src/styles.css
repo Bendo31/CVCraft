@@ -458,7 +458,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 }
 .button-dark { background: var(--ink); color: var(--paper); }
 .builder-page { height: 100vh; overflow: hidden; background: #e3e2da; color: var(--ink); }
-.builder-header { height: 74px; flex: 0 0 74px; padding: 0 34px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; background: var(--paper); border-bottom: 1px solid var(--line); gap: 16px; }
+.builder-header { height: 74px; flex: 0 0 74px; padding: 0 34px; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; background: var(--paper); border-bottom: 1px solid var(--line); gap: 16px; }
 .builder-brand { justify-self: start; background: transparent; padding: 0; }
 .builder-header-center { justify-self: center; display: flex; align-items: center; justify-content: center; gap: 10px; color: #81877f; font: 10px 'Inter', sans-serif; text-transform: uppercase; letter-spacing: .04em; }
 .builder-header-error-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 4px; background: #fee2e2; color: #b91c1c; font: 10px 'Inter', sans-serif; border: 1px solid #fecaca; cursor: pointer; }
