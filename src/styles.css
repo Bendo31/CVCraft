@@ -2373,5 +2373,68 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   }
 }
 
+/* Boutons Revenir à l'accueil pour les utilisateurs invités */
+.builder-guest-topbar {
+  margin-bottom: 20px;
+}
 
+.builder-back-home-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 50px;
+  background: #ffffff;
+  border: 1px solid #d5d7cd;
+  color: var(--ink);
+  font: 600 12px 'Sora', sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
 
+.builder-back-home-btn:hover {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+  transform: translateX(-3px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.nav-rail-brand-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-rail-brand-btn:hover .brand-mark {
+  transform: scale(1.08);
+}
+
+.nav-rail-home-btn {
+  color: #d7f76b !important;
+  font-weight: 600;
+}
+
+.nav-rail-home-btn:hover {
+  background: rgba(215, 247, 107, 0.12) !important;
+  color: #ffffff !important;
+}
+
+.mobile-home-btn {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 50px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #ffffff;
+  border: 1px solid var(--ink);
+  color: var(--ink);
+}
+
+.mobile-home-btn:hover {
+  background: #f0efe8;
+}
