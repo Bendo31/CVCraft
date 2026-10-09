@@ -205,7 +205,16 @@ export async function signInWithOAuth(provider, customOptions = {}) {
     }
   }
 
-  if (result.error) throw result.error
+  if (result.error) {
+    const msg = (result.error.message || result.error.msg || '').toLowerCase()
+    if (msg.includes('provider is not enabled') || msg.includes('unsupported provider')) {
+      const providerLabel = isLinkedIn ? 'LinkedIn' : provider === 'google' ? 'Google' : provider
+      throw new Error(
+        `La connexion ${providerLabel} n'est pas encore activée dans votre projet Supabase. Veuillez activer "${providerLabel} (OIDC)" dans le tableau de bord Supabase (Authentication > Providers) avec votre Client ID et Client Secret.`
+      )
+    }
+    throw result.error
+  }
   return result.data
 }
 
