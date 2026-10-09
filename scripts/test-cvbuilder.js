@@ -179,5 +179,81 @@ assert.strictEqual(testShouldShowLoadingSpinner(true, null, planNotReady), false
 assert.strictEqual(testShouldShowLoadingSpinner(false, 'user-123', planNotReady), true, 'Le spinner s’affiche uniquement tant que le CV charge.')
 console.log('✅ Condition de chargement de ResumeBuilder vérifiée : le builder s’affiche immédiatement sans être bloqué par accountPlan.')
 
-console.log('--- Test 5: Validation du bundle de production ---')
-console.log('✅ Tout est validé avec succès !')
+console.log('--- Test 5: Parsing et préremplissage d’un CV importé ---')
+import { parseResumeText, normalizeDateToIso } from '../src/resumeParser.js'
+
+const sampleCvText = `Jean-Marc Mbappe
+Développeur Mobile Full-Stack
+jeanmarc@example.com | +237 690 12 34 56
+Douala, Cameroun
+
+PROFIL PROFESSIONNEL
+Passionné par la création d'applications performantes avec 4 ans d'expérience.
+
+EXPÉRIENCES PROFESSIONNELLES
+Développeur Lead - DevTech SARL (2021 - 2024)
+• Conception d'une application mobile fintech
+• Encadrement d'une équipe de 3 développeurs
+
+Développeur Junior - WebPlus (01/2019 - 12/2020)
+• Maintenance et développement d'APIs REST
+
+FORMATION
+Master Génie Logiciel - Université de Yaoundé I (2017 - 2019)
+Licence Informatique - Université de Douala (2014 - 2017)
+
+COMPÉTENCES
+React, Flutter, Node.js, PostgreSQL, Docker, Git
+
+LANGUES
+Français (Natif), Anglais (Courant)
+
+CENTRES D'INTÉRÊT
+Football, Photographie, Musique`
+
+const parsed = parseResumeText(sampleCvText)
+assert.strictEqual(parsed.firstName, 'Jean-Marc')
+assert.strictEqual(parsed.lastName, 'Mbappe')
+assert.strictEqual(parsed.role, 'Développeur Mobile Full-Stack')
+assert.strictEqual(parsed.email, 'jeanmarc@example.com')
+assert.strictEqual(parsed.phone, '+237 690 12 34 56')
+assert.strictEqual(parsed.city, 'Douala, Cameroun')
+assert.ok(parsed.summary.includes('Passionné'))
+assert.strictEqual(parsed.experiences.length, 2)
+assert.strictEqual(parsed.experiences[0].company, 'DevTech SARL')
+assert.strictEqual(parsed.experiences[0].jobTitle, 'Développeur Lead')
+assert.strictEqual(parsed.experiences[0].startDate, '2021-01-01')
+assert.strictEqual(parsed.experiences[0].endDate, '2024-01-01')
+assert.strictEqual(parsed.educations.length, 2)
+assert.strictEqual(parsed.educations[0].startDate, '2017-01-01')
+assert.strictEqual(parsed.educations[0].endDate, '2019-01-01')
+assert.ok(parsed.skills.includes('React'))
+assert.ok(parsed.skills.includes('Flutter'))
+assert.strictEqual(parsed.languages.length, 2)
+assert.strictEqual(parsed.languages[0].name, 'Français')
+assert.strictEqual(parsed.languages[0].level, 5)
+assert.strictEqual(parsed.languages[1].name, 'Anglais')
+assert.strictEqual(parsed.languages[1].level, 4)
+assert.ok(parsed.interests.includes('Football'))
+
+console.log('✅ Extraction intelligente du CV texte : identité, contacts, ville, expériences, formations, compétences, langues et centres d’intérêt extraits avec succès !')
+
+console.log('--- Test 6: Normalisation et préremplissage dans le CV Builder ---')
+const prefilledResume = normalizeResumeData(parsed)
+assert.strictEqual(prefilledResume.firstName, 'Jean-Marc')
+assert.strictEqual(prefilledResume.lastName, 'Mbappe')
+assert.strictEqual(prefilledResume.role, 'Développeur Mobile Full-Stack')
+assert.strictEqual(prefilledResume.city, 'Douala, Cameroun')
+assert.strictEqual(prefilledResume.sectionVisibility.personal, true)
+assert.strictEqual(prefilledResume.sectionVisibility.experiences, true)
+assert.strictEqual(prefilledResume.sectionVisibility.educations, true)
+assert.strictEqual(prefilledResume.sectionVisibility.skills, true)
+assert.strictEqual(prefilledResume.sectionVisibility.languages, true)
+assert.strictEqual(prefilledResume.sectionVisibility.interests, true)
+assert.strictEqual(prefilledResume.experiences[0].company, 'DevTech SARL')
+assert.strictEqual(prefilledResume.experiences[0].startDate, '2021-01-01')
+assert.strictEqual(prefilledResume.languages[0].level, 5)
+console.log('✅ Les données importées préremplissent correctement tous les champs du CV Builder et activent la visibilité des rubriques concernées.')
+
+console.log('--- Test 7: Validation finale ---')
+console.log('✅ Tous les tests sont validés avec succès !')

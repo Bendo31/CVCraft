@@ -29,6 +29,7 @@ import {
 import './styles.css'
 import { ImportResumeModal } from './ImportResumeModal.jsx'
 import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
+import { normalizeDateToIso } from './resumeParser.js'
 
 
 const CROP_VIEW_SIZE = 280
@@ -569,6 +570,44 @@ const defaultResume = {
 
 function normalizeResumeData(inputResume) {
   const r = inputResume || {}
+  const rawExperiences = Array.isArray(r.experiences) ? r.experiences : defaultResume.experiences
+  const normalizedExperiences = rawExperiences.map((exp, idx) => ({
+    id: exp.id || `exp-${idx}-${Date.now()}`,
+    company: exp.company || '',
+    jobTitle: exp.jobTitle || exp.title || '',
+    startDate: normalizeDateToIso(exp.startDate) || exp.startDate || '',
+    endDate: normalizeDateToIso(exp.endDate) || exp.endDate || '',
+    tasks: exp.tasks || exp.description || '',
+  }))
+
+  const rawEducations = Array.isArray(r.educations) ? r.educations : defaultResume.educations
+  const normalizedEducations = rawEducations.map((edu, idx) => ({
+    id: edu.id || `edu-${idx}-${Date.now()}`,
+    school: edu.school || '',
+    degree: edu.degree || '',
+    startDate: normalizeDateToIso(edu.startDate) || edu.startDate || '',
+    endDate: normalizeDateToIso(edu.endDate) || edu.endDate || '',
+    description: edu.description || '',
+  }))
+
+  const rawLanguages = Array.isArray(r.languages) ? r.languages : defaultResume.languages
+  const normalizedLanguages = rawLanguages.map((lang) => {
+    if (typeof lang === 'string') {
+      return { name: lang, level: 5 }
+    }
+    let lvl = Number(lang?.level)
+    if (isNaN(lvl) || lvl < 1 || lvl > 5) {
+      lvl = 5
+    }
+    return { name: lang?.name || '', level: lvl }
+  })
+
+  const rawSkills = Array.isArray(r.skills) ? r.skills : defaultResume.skills
+  const normalizedSkills = rawSkills.map((s) => (typeof s === 'string' ? s : s?.name || '')).filter(Boolean)
+
+  const rawInterests = Array.isArray(r.interests) ? r.interests : defaultResume.interests
+  const normalizedInterests = rawInterests.map((i) => (typeof i === 'string' ? i : i?.name || '')).filter(Boolean)
+
   return {
     ...defaultResume,
     ...r,
@@ -577,15 +616,20 @@ function normalizeResumeData(inputResume) {
       ...(r.sectionVisibility || {}),
       personal: r.sectionVisibility?.personal
         ?? (r.sectionVisibility?.contact !== false && r.sectionVisibility?.summary !== false),
+      experiences: normalizedExperiences.length > 0 ? true : (r.sectionVisibility?.experiences ?? true),
+      educations: normalizedEducations.length > 0 ? true : (r.sectionVisibility?.educations ?? true),
+      skills: normalizedSkills.length > 0 ? true : (r.sectionVisibility?.skills ?? true),
+      languages: normalizedLanguages.length > 0 ? true : (r.sectionVisibility?.languages ?? true),
+      interests: normalizedInterests.length > 0 ? true : (r.sectionVisibility?.interests ?? true),
     },
-    experiences: Array.isArray(r.experiences) ? r.experiences : defaultResume.experiences,
-    educations: Array.isArray(r.educations) ? r.educations : defaultResume.educations,
-    skills: Array.isArray(r.skills) ? r.skills : defaultResume.skills,
-    languages: Array.isArray(r.languages) ? r.languages : defaultResume.languages,
+    experiences: normalizedExperiences,
+    educations: normalizedEducations,
+    skills: normalizedSkills,
+    languages: normalizedLanguages,
     projects: Array.isArray(r.projects) ? r.projects : defaultResume.projects,
     references: Array.isArray(r.references) ? r.references : defaultResume.references,
     certifications: Array.isArray(r.certifications) ? r.certifications : defaultResume.certifications,
-    interests: Array.isArray(r.interests) ? r.interests : defaultResume.interests,
+    interests: normalizedInterests,
   }
 }
 
@@ -699,6 +743,7 @@ function ResumeBuilder({
   userId,
   initialResumeId,
   createNewResume,
+  initialResumeData,
   accountPlan,
   onReactivatePlan,
   initialTemplate,
@@ -720,13 +765,16 @@ function ResumeBuilder({
   showNotice,
   notice,
 }) {
-  const [photo, setPhoto] = useState('')
-  const [template, setTemplate] = useState(initialTemplate)
+  const [photo, setPhoto] = useState(() => initialResumeData?.photo || '')
+  const [template, setTemplate] = useState(() => initialResumeData?.template || initialTemplate)
   const isFreeModel = template === 'gratuit'
   const isPlanActive = Boolean(accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId))
-  const [modelStatus, setModelStatus] = useState(isFreeModel || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
-  const [baseColor, setBaseColor] = useState('#e49a68')
-  const [resumeFont, setResumeFont] = useState('classic')
+  const [modelStatus, setModelStatus] = useState(() => {
+    if (initialResumeData?.modelStatus) return initialResumeData.modelStatus
+    return isFreeModel || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment'
+  })
+  const [baseColor, setBaseColor] = useState(() => initialResumeData?.baseColor || '#e49a68')
+  const [resumeFont, setResumeFont] = useState(() => initialResumeData?.resumeFont || 'classic')
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [paymentSubmitting, setPaymentSubmitting] = useState(false)
   const [paymentCountry, setPaymentCountry] = useState(() => detectUserCountryCode())
@@ -735,13 +783,18 @@ function ResumeBuilder({
   const [changePlanOpen, setChangePlanOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
-  const [resume, setResume] = useState(defaultResume)
+  const [resume, setResume] = useState(() => {
+    if (initialResumeData?.resume) {
+      return normalizeResumeData(initialResumeData.resume)
+    }
+    return defaultResume
+  })
   const [resumeId, setResumeId] = useState(initialResumeId || null)
   const resumeIdRef = useRef(initialResumeId || null)
-  const [resumeLoaded, setResumeLoaded] = useState(false)
+  const [resumeLoaded, setResumeLoaded] = useState(() => Boolean(initialResumeData?.resume))
   const [resumeLoadError, setResumeLoadError] = useState('')
-  const [isDirty, setIsDirty] = useState(false)
-  const [saveStatus, setSaveStatus] = useState('saved')
+  const [isDirty, setIsDirty] = useState(() => Boolean(initialResumeData?.resume))
+  const [saveStatus, setSaveStatus] = useState(() => (initialResumeData?.resume ? 'saving' : 'saved'))
   const [saveError, setSaveError] = useState('')
   const [loadRetry, setLoadRetry] = useState(0)
   const [saveRetry, setSaveRetry] = useState(0)
@@ -791,17 +844,37 @@ function ResumeBuilder({
   useEffect(() => {
     let active = true
 
+    if (initialResumeData?.resume) {
+      const normalized = normalizeResumeData(initialResumeData.resume)
+      setResume(normalized)
+      setPhoto(initialResumeData.photo || '')
+      const targetTemplate = initialResumeData.template || initialTemplate
+      setTemplate(targetTemplate)
+      setModelStatus(initialResumeData.modelStatus || (targetTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment'))
+      setBaseColor(initialResumeData.baseColor || '#e49a68')
+      setResumeFont(initialResumeData.resumeFont || 'classic')
+      setResumeId(null)
+      resumeIdRef.current = null
+      editVersion.current += 1
+      setIsDirty(true)
+      setSaveStatus('saving')
+      setResumeLoaded(true)
+      return () => {
+        active = false
+      }
+    }
+
     if (!userId) {
       try {
         const guestResume = loadGuestResume()
         if (guestResume) {
           saveGuestResume(guestResume)
-          setResume(guestResume.resume)
-          setPhoto(guestResume.photo)
-          setTemplate(guestResume.template)
+          setResume(normalizeResumeData(guestResume.resume))
+          setPhoto(guestResume.photo || '')
+          setTemplate(guestResume.template || initialTemplate)
           setModelStatus(guestResume.modelStatus || (guestResume.template === 'gratuit' ? 'free' : 'pending_payment'))
-          setBaseColor(guestResume.baseColor)
-          setResumeFont(guestResume.resumeFont)
+          setBaseColor(guestResume.baseColor || '#e49a68')
+          setResumeFont(guestResume.resumeFont || 'classic')
         } else {
           setTemplate(initialTemplate)
         }
@@ -935,7 +1008,7 @@ function ResumeBuilder({
     return () => {
       active = false
     }
-  }, [createNewResume, initialResumeId, initialTemplate, loadRetry, preferInitialTemplate, userId])
+  }, [createNewResume, initialResumeData, initialResumeId, initialTemplate, isPlanActive, loadRetry, preferInitialTemplate, userId])
 
   const markEdited = () => {
     editVersion.current += 1
@@ -1142,7 +1215,13 @@ function ResumeBuilder({
   }
   const formatDate = (value) => {
     if (!value) return 'Aujourd’hui'
-    return new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(new Date(`${value}T00:00:00`)).replace('.', '')
+    try {
+      const d = new Date(value.includes('T') ? value : `${value}T00:00:00`)
+      if (!isNaN(d.getTime())) {
+        return new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(d).replace('.', '')
+      }
+    } catch (_) {}
+    return String(value)
   }
   const formatDateRange = (startDate, endDate) => `${formatDate(startDate)} — ${formatDate(endDate)}`
   const handlePhoto = (event) => {
@@ -2721,6 +2800,8 @@ function App() {
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [startChoiceModalOpen, setStartChoiceModalOpen] = useState(false)
   const [pendingTemplateChoice, setPendingTemplateChoice] = useState(null)
+  const [importedResumeDraft, setImportedResumeDraft] = useState(null)
+  const [builderSessionKey, setBuilderSessionKey] = useState(1)
   const pendingTemplateRef = useRef(null)
   const pendingDraftRef = useRef(null)
   const pendingDownloadRef = useRef(false)
@@ -2734,19 +2815,24 @@ function App() {
 
   const handleApplyImportedResume = ({ resumeData, template, photo }) => {
     const templateToApply = resumeTemplates.some((item) => item.id === template) ? template : 'sillage'
+    const normalized = normalizeResumeData(resumeData)
+    const isPlanPaid = Boolean(accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId))
+    const draft = {
+      resume: normalized,
+      photo: photo || '',
+      template: templateToApply,
+      modelStatus: templateToApply === 'gratuit' ? 'free' : (isPlanPaid ? 'paid' : 'pending_payment'),
+      baseColor: '#e49a68',
+      resumeFont: 'classic',
+    }
+    saveGuestResume(draft)
+    setImportedResumeDraft(draft)
     setSelectedTemplate(templateToApply)
     setSelectedResumeId(null)
     setCreateNewResume(true)
     setTemplateSelectionMade(true)
     setDownloadAfterPayment(false)
-    saveGuestResume({
-      resume: resumeData,
-      photo: photo || '',
-      template: templateToApply,
-      modelStatus: templateToApply === 'gratuit' ? 'free' : 'pending_payment',
-      baseColor: '#e49a68',
-      resumeFont: 'classic',
-    })
+    setBuilderSessionKey((prev) => prev + 1)
     setView('builder')
     showNotice(`Votre CV a été importé avec succès dans le modèle ${templateToApply} !`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -3055,10 +3141,12 @@ function App() {
         return
       }
     }
+    setImportedResumeDraft(null)
     setSelectedResumeId(null)
     setCreateNewResume(true)
     setTemplateSelectionMade(Boolean(chosenTemplate))
     setSelectedTemplate(chosenTemplate || 'gratuit')
+    setBuilderSessionKey((prev) => prev + 1)
     setView('builder')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -3200,11 +3288,13 @@ function App() {
     const resumeTemplate = resumeTemplates.some((item) => item.id === savedResume.template)
       ? savedResume.template
       : 'gratuit'
+    setImportedResumeDraft(null)
     setSelectedTemplate(resumeTemplate)
     setSelectedResumeId(savedResume.id)
     setCreateNewResume(false)
     setTemplateSelectionMade(true)
     setDownloadAfterPayment(false)
+    setBuilderSessionKey((prev) => prev + 1)
     setView('builder')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -3375,15 +3465,19 @@ function App() {
     const resumeTemplate = resumeTemplates.some((item) => item.id === template)
       ? template
       : 'gratuit'
+    setImportedResumeDraft(null)
     setSelectedTemplate(resumeTemplate)
     setSelectedResumeId(resumeId)
     setCreateNewResume(false)
     setTemplateSelectionMade(true)
     setDownloadAfterPayment(false)
+    setBuilderSessionKey((prev) => prev + 1)
     setView('builder')
   }
 
   const createBuilderResume = () => {
+    setImportedResumeDraft(null)
+    setBuilderSessionKey((prev) => prev + 1)
     startBuilder('gratuit')
   }
 
@@ -3391,11 +3485,12 @@ function App() {
     return (
       <>
         <ResumeBuilder
-          key={selectedResumeId || 'new'}
+          key={`builder-${builderSessionKey}-${selectedResumeId || 'new'}`}
           user={user}
           userId={user?.id}
           initialResumeId={selectedResumeId}
           createNewResume={createNewResume}
+          initialResumeData={importedResumeDraft}
           accountPlan={accountPlan}
           onReactivatePlan={requestPlanCheckout}
           initialTemplate={selectedTemplate}
