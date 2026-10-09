@@ -397,7 +397,6 @@ export function ResumeDocument({
 
     const items = []
     if (personalVisible && resume?.summary) items.push({ id: 'summary', type: 'summary' })
-    if (template === 'sillage' && personalVisible) items.push({ id: 'contact', type: 'contact' })
     if (visible('skills') && skills.some(Boolean)) items.push({ id: 'skills', type: 'skills' })
     if (visible('certifications') && certifications.some((item) => item.name || item.issuer || item.year)) items.push({ id: 'certs', type: 'certs' })
     if (visible('references') && references.some((item) => item.name || item.role || item.contact)) items.push({ id: 'refs', type: 'refs' })

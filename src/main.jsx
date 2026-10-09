@@ -773,6 +773,7 @@ function ResumeBuilder({
     if (initialResumeData?.modelStatus) return initialResumeData.modelStatus
     return isFreeModel || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment'
   })
+  const canDownload = isFreeModel || isPlanActive || modelStatus === 'paid'
   const [baseColor, setBaseColor] = useState(() => initialResumeData?.baseColor || '#e49a68')
   const [resumeFont, setResumeFont] = useState(() => initialResumeData?.resumeFont || 'classic')
   const [paymentOpen, setPaymentOpen] = useState(false)
@@ -1365,7 +1366,7 @@ function ResumeBuilder({
   }
 
   const handleExport = () => {
-    if (accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId)) {
+    if (canDownload) {
       downloadPdf()
       return
     }
@@ -1378,16 +1379,12 @@ function ResumeBuilder({
       return
     }
     if (!userId) {
+      showNotice("Veuillez mettre à niveau votre abonnement ou vous connecter pour pouvoir télécharger votre CV avec ce modèle.")
       onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
       return
     }
-    if (modelStatus === 'paid') {
-      downloadPdf()
-      return
-    }
-    setPaymentError('')
-    setPaymentPhone('237')
-    setPaymentOpen(true)
+    showNotice("Veuillez mettre à niveau votre abonnement (Pro ou Gold) pour pouvoir télécharger ce CV en PDF.")
+    setChangePlanOpen(true)
   }
 
   useEffect(() => {
@@ -1742,19 +1739,39 @@ function ResumeBuilder({
         </aside>
         <section className="builder-preview-area">
           <div className="preview-floating-actions">
+            {!canDownload && (
+              <div className="preview-upgrade-notice" role="status">
+                <span className="preview-upgrade-text">
+                  <PremiumCrown />
+                  <span>Abonnement Pro ou Gold requis pour télécharger en PDF</span>
+                </span>
+                <button
+                  type="button"
+                  className="preview-upgrade-action-btn"
+                  onClick={() => {
+                    if (!userId) {
+                      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
+                    } else {
+                      setChangePlanOpen(true)
+                    }
+                  }}
+                >
+                  Mettre à niveau
+                </button>
+              </div>
+            )}
             <button
               type="button"
-              className="preview-floating-export"
-              disabled={!userId && template !== 'gratuit'}
+              className={`preview-floating-export${!canDownload ? ' preview-floating-export-locked' : ''}`}
               onClick={handleExport}
-              title={!userId && template !== 'gratuit' ? 'Débloquez ce modèle pour télécharger' : 'Télécharger le CV en PDF'}
+              title={!canDownload ? 'Mettre à niveau votre abonnement pour pouvoir télécharger ce CV en PDF' : 'Télécharger le CV en PDF'}
             >
               <svg viewBox="0 0 24 24" aria-hidden="true" className="floating-export-icon">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              <span>Télécharger PDF</span>
+              <span>{canDownload ? 'Télécharger PDF' : 'Télécharger PDF (Upgrade requis)'}</span>
             </button>
           </div>
           <ResumeDocument
@@ -1865,7 +1882,35 @@ function ResumeBuilder({
         </aside>
       </main>
       <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
-      {mobilePreviewOpen && <div className="mobile-preview-actions">{!userId && template !== 'gratuit' && <button className="button-outline" onClick={() => unlockTemplate(template)}><PremiumCrown /> Débloquer</button>}<button className="button-dark" disabled={!userId && template !== 'gratuit'} title={!userId && template !== 'gratuit' ? 'Cliquez sur Débloquer pour continuer' : undefined} onClick={handleExport}>Télécharger <span aria-hidden="true">↓</span></button></div>}
+      {mobilePreviewOpen && (
+        <div className="mobile-preview-actions">
+          {!canDownload && (
+            <div className="mobile-upgrade-notice">
+              <PremiumCrown />
+              <span>Abonnement requis pour télécharger ce modèle en PDF.</span>
+            </div>
+          )}
+          {!canDownload ? (
+            <button
+              className="button-dark mobile-upgrade-btn"
+              type="button"
+              onClick={() => {
+                if (!userId) {
+                  onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
+                } else {
+                  setChangePlanOpen(true)
+                }
+              }}
+            >
+              <PremiumCrown /> Mettre à niveau l’abonnement
+            </button>
+          ) : (
+            <button className="button-dark" onClick={handleExport}>
+              Télécharger <span aria-hidden="true">↓</span>
+            </button>
+          )}
+        </div>
+      )}
       {paymentStatus && (
         <div className="builder-payment-status" role={paymentStatus === 'failure' || paymentStatus === 'error' ? 'alert' : 'status'}>
           {(paymentStatus === 'checking' || paymentStatus === 'pending') && (
