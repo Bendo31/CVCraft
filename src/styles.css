@@ -866,9 +866,98 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   max-width: 180px;
 }
 
-.nav-rail-logout:hover {
-  background: rgba(220, 38, 38, 0.12);
-  color: #f87171;
+.nav-rail-plans {
+  position: relative;
+}
+
+.nav-rail-plans-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  flex: 1;
+  padding-right: 8px;
+}
+
+.nav-rail-plans-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.nav-rail-plans-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c9ccc5;
+}
+
+.nav-rail-plans-badge.is-premium {
+  background: rgba(215, 247, 107, 0.18);
+  color: var(--lime);
+  border: 1px solid rgba(215, 247, 107, 0.35);
+}
+
+.preview-floating-actions {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: flex-end;
+  max-width: 650px;
+  margin: 0 auto 18px;
+  z-index: 15;
+}
+
+.preview-floating-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fffef9;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.preview-floating-export:hover:not(:disabled) {
+  background: #232729;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+
+.preview-floating-export:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.floating-export-icon {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.current-plan-btn {
+  background: #e2e4dc !important;
+  color: #4b5248 !important;
+  cursor: default !important;
+}
+
+.change-plan-option.is-current {
+  border-color: #6040ce;
+  background: #faf9ff;
 }
 
 .builder-main {

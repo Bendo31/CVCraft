@@ -729,6 +729,7 @@ function ResumeBuilder({
   const [paymentCountry, setPaymentCountry] = useState(() => detectUserCountryCode())
   const [paymentPhone, setPaymentPhone] = useState('')
   const [templateChooserOpen, setTemplateChooserOpen] = useState(false)
+  const [changePlanOpen, setChangePlanOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
   const [resume, setResume] = useState(defaultResume)
@@ -1441,45 +1442,9 @@ function ResumeBuilder({
           </div>
         </div>
 
-        {/* OUTILS DU BUILDER */}
-        <div className="nav-rail-section nav-rail-tools">
-          <button
-            type="button"
-            className="nav-rail-item"
-            onClick={() => setTemplateChooserOpen(true)}
-            title="Changer de modèle"
-          >
-            <div className="nav-rail-icon-wrap">
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <line x1="3" y1="9" x2="21" y2="9" />
-                <line x1="9" y1="21" x2="9" y2="9" />
-              </svg>
-            </div>
-            <span className="nav-rail-text">Modèles</span>
-          </button>
-
-          <button
-            type="button"
-            className="nav-rail-item"
-            disabled={!userId && template !== 'gratuit'}
-            onClick={handleExport}
-            title={!userId && template !== 'gratuit' ? 'Débloquez ce modèle pour télécharger' : 'Télécharger en PDF'}
-          >
-            <div className="nav-rail-icon-wrap">
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </div>
-            <span className="nav-rail-text">Télécharger PDF</span>
-          </button>
-        </div>
-
-        {/* PIED DU RAIL : STATUT, PROFIL ET DÉCONNEXION */}
+        {/* EN BAS : PROFIL ET FORFAITS */}
         <div className="nav-rail-bottom">
-          {/* Statut de sauvegarde */}
+          {/* Statut de sauvegarde discret */}
           <div
             className={`nav-rail-save-status ${saveStatus === 'error' ? 'is-error' : saveStatus === 'saving' ? 'is-saving' : 'is-saved'}`}
             title={saveStatus === 'error' ? saveError || 'Erreur de sauvegarde' : saveStatus === 'saving' ? 'Sauvegarde en cours…' : 'Modifications enregistrées'}
@@ -1507,7 +1472,7 @@ function ResumeBuilder({
             </span>
           </div>
 
-          {/* Profil avec icône illustrative et couronne Pro si abonné */}
+          {/* Bouton Profil */}
           {userId ? (
             <button
               type="button"
@@ -1557,24 +1522,33 @@ function ResumeBuilder({
             </button>
           )}
 
-          {/* Bouton Déconnexion avec icône */}
-          {userId && (
-            <button
-              type="button"
-              className="nav-rail-item nav-rail-logout"
-              onClick={handleLogout}
-              title="Déconnexion"
-            >
-              <div className="nav-rail-icon-wrap">
-                <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-              </div>
-              <span className="nav-rail-text">Déconnexion</span>
-            </button>
-          )}
+          {/* Bouton Forfaits */}
+          <button
+            type="button"
+            className="nav-rail-item nav-rail-plans"
+            onClick={() => setChangePlanOpen(true)}
+            title="Consulter ou changer de forfait"
+          >
+            <div className="nav-rail-icon-wrap">
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="nav-rail-icon">
+                <polygon points="6 3 18 3 22 9 12 22 2 9 6 3" />
+                <line x1="12" y1="22" x2="12" y2="9" />
+                <line x1="2" y1="9" x2="22" y2="9" />
+                <line x1="10" y1="3" x2="8" y2="9" />
+                <line x1="14" y1="3" x2="16" y2="9" />
+              </svg>
+            </div>
+            <div className="nav-rail-text nav-rail-plans-info">
+              <span className="nav-rail-plans-name">Forfaits</span>
+              <span className={`nav-rail-plans-badge ${accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) ? 'is-premium' : ''}`}>
+                {accountPlan?.active && accountPlan?.planId === 'gold'
+                  ? 'Gold'
+                  : accountPlan?.active && accountPlan?.planId === 'pro'
+                    ? 'Pro'
+                    : 'Gratuit'}
+              </span>
+            </div>
+          </button>
         </div>
       </aside>
       <main className="builder-main">
@@ -1654,6 +1628,22 @@ function ResumeBuilder({
           </div>
         </aside>
         <section className="builder-preview-area">
+          <div className="preview-floating-actions">
+            <button
+              type="button"
+              className="preview-floating-export"
+              disabled={!userId && template !== 'gratuit'}
+              onClick={handleExport}
+              title={!userId && template !== 'gratuit' ? 'Débloquez ce modèle pour télécharger' : 'Télécharger le CV en PDF'}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="floating-export-icon">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              <span>Télécharger PDF</span>
+            </button>
+          </div>
           <ResumeDocument
             resume={resume}
             photo={photo}
@@ -1816,6 +1806,55 @@ function ResumeBuilder({
               <button className="button-dark" type="submit" disabled={paymentSubmitting}>{paymentSubmitting ? 'Envoi…' : 'Payer · 100 FCFA'}</button>
             </div>
           </form>
+        </div>
+      )}
+      {changePlanOpen && (
+        <div className="payment-backdrop" role="presentation" onMouseDown={(event) => {
+          if (event.target === event.currentTarget) setChangePlanOpen(false)
+        }}>
+          <section className="change-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="builder-plan-title">
+            <button className="change-plan-close" type="button" aria-label="Fermer" onClick={() => setChangePlanOpen(false)}>×</button>
+            <span className="preview-kicker">Forfaits & Abonnements</span>
+            <h2 id="builder-plan-title">Nos forfaits</h2>
+            <p>Débloquez tous les modèles premium, téléchargez sans filigrane et gérez plusieurs CV.</p>
+            {accountPlan?.schemaWarning && <p className="change-plan-warning" role="status">Les offres payantes seront disponibles dès que la configuration Supabase sera mise à jour.</p>}
+            <div className="change-plan-options">
+              {plans.map((option) => {
+                const isCurrent = (option.id === 'free' && (!accountPlan?.active || accountPlan?.planId === 'free')) ||
+                  (accountPlan?.active && accountPlan?.planId === option.id)
+                return (
+                  <article className={`change-plan-option ${option.featured ? 'featured' : ''} ${isCurrent ? 'is-current' : ''}`} key={option.id}>
+                    <div>
+                      <strong>{option.name}</strong>
+                      <span>{option.price === '0' ? 'Gratuit' : `${option.price} FCFA`} · {option.suffix}</span>
+                    </div>
+                    <p>{option.description}</p>
+                    <small>{option.features.slice(0, 4).join(' · ')}</small>
+                    {isCurrent ? (
+                      <button type="button" disabled className="current-plan-btn">Forfait actuel</button>
+                    ) : option.id === 'free' ? (
+                      <button type="button" disabled>Inclus</button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={Boolean(accountPlan?.schemaWarning)}
+                        onClick={() => {
+                          setChangePlanOpen(false)
+                          if (!userId) {
+                            onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })
+                          } else {
+                            onReactivatePlan(option.id)
+                          }
+                        }}
+                      >
+                        {option.action}
+                      </button>
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+          </section>
         </div>
       )}
       {templateChooserOpen && (
