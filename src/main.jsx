@@ -28,6 +28,7 @@ import {
 } from './supabaseClient.js'
 import './styles.css'
 import { ImportResumeModal } from './ImportResumeModal.jsx'
+import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
 import { extractLinkedInUserData } from './resumeParser.js'
 
 
@@ -2137,11 +2138,22 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
               <>
                 <div className="account-providers">
                   <button type="button" className="account-provider" disabled={isSubmitting} onClick={() => handleOAuth('google')}>
-                    <span className="provider-google-mark" aria-hidden="true">G</span>
+                    <span className="provider-google-mark" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z" />
+                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z" />
+                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15Z" />
+                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z" />
+                      </svg>
+                    </span>
                     Continuer avec Google
                   </button>
                   <button type="button" className="account-provider" disabled={isSubmitting} onClick={() => handleOAuth('linkedin_oidc')}>
-                    <span className="provider-linkedin-mark" aria-hidden="true">in</span>
+                    <span className="provider-linkedin-mark" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="#0077B5" width="18" height="18">
+                        <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"/>
+                      </svg>
+                    </span>
                     Continuer avec LinkedIn
                   </button>
                 </div>
@@ -2522,8 +2534,29 @@ function ResumeDashboard({
               </table>
             </div>
           ) : (
-            <div className="dashboard-empty">
-              <p>Aucun document pour le moment. Créez votre premier CV gratuit.</p>
+            <div className="dashboard-welcome-banner">
+              <div className="dashboard-welcome-info">
+                <h2>Bienvenue sur votre espace CVCraft !</h2>
+                <p>Prêt à créer votre CV ? Améliorez un document existant (PDF, Word, LinkedIn) avec nos modèles professionnels ou débutez sur une page blanche.</p>
+              </div>
+              <div className="dashboard-welcome-actions">
+                <button
+                  className="button button-dark"
+                  type="button"
+                  disabled={isLoading || freeQuotaReached}
+                  onClick={onImportResume}
+                >
+                  📄 Améliorer un CV existant
+                </button>
+                <button
+                  className="button button-outline"
+                  type="button"
+                  disabled={isLoading || freeQuotaReached}
+                  onClick={onCreateResume}
+                >
+                  ＋ Partir de zéro
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -2727,11 +2760,29 @@ function App() {
   })
   const [paymentReturnId, setPaymentReturnId] = useState(() => new URLSearchParams(window.location.search).get('tara_payment'))
   const [importModalOpen, setImportModalOpen] = useState(false)
+  const [startChoiceModalOpen, setStartChoiceModalOpen] = useState(false)
+  const [pendingTemplateChoice, setPendingTemplateChoice] = useState(null)
   const pendingTemplateRef = useRef(null)
   const pendingDraftRef = useRef(null)
   const pendingDownloadRef = useRef(false)
   const pendingAuthDestinationRef = useRef(null)
   const pendingPlanRef = useRef(null)
+
+  const handleRequestCreateResume = (templateChoice = null) => {
+    setPendingTemplateChoice(templateChoice)
+    setStartChoiceModalOpen(true)
+  }
+
+  const handleDirectLinkedInAuth = async () => {
+    setStartChoiceModalOpen(false)
+    prepareOAuth('signin')
+    try {
+      await signInWithOAuth('linkedin_oidc')
+    } catch (err) {
+      console.error('Erreur LinkedIn OAuth:', err)
+      showNotice(err.message || 'La connexion avec LinkedIn a échoué.')
+    }
+  }
 
   const handleApplyImportedResume = ({ resumeData, template, photo }) => {
     const templateToApply = resumeTemplates.some((item) => item.id === template) ? template : 'sillage'
@@ -3423,6 +3474,19 @@ function App() {
           showNotice={showNotice}
           notice={notice}
         />
+        <StartResumeChoiceModal
+          isOpen={startChoiceModalOpen}
+          onClose={() => setStartChoiceModalOpen(false)}
+          onSelectBlank={() => {
+            setStartChoiceModalOpen(false)
+            startBuilder(pendingTemplateChoice)
+          }}
+          onSelectImport={() => {
+            setStartChoiceModalOpen(false)
+            setImportModalOpen(true)
+          }}
+          onSelectLinkedIn={handleDirectLinkedInAuth}
+        />
         <ImportResumeModal
           isOpen={importModalOpen}
           onClose={() => setImportModalOpen(false)}
@@ -3456,7 +3520,7 @@ function App() {
           accountPlan={accountPlan}
           onPlanUpdate={(plan) => setAccountPlan({ ...plan, ready: true })}
           onHome={goHome}
-          onCreateResume={startBuilder}
+          onCreateResume={() => handleRequestCreateResume()}
           onImportResume={() => setImportModalOpen(true)}
           onOpenResume={openDashboardResume}
           onDownloadResume={downloadDashboardResume}
@@ -3464,6 +3528,19 @@ function App() {
           onLogout={logout}
           showNotice={showNotice}
           downloadInProgressId={downloadingResumeId}
+        />
+        <StartResumeChoiceModal
+          isOpen={startChoiceModalOpen}
+          onClose={() => setStartChoiceModalOpen(false)}
+          onSelectBlank={() => {
+            setStartChoiceModalOpen(false)
+            startBuilder(pendingTemplateChoice)
+          }}
+          onSelectImport={() => {
+            setStartChoiceModalOpen(false)
+            setImportModalOpen(true)
+          }}
+          onSelectLinkedIn={handleDirectLinkedInAuth}
         />
         <ImportResumeModal
           isOpen={importModalOpen}
@@ -3523,14 +3600,13 @@ function App() {
           <a href="#faq">FAQ</a>
         </nav>
         <div className="header-actions">
-          <button className="header-link" type="button" onClick={() => setImportModalOpen(true)}>Améliorer mon CV</button>
           {user && <button className="header-link" onClick={goDashboard}>Mes CV</button>}
           <button className="header-link" onClick={() => {
             pendingAuthDestinationRef.current = 'dashboard'
             setAuthMode('signup')
             setAuthOpen(true)
           }}><u>Créer mon compte</u></button>
-          <button className="button button-dark button-small button-pill" onClick={() => startBuilder()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
+          <button className="button button-dark button-small button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
         </div>
       </header>
 
@@ -3541,8 +3617,7 @@ function App() {
             <h1 style={{ display: 'flex', flexDirection: 'column' }}><span style={{ whiteSpace: 'nowrap' }}>Un CV qui ouvre</span><em>des portes.</em></h1>
             <p className="hero-lede">Concevez un CV clair, singulier et mémorable. CVcraft vous aide à transformer votre parcours en prochaine opportunité.</p>
             <div className="hero-actions">
-              <button className="button button-dark button-pill" onClick={() => startBuilder()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
-              <button className="button button-outline button-pill" type="button" onClick={() => setImportModalOpen(true)}>📄 Améliorer mon CV existant</button>
+              <button className="button button-dark button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
               <a className="button button-ghost" href="#modeles">Voir les modèles</a>
             </div>
             <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
@@ -3613,7 +3688,7 @@ function App() {
           <div style={{ textAlign: 'center', marginTop: '24px' }}>
             <button className="button button-dark button-pill" onClick={() => {
               if (user) {
-                startBuilder(selectedTemplate)
+                handleRequestCreateResume(selectedTemplate)
               } else {
                 pendingAuthDestinationRef.current = 'builder'
                 pendingTemplateRef.current = selectedTemplate
@@ -3666,7 +3741,7 @@ function App() {
 
         <section className="pricing section-wrap" id="pricing">
           <div className="pricing-heading"><div className="eyebrow">Investissez en vous</div><h2>Le bon plan pour<br /><em>chaque étape.</em></h2><p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p></div>
-          <div className="plans">{plans.map((plan) => <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>{plan.featured && <div className="popular">Le plus choisi</div>}<div className="plan-top"><span className="plan-name">{plan.name}</span><span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span></div><div className="plan-price">{plan.price}<small> FCFA / {plan.suffix}</small></div><p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><span>✓</span>{feature}</li>)}</ul><button className={`button ${plan.featured ? 'button-light' : 'button-outline'}`} onClick={() => plan.id === 'free' ? startBuilder() : requestPlanCheckout(plan.id)}>{plan.action}<span aria-hidden="true">↗</span></button></article>)}</div>
+          <div className="plans">{plans.map((plan) => <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>{plan.featured && <div className="popular">Le plus choisi</div>}<div className="plan-top"><span className="plan-name">{plan.name}</span><span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span></div><div className="plan-price">{plan.price}<small> FCFA / {plan.suffix}</small></div><p>{plan.description}</p><ul>{plan.features.map((feature) => <li key={feature}><span>✓</span>{feature}</li>)}</ul><button className={`button ${plan.featured ? 'button-light' : 'button-outline'}`} onClick={() => plan.id === 'free' ? handleRequestCreateResume() : requestPlanCheckout(plan.id)}>{plan.action}<span aria-hidden="true">↗</span></button></article>)}</div>
         </section>
 
         {/* ── SECTION TÉMOIGNAGES ── */}
@@ -3751,8 +3826,7 @@ function App() {
               <h2>Votre prochain emploi<br /><em>commence ici.</em></h2>
               <p>Rejoignez 12 000+ candidats qui ont déjà transformé leur parcours en opportunité. Créez votre CV professionnel en moins de 5 minutes, gratuitement.</p>
               <div className="cta-actions">
-                <button className="button button-dark cta-btn" onClick={startBuilder}>Créer mon CV gratuitement <span aria-hidden="true">↗</span></button>
-                <button className="button button-outline cta-btn" type="button" onClick={() => setImportModalOpen(true)}>📄 Améliorer mon CV existant</button>
+                <button className="button button-dark cta-btn" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span aria-hidden="true">↗</span></button>
                 <a className="text-link" href="#pricing">Voir les tarifs <span aria-hidden="true">↓</span></a>
               </div>
               <div className="cta-badges">
@@ -3779,9 +3853,22 @@ function App() {
         </section>
       </main>
 
-      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={startBuilder}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
+      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
       {notice && <div className="toast" role="status">{notice}</div>}
     </div>
+      <StartResumeChoiceModal
+        isOpen={startChoiceModalOpen}
+        onClose={() => setStartChoiceModalOpen(false)}
+        onSelectBlank={() => {
+          setStartChoiceModalOpen(false)
+          startBuilder(pendingTemplateChoice)
+        }}
+        onSelectImport={() => {
+          setStartChoiceModalOpen(false)
+          setImportModalOpen(true)
+        }}
+        onSelectLinkedIn={handleDirectLinkedInAuth}
+      />
       <ImportResumeModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}

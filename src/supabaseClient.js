@@ -182,7 +182,7 @@ export async function signInWithOAuth(provider, customOptions = {}) {
   const isLinkedIn = provider === 'linkedin_oidc' || provider === 'linkedin'
   const scopes = customOptions.scopes || (isLinkedIn ? 'openid profile email' : undefined)
 
-  const { data, error } = await client.auth.signInWithOAuth({
+  let result = await client.auth.signInWithOAuth({
     provider,
     options: {
       redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
@@ -191,8 +191,22 @@ export async function signInWithOAuth(provider, customOptions = {}) {
     },
   })
 
-  if (error) throw error
-  return data
+  // Fallback automatique si linkedin_oidc n'est pas activé mais linkedin classique l'est
+  if (result.error && provider === 'linkedin_oidc') {
+    const fallback = await client.auth.signInWithOAuth({
+      provider: 'linkedin',
+      options: {
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        ...customOptions,
+      },
+    })
+    if (!fallback.error) {
+      result = fallback
+    }
+  }
+
+  if (result.error) throw result.error
+  return result.data
 }
 
 /**
