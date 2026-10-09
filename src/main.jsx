@@ -1278,43 +1278,67 @@ function ResumeBuilder({
     <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
       <header className="builder-header">
         <button className="brand builder-brand" onClick={() => saveBeforeNavigation(onHome)} aria-label="Retour à l'accueil"><span className="brand-mark">c</span><span>CVcraft</span></button>
-        {(!userId && saveStatus !== 'saving' || saveStatus === 'error') && <div className={`builder-header-center save-status-${userId ? saveStatus : 'guest'}`} role={saveStatus === 'error' ? 'alert' : undefined}>
-          <span className="save-dot" />
-          {!userId ? saveStatus === 'error' ? (
-            <button type="button" onClick={() => {
-              setSaveStatus('saving')
-              setSaveRetry((current) => current + 1)
-              if (!isDirty) {
-                editVersion.current += 1
-                setIsDirty(true)
-              }
-            }}>Échec de sauvegarde locale — Réessayer</button>
-          ) : 'CV gratuit · sauvegarde locale automatique' : (
-            <button type="button" title={saveError} onClick={() => {
-              setSaveStatus('saving')
-              setSaveRetry((current) => current + 1)
-              if (!isDirty) {
-                editVersion.current += 1
-                setIsDirty(true)
-              }
-            }}>Échec serveur — Réessayer</button>
-          )}
-        </div>}
-        <div className="builder-user">
-          {user?.email && (
-            <span className="builder-user-email">
-              {user.email}
-              {accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) && (
-                <span className="user-pro-crown" title={`Abonnement ${accountPlan?.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
-                  <PremiumCrown />
-                </span>
+        <div className="builder-header-center">
+          {user?.email ? (
+            <>
+              <span className="builder-user-email">
+                <span>{user.email}</span>
+                {accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId) && (
+                  <span className="user-pro-crown" title={`Abonnement ${accountPlan?.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
+                    <PremiumCrown />
+                  </span>
+                )}
+              </span>
+              {saveStatus === 'error' && (
+                <button
+                  type="button"
+                  className="builder-header-error-badge"
+                  title={saveError}
+                  onClick={() => {
+                    setSaveStatus('saving')
+                    setSaveRetry((current) => current + 1)
+                    if (!isDirty) {
+                      editVersion.current += 1
+                      setIsDirty(true)
+                    }
+                  }}
+                >
+                  <span className="save-dot is-error" />
+                  <span>Échec serveur — Réessayer</span>
+                </button>
               )}
-            </span>
+            </>
+          ) : (
+            (!userId && (saveStatus !== 'saving' || saveStatus === 'error')) && (
+              <div className={`builder-guest-status save-status-${saveStatus}`} role={saveStatus === 'error' ? 'alert' : undefined}>
+                <span className="save-dot" />
+                {saveStatus === 'error' ? (
+                  <button type="button" onClick={() => {
+                    setSaveStatus('saving')
+                    setSaveRetry((current) => current + 1)
+                    if (!isDirty) {
+                      editVersion.current += 1
+                      setIsDirty(true)
+                    }
+                  }}>Échec de sauvegarde locale — Réessayer</button>
+                ) : 'CV gratuit · sauvegarde locale automatique'}
+              </div>
+            )
           )}
+        </div>
+        <div className="builder-user">
           <button className="mobile-change-template" onClick={() => setTemplateChooserOpen(true)}>Changer de modèle</button>
           {userId && <button onClick={() => saveBeforeNavigation(onDashboard)}>Mes CV</button>}
-          {userId && <button onClick={handleLogout}>Déconnexion</button>}
-          <button onClick={() => saveBeforeNavigation(onHome)}>Quitter</button>
+          {userId && (
+            <button className="builder-logout-button" type="button" onClick={handleLogout} title="Déconnexion">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              <span>Déconnexion</span>
+            </button>
+          )}
         </div>
       </header>
       <main className="builder-main">
