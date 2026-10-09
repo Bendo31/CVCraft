@@ -3671,12 +3671,15 @@ function App() {
           <a href="#faq">FAQ</a>
         </nav>
         <div className="header-actions">
-          {user && <button className="header-link" onClick={goDashboard}>Mes CV</button>}
-          <button className="header-link" onClick={() => {
-            pendingAuthDestinationRef.current = 'dashboard'
-            setAuthMode('signup')
-            setAuthOpen(true)
-          }}><u>Créer mon compte</u></button>
+          {user ? (
+            <button className="button button-outline button-small button-pill" onClick={goDashboard}>Mes CV</button>
+          ) : (
+            <button className="button button-outline button-small button-pill" onClick={() => {
+              pendingAuthDestinationRef.current = 'dashboard'
+              setAuthMode('signup')
+              setAuthOpen(true)
+            }}>Créer mon compte</button>
+          )}
           <button className="button button-dark button-small button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
         </div>
       </header>
@@ -3685,8 +3688,8 @@ function App() {
         <section className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
-            <h1 style={{ display: 'flex', flexDirection: 'column' }}><span style={{ whiteSpace: 'nowrap' }}>Un CV qui ouvre</span><em>des portes.</em></h1>
-            <p className="hero-lede">Concevez un CV clair, singulier et mémorable. CVcraft vous aide à transformer votre parcours en prochaine opportunité.</p>
+            <h1 style={{ display: 'flex', flexDirection: 'column' }}><span style={{ whiteSpace: 'nowrap' }}>Le CV qui donne envie</span><em>de vous recruter.</em></h1>
+            <p className="hero-lede">Créez un CV moderne, percutant et professionnel en moins de 5 minutes. Démarquez-vous auprès des recruteurs et transformez votre parcours en opportunités concrètes.</p>
             <div className="hero-actions">
               <button className="button button-dark button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
               <a className="button button-ghost" href="#modeles">Voir les modèles</a>
