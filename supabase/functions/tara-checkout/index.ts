@@ -45,7 +45,7 @@ function requiredEnv(name: string) {
   return value
 }
 
-async function getTaraStatus(productId: string) {
+async function getTaraStatus(productId: string): Promise<'SUCCESS' | 'FAILURE' | 'PENDING'> {
   const response = await fetch(`${TARA_API}/transactions/status`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -57,11 +57,51 @@ async function getTaraStatus(productId: string) {
   })
 
   if (!response.ok) throw new Error(`Vérification Tara Money refusée (${response.status}).`)
-  const result = await response.json()
-  if (result.productId !== productId || !['SUCCESS', 'FAILURE', 'PENDING'].includes(result.status)) {
-    throw new Error('Réponse de vérification Tara Money invalide.')
+  const result = await response.json().catch(() => null)
+  if (!result || typeof result !== 'object') {
+    throw new Error('Réponse de vérification Tara Money illisible.')
   }
-  return result.status as 'SUCCESS' | 'FAILURE' | 'PENDING'
+
+  // En attente ou commande pas encore complétée côté Tara
+  if (
+    result.status === 'PENDING' ||
+    (result.status === 'ERROR' && result.message === 'PAYMENT_FOR_TRANSACTION_NOT_FOUND')
+  ) {
+    return 'PENDING'
+  }
+
+  // Extraction du statut interne si renvoyé dans payload ou paymentData
+  let innerStatus = ''
+  if (typeof result.payload === 'string') {
+    try {
+      const parsed = JSON.parse(result.payload)
+      innerStatus = parsed.paymentStatus || parsed.status || ''
+    } catch {}
+  }
+  if (!innerStatus && typeof result.paymentData === 'string') {
+    try {
+      const parsed = JSON.parse(result.paymentData)
+      innerStatus = parsed.paymentStatus || parsed.status || ''
+    } catch {}
+  }
+
+  const resolvedStatus = (innerStatus || result.status || '').toUpperCase()
+
+  if (resolvedStatus === 'SUCCESS') {
+    return 'SUCCESS'
+  }
+  if (resolvedStatus === 'FAILURE' || resolvedStatus === 'FAILED' || resolvedStatus === 'CANCELED') {
+    return 'FAILURE'
+  }
+  if (resolvedStatus === 'PENDING' || resolvedStatus === 'IN_PROGRESS' || resolvedStatus === 'PROCESSING') {
+    return 'PENDING'
+  }
+
+  if (result.status === 'SUCCESS') {
+    return 'SUCCESS'
+  }
+
+  return 'PENDING'
 }
 
 async function startMobilePay(productId: string, productName: string, productPrice: number, phoneNumber: string) {
@@ -160,8 +200,12 @@ Deno.serve(async (request) => {
           paid_at: status === 'SUCCESS' ? new Date().toISOString() : null,
         })
         .eq('id', payment.id)
-        .neq('status', 'SUCCESS')
       if (updateError) throw updateError
+
+      if (status === 'SUCCESS' && table === 'cvcraft_plan_payments') {
+        await service.rpc('activate_cvcraft_plan_payment', { p_payment_id: payment.id })
+      }
+
       return json({ received: true })
     }
 
