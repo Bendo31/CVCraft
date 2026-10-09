@@ -1782,38 +1782,21 @@ function ResumeBuilder({
         </aside>
         <section className="builder-preview-area">
           <div className="preview-floating-actions">
-            {!canDownload && (
-              <div className="preview-upgrade-notice" role="status">
-                <span className="preview-upgrade-text">
-                  <PremiumCrown />
-                  <span>Abonnement Pro ou Gold requis pour télécharger en PDF</span>
-                </span>
-                <button
-                  type="button"
-                  className="preview-upgrade-action-btn"
-                  onClick={() => {
-                    if (!userId) {
-                      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
-                    } else {
-                      setChangePlanOpen(true)
-                    }
-                  }}
-                >
-                  Mettre à niveau
-                </button>
-              </div>
-            )}
             <button
               type="button"
               className={`preview-floating-export${!canDownload ? ' preview-floating-export-locked' : ''}`}
               onClick={handleExport}
               title={!canDownload ? 'Mettre à niveau votre abonnement pour pouvoir télécharger ce CV en PDF' : 'Télécharger le CV en PDF'}
             >
-              <svg viewBox="0 0 24 24" aria-hidden="true" className="floating-export-icon">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
+              {!canDownload ? (
+                <PremiumCrown />
+              ) : (
+                <svg viewBox="0 0 24 24" aria-hidden="true" className="floating-export-icon">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              )}
               <span>{canDownload ? 'Télécharger PDF' : 'Télécharger PDF (Upgrade requis)'}</span>
             </button>
           </div>
@@ -1927,31 +1910,10 @@ function ResumeBuilder({
       <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
       {mobilePreviewOpen && (
         <div className="mobile-preview-actions">
-          {!canDownload && (
-            <div className="mobile-upgrade-notice">
-              <PremiumCrown />
-              <span>Abonnement requis pour télécharger ce modèle en PDF.</span>
-            </div>
-          )}
-          {!canDownload ? (
-            <button
-              className="button-dark mobile-upgrade-btn"
-              type="button"
-              onClick={() => {
-                if (!userId) {
-                  onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
-                } else {
-                  setChangePlanOpen(true)
-                }
-              }}
-            >
-              <PremiumCrown /> Mettre à niveau l’abonnement
-            </button>
-          ) : (
-            <button className="button-dark" onClick={handleExport}>
-              Télécharger <span aria-hidden="true">↓</span>
-            </button>
-          )}
+          <button className="button-dark mobile-export-btn" type="button" onClick={handleExport}>
+            {!canDownload ? <PremiumCrown /> : <span aria-hidden="true">↓</span>}
+            <span>{canDownload ? 'Télécharger PDF' : 'Télécharger PDF (Upgrade requis)'}</span>
+          </button>
         </div>
       )}
       {paymentStatus && (

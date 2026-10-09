@@ -1025,40 +1025,21 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   cursor: not-allowed;
 }
 
-.mobile-upgrade-notice {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  background: #fffdf5;
-  border: 1px solid #dfc879;
-  color: #6d5930;
-  font-size: 11px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.mobile-upgrade-notice .premium-crown {
-  width: 14px;
-  height: 14px;
-  color: #b58900;
+.preview-floating-export .premium-crown,
+.mobile-export-btn .premium-crown {
+  width: 15px;
+  height: 15px;
+  color: #facc15;
   flex-shrink: 0;
+  display: inline-flex;
+  vertical-align: middle;
 }
 
-.mobile-upgrade-btn {
-  display: flex;
+.mobile-export-btn {
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-}
-
-.mobile-upgrade-btn .premium-crown {
-  width: 14px;
-  height: 14px;
 }
 
 .resume-template-sillage .resume-entry {
