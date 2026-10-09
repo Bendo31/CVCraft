@@ -33,13 +33,313 @@ const CROP_VIEW_SIZE = 280
 const CROP_OUTPUT_SIZE = 512
 const OAUTH_INTENT_KEY = 'cvcraft-oauth-intent'
 
-function normalizeCameroonPhoneNumber(value) {
-  const digits = value.trim().replace(/[^\d+]/g, '').replace(/^\+/, '')
-  const phoneNumber = digits.startsWith('237') ? digits : `237${digits}`
-  if (!/^2376\d{8}$/.test(phoneNumber)) {
-    throw new Error('Saisissez un numéro MTN ou Orange camerounais valide (ex. 2376XXXXXXXX).')
+const FRANCOPHONE_AFRICA_COUNTRIES = [
+  {
+    code: 'CM',
+    name: 'Cameroun',
+    dialCode: '237',
+    flag: '🇨🇲',
+    placeholder: '6XX XX XX XX',
+    operators: [
+      { id: 'mtn', name: 'MTN MoMo', regex: /^6(7\d|8\d|5[0-4])/ },
+      { id: 'orange', name: 'Orange Money', regex: /^6(9\d|5[5-9])/ },
+      { id: 'nexttel', name: 'Nexttel', regex: /^66/ },
+      { id: 'camtel', name: 'Camtel', regex: /^(2\d|62)/ },
+    ],
+  },
+  {
+    code: 'CI',
+    name: "Côte d'Ivoire",
+    dialCode: '225',
+    flag: '🇨🇮',
+    placeholder: '07 XX XX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^0?[789]/ },
+      { id: 'mtn', name: 'MTN MoMo', regex: /^0?[456]/ },
+      { id: 'moov', name: 'Moov Money', regex: /^0?[123]/ },
+    ],
+  },
+  {
+    code: 'SN',
+    name: 'Sénégal',
+    dialCode: '221',
+    flag: '🇸🇳',
+    placeholder: '77 XXX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^7[78]/ },
+      { id: 'free', name: 'Free Money', regex: /^76/ },
+      { id: 'expresso', name: 'Expresso', regex: /^70/ },
+    ],
+  },
+  {
+    code: 'BJ',
+    name: 'Bénin',
+    dialCode: '229',
+    flag: '🇧🇯',
+    placeholder: '97 XX XX XX',
+    operators: [
+      { id: 'mtn', name: 'MTN MoMo', regex: /^(01)?(5[1-4]|6[12679]|9[0167])/ },
+      { id: 'moov', name: 'Moov Money', regex: /^(02)?(6[45]|9[4589])/ },
+      { id: 'celtiis', name: 'Celtiis Cash', regex: /^(03)?4[0-4]/ },
+    ],
+  },
+  {
+    code: 'TG',
+    name: 'Togo',
+    dialCode: '228',
+    flag: '🇹🇬',
+    placeholder: '90 XX XX XX',
+    operators: [
+      { id: 'tmoney', name: 'T-Money', regex: /^(9[0-3]|70)/ },
+      { id: 'moov', name: 'Moov Flooz', regex: /^9[6-9]/ },
+    ],
+  },
+  {
+    code: 'ML',
+    name: 'Mali',
+    dialCode: '223',
+    flag: '🇲🇱',
+    placeholder: '7X XX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^([78]|9[0-2])/ },
+      { id: 'moov', name: 'Moov Money', regex: /^([56]|9[5-9])/ },
+    ],
+  },
+  {
+    code: 'BF',
+    name: 'Burkina Faso',
+    dialCode: '226',
+    flag: '🇧🇫',
+    placeholder: '76 XX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^(7[4-7]|5[4-7]|0[4-7])/ },
+      { id: 'moov', name: 'Moov Money', regex: /^(7[0-3]|5[0-3]|0[1-3])/ },
+      { id: 'telecel', name: 'Telecel', regex: /^(7[89]|5[89]|6[89])/ },
+    ],
+  },
+  {
+    code: 'CG',
+    name: 'Congo-Brazzaville',
+    dialCode: '242',
+    flag: '🇨🇬',
+    placeholder: '06 XXX XX XX',
+    operators: [
+      { id: 'mtn', name: 'MTN MoMo', regex: /^0?6/ },
+      { id: 'airtel', name: 'Airtel Money', regex: /^0?[45]/ },
+    ],
+  },
+  {
+    code: 'CD',
+    name: 'RD Congo',
+    dialCode: '243',
+    flag: '🇨🇩',
+    placeholder: '84 XXX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^8[459]/ },
+      { id: 'vodacom', name: 'M-Pesa', regex: /^8[12]/ },
+      { id: 'airtel', name: 'Airtel Money', regex: /^9[7-9]/ },
+    ],
+  },
+  {
+    code: 'GA',
+    name: 'Gabon',
+    dialCode: '241',
+    flag: '🇬🇦',
+    placeholder: '07 XX XX XX',
+    operators: [
+      { id: 'airtel', name: 'Airtel Money', regex: /^0?[47]/ },
+      { id: 'moov', name: 'Moov Money', regex: /^0?6/ },
+    ],
+  },
+  {
+    code: 'GN',
+    name: 'Guinée',
+    dialCode: '224',
+    flag: '🇬🇳',
+    placeholder: '62X XX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^6[12]/ },
+      { id: 'mtn', name: 'MTN MoMo', regex: /^6[56]/ },
+    ],
+  },
+  {
+    code: 'NE',
+    name: 'Niger',
+    dialCode: '227',
+    flag: '🇳🇪',
+    placeholder: '96 XX XX XX',
+    operators: [
+      { id: 'orange', name: 'Orange Money', regex: /^(9[67]|8[89]|70)/ },
+      { id: 'airtel', name: 'Airtel Money', regex: /^9[0-2]/ },
+      { id: 'moov', name: 'Moov Flooz', regex: /^9[4589]/ },
+    ],
+  },
+  {
+    code: 'TD',
+    name: 'Tchad',
+    dialCode: '235',
+    flag: '🇹🇩',
+    placeholder: '66 XX XX XX',
+    operators: [
+      { id: 'airtel', name: 'Airtel Money', regex: /^6[2356]/ },
+      { id: 'moov', name: 'Moov Money', regex: /^9[0159]/ },
+    ],
+  },
+]
+
+const TIMEZONE_TO_COUNTRY = {
+  'Africa/Douala': 'CM',
+  'Africa/Abidjan': 'CI',
+  'Africa/Dakar': 'SN',
+  'Africa/Porto-Novo': 'BJ',
+  'Africa/Cotonou': 'BJ',
+  'Africa/Lome': 'TG',
+  'Africa/Bamako': 'ML',
+  'Africa/Ouagadougou': 'BF',
+  'Africa/Brazzaville': 'CG',
+  'Africa/Kinshasa': 'CD',
+  'Africa/Lubumbashi': 'CD',
+  'Africa/Libreville': 'GA',
+  'Africa/Conakry': 'GN',
+  'Africa/Niamey': 'NE',
+  'Africa/Ndjamena': 'TD',
+}
+
+function detectUserCountryCode() {
+  if (typeof window !== 'undefined') {
+    try {
+      const saved = window.localStorage.getItem('cvcraft_user_country')
+      if (saved && FRANCOPHONE_AFRICA_COUNTRIES.some((c) => c.code === saved)) {
+        return saved
+      }
+    } catch {}
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (tz && TIMEZONE_TO_COUNTRY[tz]) {
+        return TIMEZONE_TO_COUNTRY[tz]
+      }
+    } catch {}
   }
-  return phoneNumber
+  return 'CM'
+}
+
+function detectOperator(countryCode, localNumber) {
+  const digits = String(localNumber || '').replace(/\D/g, '')
+  if (!digits || digits.length < 2) return null
+  const country = FRANCOPHONE_AFRICA_COUNTRIES.find((c) => c.code === countryCode) || FRANCOPHONE_AFRICA_COUNTRIES[0]
+
+  let cleanDigits = digits
+  if (cleanDigits.startsWith(country.dialCode) && cleanDigits.length > country.dialCode.length + 2) {
+    cleanDigits = cleanDigits.slice(country.dialCode.length)
+  }
+
+  for (const op of country.operators) {
+    if (op.regex.test(cleanDigits)) {
+      return op
+    }
+  }
+  return null
+}
+
+function normalizeAfricanPhoneNumber(countryCode, value) {
+  const country = FRANCOPHONE_AFRICA_COUNTRIES.find((c) => c.code === countryCode) || FRANCOPHONE_AFRICA_COUNTRIES[0]
+  let digits = String(value || '').trim().replace(/\D/g, '')
+
+  if (digits.startsWith(country.dialCode) && digits.length > country.dialCode.length + 5) {
+    digits = digits.slice(country.dialCode.length)
+  }
+
+  if (!digits) {
+    throw new Error('Saisissez votre numéro de téléphone mobile.')
+  }
+
+  const fullNumber = `${country.dialCode}${digits}`
+  if (!/^(237|225|221|229|228|223|226|242|243|241|224|227|235)\d{7,10}$/.test(fullNumber)) {
+    throw new Error(`Saisissez un numéro mobile valide pour ${country.name} (ex. ${country.placeholder}).`)
+  }
+
+  return fullNumber
+}
+
+function normalizeCameroonPhoneNumber(value) {
+  return normalizeAfricanPhoneNumber('CM', value)
+}
+
+function MobileMoneyPhoneInput({
+  id = 'payment-phone-input',
+  country = 'CM',
+  onCountryChange,
+  value = '',
+  onChange,
+}) {
+  const activeCountry = FRANCOPHONE_AFRICA_COUNTRIES.find((c) => c.code === country) || FRANCOPHONE_AFRICA_COUNTRIES[0]
+  const operator = detectOperator(activeCountry.code, value)
+
+  const handleCountrySelect = (e) => {
+    const nextCode = e.target.value
+    if (onCountryChange) onCountryChange(nextCode)
+    try {
+      window.localStorage.setItem('cvcraft_user_country', nextCode)
+    } catch {}
+  }
+
+  const handlePhoneInput = (e) => {
+    let raw = e.target.value
+    const digitsOnly = raw.replace(/\D/g, '')
+    for (const c of FRANCOPHONE_AFRICA_COUNTRIES) {
+      if (raw.trim().startsWith(`+${c.dialCode}`) || (digitsOnly.startsWith(c.dialCode) && digitsOnly.length > c.dialCode.length + 5)) {
+        if (c.code !== activeCountry.code && onCountryChange) {
+          onCountryChange(c.code)
+        }
+        raw = digitsOnly.slice(c.dialCode.length)
+        break
+      }
+    }
+    onChange(raw)
+  }
+
+  return (
+    <div className="phone-composite-wrap">
+      <div className="country-picker-btn" title={`Pays : ${activeCountry.name} (+${activeCountry.dialCode})`}>
+        <span className="country-flag" aria-hidden="true">{activeCountry.flag}</span>
+        <span className="country-dial">+{activeCountry.dialCode}</span>
+        <span className="country-arrow" aria-hidden="true">▾</span>
+        <select
+          className="country-native-select"
+          aria-label="Sélectionner l'indicatif du pays"
+          value={activeCountry.code}
+          onChange={handleCountrySelect}
+        >
+          {FRANCOPHONE_AFRICA_COUNTRIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.flag} {c.name} (+{c.dialCode})
+            </option>
+          ))}
+        </select>
+      </div>
+      <input
+        id={id}
+        type="tel"
+        inputMode="numeric"
+        autoComplete="tel-national"
+        className="phone-composite-input"
+        placeholder={activeCountry.placeholder}
+        value={value}
+        onChange={handlePhoneInput}
+        required
+      />
+      {operator && (
+        <span
+          className={`operator-badge is-${operator.id}`}
+          aria-live="polite"
+          title={`Opérateur détecté : ${operator.name}`}
+        >
+          <span className="operator-dot" aria-hidden="true" />
+          <span className="operator-name">{operator.name}</span>
+        </span>
+      )}
+    </div>
+  )
 }
 
 function formatRelativeDate(value) {
@@ -419,8 +719,8 @@ function ResumeBuilder({
   const [resumeFont, setResumeFont] = useState('classic')
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [paymentSubmitting, setPaymentSubmitting] = useState(false)
-  const [paymentError, setPaymentError] = useState('')
-  const [paymentPhone, setPaymentPhone] = useState('237')
+  const [paymentCountry, setPaymentCountry] = useState(() => detectUserCountryCode())
+  const [paymentPhone, setPaymentPhone] = useState('')
   const [templateChooserOpen, setTemplateChooserOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
@@ -866,7 +1166,7 @@ function ResumeBuilder({
     setPaymentSubmitting(true)
     setPaymentError('')
     try {
-      const phoneNumber = normalizeCameroonPhoneNumber(paymentPhone)
+      const phoneNumber = normalizeAfricanPhoneNumber(paymentCountry, paymentPhone)
       await saveUserResumeToCloud(userId, {
         resume,
         photo,
@@ -1194,7 +1494,28 @@ function ResumeBuilder({
           }}
         />
       )}
-      {paymentOpen && <div className="payment-backdrop" role="presentation"><form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title" onSubmit={(event) => { event.preventDefault(); beginPaidDownload() }}><span className="preview-kicker">Paiement Mobile Money par Tara</span><h2 id="payment-title">Télécharger le modèle {resumeTemplates.find((item) => item.id === template)?.name}</h2><p>Le paiement de <strong>100 FCFA</strong> est requis. Tara détectera MTN ou Orange avec votre numéro camerounais.</p><label className="payment-phone-label" htmlFor="template-payment-phone">Numéro mobile</label><input id="template-payment-phone" className="payment-phone-input" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="2376XXXXXXXX" value={paymentPhone} onChange={(event) => setPaymentPhone(event.target.value)} required />{paymentError && <p className="account-error" role="alert">{paymentError}</p>}<div className="payment-actions"><button className="button-outline" type="button" disabled={paymentSubmitting} onClick={() => setPaymentOpen(false)}>Annuler</button><button className="button-dark" type="submit" disabled={paymentSubmitting}>{paymentSubmitting ? 'Envoi…' : 'Payer · 100 FCFA'}</button></div></form></div>}
+      {paymentOpen && (
+        <div className="payment-backdrop" role="presentation">
+          <form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="payment-title" onSubmit={(event) => { event.preventDefault(); beginPaidDownload() }}>
+            <span className="preview-kicker">Paiement Mobile Money par Tara</span>
+            <h2 id="payment-title">Télécharger le modèle {resumeTemplates.find((item) => item.id === template)?.name}</h2>
+            <p>Le paiement de <strong>100 FCFA</strong> est requis. Tara détectera automatiquement votre opérateur Mobile Money (MTN, Orange...).</p>
+            <label className="payment-phone-label" htmlFor="template-payment-phone">Numéro mobile</label>
+            <MobileMoneyPhoneInput
+              id="template-payment-phone"
+              country={paymentCountry}
+              onCountryChange={setPaymentCountry}
+              value={paymentPhone}
+              onChange={setPaymentPhone}
+            />
+            {paymentError && <p className="account-error" role="alert">{paymentError}</p>}
+            <div className="payment-actions">
+              <button className="button-outline" type="button" disabled={paymentSubmitting} onClick={() => setPaymentOpen(false)}>Annuler</button>
+              <button className="button-dark" type="submit" disabled={paymentSubmitting}>{paymentSubmitting ? 'Envoi…' : 'Payer · 100 FCFA'}</button>
+            </div>
+          </form>
+        </div>
+      )}
       {templateChooserOpen && (
         <div className="mobile-template-overlay">
           <MobileTemplateSelection
@@ -1855,7 +2176,17 @@ function ResumeDashboard({ user, accountPlan, onPlanUpdate, onHome, onCreateResu
   )
 }
 
-function PlanMobilePayDialog({ planId, phone, onPhoneChange, error, submitting, onCancel, onSubmit }) {
+function PlanMobilePayDialog({
+  planId,
+  country,
+  onCountryChange,
+  phone,
+  onPhoneChange,
+  error,
+  submitting,
+  onCancel,
+  onSubmit,
+}) {
   const planName = planId === 'gold' ? 'Gold' : 'Pro'
   const amount = 100
   return (
@@ -1863,9 +2194,15 @@ function PlanMobilePayDialog({ planId, phone, onPhoneChange, error, submitting, 
       <form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-payment-title" onSubmit={onSubmit}>
         <span className="preview-kicker">Paiement Mobile Money par Tara</span>
         <h2 id="plan-payment-title">Activer l’offre {planName}</h2>
-        <p>Le paiement de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> sera demandé sur votre téléphone. Tara détectera MTN ou Orange avec votre numéro.</p>
+        <p>Le paiement de <strong>{amount.toLocaleString('fr-FR')} FCFA</strong> sera demandé sur votre téléphone. Tara détectera automatiquement votre opérateur Mobile Money (MTN, Orange...).</p>
         <label className="payment-phone-label" htmlFor="plan-payment-phone">Numéro mobile</label>
-        <input id="plan-payment-phone" className="payment-phone-input" type="tel" inputMode="tel" autoComplete="tel-national" placeholder="2376XXXXXXXX" value={phone} onChange={(event) => onPhoneChange(event.target.value)} required />
+        <MobileMoneyPhoneInput
+          id="plan-payment-phone"
+          country={country}
+          onCountryChange={onCountryChange}
+          value={phone}
+          onChange={onPhoneChange}
+        />
         {error && <p className="account-error" role="alert">{error}</p>}
         <div className="payment-actions">
           <button className="button-outline" type="button" disabled={submitting} onClick={onCancel}>Annuler</button>
@@ -1908,7 +2245,8 @@ function App() {
   const [dashboardDownloadRequested, setDashboardDownloadRequested] = useState(false)
   const [paymentVerifyAttempt, setPaymentVerifyAttempt] = useState(0)
   const [mobilePayPlan, setMobilePayPlan] = useState(null)
-  const [mobilePayPhone, setMobilePayPhone] = useState('237')
+  const [mobilePayCountry, setMobilePayCountry] = useState(() => detectUserCountryCode())
+  const [mobilePayPhone, setMobilePayPhone] = useState('')
   const [mobilePayError, setMobilePayError] = useState('')
   const [mobilePaySubmitting, setMobilePaySubmitting] = useState(false)
   const [paymentReturnStatus, setPaymentReturnStatus] = useState(() => {
@@ -1967,7 +2305,7 @@ function App() {
       setUser(session.user)
       setAuthOpen(false)
       if (['pro', 'gold'].includes(intent.planId)) {
-        setMobilePayPhone('237')
+        setMobilePayPhone('')
         setMobilePayError('')
         setMobilePayPlan(intent.planId)
         setView('dashboard')
@@ -2254,7 +2592,7 @@ function App() {
       return
     }
     setMobilePayError('')
-    setMobilePayPhone('237')
+    setMobilePayPhone('')
     setMobilePayPlan(planId)
   }
   const beginPlanMobilePay = async (event) => {
@@ -2263,7 +2601,7 @@ function App() {
     setMobilePaySubmitting(true)
     setMobilePayError('')
     try {
-      const phoneNumber = normalizeCameroonPhoneNumber(mobilePayPhone)
+      const phoneNumber = normalizeAfricanPhoneNumber(mobilePayCountry, mobilePayPhone)
       const checkout = await createTaraPlanCheckout(mobilePayPlan, phoneNumber)
       setMobilePayPlan(null)
       trackMobilePay(checkout.paymentId)
@@ -2296,6 +2634,8 @@ function App() {
   const planMobilePayDialog = mobilePayPlan && (
     <PlanMobilePayDialog
       planId={mobilePayPlan}
+      country={mobilePayCountry}
+      onCountryChange={setMobilePayCountry}
       phone={mobilePayPhone}
       onPhoneChange={setMobilePayPhone}
       error={mobilePayError}
@@ -2345,7 +2685,7 @@ function App() {
       pendingTemplateRef.current = null
       pendingDraftRef.current = null
       pendingDownloadRef.current = false
-      setMobilePayPhone('237')
+      setMobilePayPhone('')
       setMobilePayError('')
       setMobilePayPlan(requestedPlan)
       setView('dashboard')
@@ -2801,7 +3141,7 @@ function App() {
           <div className="faq-list">
             {[
               { q: 'CVcraft est-il vraiment gratuit ?', a: 'Oui ! Le plan gratuit vous permet de créer un CV complet et de le télécharger en PDF. Les plans payants débloquent des modèles premium et des fonctionnalités avancées.' },
-              { q: 'Comment fonctionne le paiement Mobile Money ?', a: 'Nous utilisons Tara Money pour les paiements. Entrez votre numéro MTN ou Orange Cameroun, validez la demande sur votre téléphone. Simple et sécurisé.' },
+              { q: 'Comment fonctionne le paiement Mobile Money ?', a: 'Nous utilisons Tara Money pour les paiements. Sélectionnez votre pays, entrez votre numéro mobile (MTN, Orange...) et validez la demande sur votre téléphone. Simple, rapide et sécurisé.' },
               { q: 'Puis-je créer plusieurs CV ?', a: 'Avec le plan Pro, vous pouvez créer jusqu\'à 3 CV différents. Le plan Gold vous offre des CV illimités, parfait si vous postulez à plusieurs types de postes.' },
               { q: 'Mon CV est-il sauvegardé automatiquement ?', a: 'Oui, avec un compte CVcraft, votre travail est sauvegardé en temps réel dans le cloud. Vous pouvez reprendre depuis n\'importe quel appareil.' },
               { q: 'Quelle est la qualité du PDF exporté ?', a: 'Nos PDF sont générés en haute résolution et formatés pour l\'impression A4. Ils sont compatibles avec toutes les plateformes de dépôt de candidature.' },

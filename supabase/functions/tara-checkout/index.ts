@@ -94,8 +94,8 @@ async function startMobilePay(productId: string, productName: string, productPri
   return typeof result.vendor === 'string' ? result.vendor : null
 }
 
-function isCameroonMobileNumber(value: unknown): value is string {
-  return typeof value === 'string' && /^2376\d{8}$/.test(value)
+function isValidAfricanMobileNumber(value: unknown): value is string {
+  return typeof value === 'string' && /^(237|225|221|229|228|223|226|242|243|241|224|227|235)\d{7,10}$/.test(value)
 }
 
 Deno.serve(async (request) => {
@@ -181,7 +181,7 @@ Deno.serve(async (request) => {
       const phoneNumber = typeof body.phoneNumber === 'string' ? body.phoneNumber : ''
       const templateName = PAID_TEMPLATES.get(templateId)
       if (!templateName) return json({ error: 'Modèle payant invalide.' }, 400, origin)
-      if (!isCameroonMobileNumber(phoneNumber)) return json({ error: 'Saisissez un numéro mobile camerounais au format 2376XXXXXXXX.' }, 400, origin)
+      if (!isValidAfricanMobileNumber(phoneNumber)) return json({ error: 'Saisissez un numéro mobile valide (ex. 6XXXXXXXX au Cameroun, 07XXXXXXXX en Côte d’Ivoire).' }, 400, origin)
       if (resumeId) {
         const { data: resume, error: resumeError } = await service
           .from('resumes')
@@ -216,7 +216,7 @@ Deno.serve(async (request) => {
       const phoneNumber = typeof body.phoneNumber === 'string' ? body.phoneNumber : ''
       const plan = PAID_PLANS.get(planId)
       if (!plan) return json({ error: 'Offre payante invalide.' }, 400, origin)
-      if (!isCameroonMobileNumber(phoneNumber)) return json({ error: 'Saisissez un numéro mobile camerounais au format 2376XXXXXXXX.' }, 400, origin)
+      if (!isValidAfricanMobileNumber(phoneNumber)) return json({ error: 'Saisissez un numéro mobile valide (ex. 6XXXXXXXX au Cameroun, 07XXXXXXXX en Côte d’Ivoire).' }, 400, origin)
 
       const productId = `cv-plan-${crypto.randomUUID()}`
       const { data: payment, error: insertError } = await service
