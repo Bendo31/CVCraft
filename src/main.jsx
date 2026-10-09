@@ -2054,7 +2054,7 @@ const dummyResume = {
   sectionVisibility: { personal: true, experiences: true, educations: true, skills: true, languages: false, projects: false, certifications: false, hobbies: false, references: true }
 }
 
-const dummySelectedFont = { family: "'Inter', sans-serif", display: "'Fraunces', Georgia, serif" }
+const dummySelectedFont = { family: "'Sora', sans-serif", display: "'Fraunces', Georgia, serif" }
 const dummyFormatDateRange = (start, end) => `${start} — ${end || "Aujourd'hui"}`
 
 function TemplateMiniPreview({ template }) {
