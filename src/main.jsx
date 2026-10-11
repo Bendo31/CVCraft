@@ -2,7 +2,7 @@ import { StrictMode, useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import { ResumeDocument } from './ResumeDocument.jsx'
+import { ResumeDocument, ResumeSingleSheet } from './ResumeDocument.jsx'
 import {
   createTaraCheckout,
   createTaraPlanCheckout,
@@ -561,10 +561,10 @@ const plans = [
 ]
 
 const resumeTemplates = [
+  { id: 'gratuit', name: 'Gratuit', description: 'Classique & Efficace', color: 'gratuit' },
   { id: 'sillage', name: 'Sillage', description: 'Éditorial', color: 'blue' },
   { id: 'atlas', name: 'Atlas', description: 'Structuré', color: 'lime' },
   { id: 'signal', name: 'Signal', description: 'Audacieux', color: 'orange' },
-  { id: 'gratuit', name: 'Gratuit', description: 'Basique', color: 'gratuit' },
 ]
 
 const legacyResumeKeys = [
@@ -1473,6 +1473,73 @@ function ResumeBuilder({
 
   return (
     <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
+      {/* BARRE DE NAVIGATION MOBILE (EN HAUT) */}
+      {mobilePreviewOpen ? (
+        <header className="builder-mobile-header builder-mobile-header-preview" aria-label="Aperçu mobile et retour">
+          <button
+            type="button"
+            className="builder-mobile-back-btn"
+            onClick={() => setMobilePreviewOpen(false)}
+            aria-label="Retourner au formulaire d'édition"
+            title="Retour au formulaire"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="19" y1="12" x2="5" y2="12" />
+              <polyline points="12 19 5 12 12 5" />
+            </svg>
+            <span>Retour</span>
+          </button>
+          <span className="builder-mobile-preview-title">Aperçu A4</span>
+          <div className="builder-mobile-back-placeholder" aria-hidden="true" />
+        </header>
+      ) : (
+        <header className="builder-mobile-header" aria-label="Navigation mobile">
+          <button
+            type="button"
+            className="builder-mobile-brand"
+            onClick={() => saveBeforeNavigation(userId ? onDashboard : onHome)}
+            title="CVcraft - Accueil"
+          >
+            <span className="brand-mark">c</span>
+            <span className="builder-mobile-brand-title">CVcraft</span>
+          </button>
+
+          <div className="builder-mobile-nav-right">
+            {!userId ? (
+              <button
+                type="button"
+                className="builder-mobile-connexion-btn"
+                onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
+              >
+                Connexion
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="builder-mobile-connexion-btn builder-mobile-connexion-user"
+                onClick={() => saveBeforeNavigation(onDashboard)}
+                title="Mon espace candidat"
+              >
+                Mon compte
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="builder-mobile-eye-btn"
+              onClick={() => setMobilePreviewOpen(true)}
+              aria-label="Prévisualiser le CV"
+              title="Aperçu du CV"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          </div>
+        </header>
+      )}
+
       <aside className="builder-nav-rail" aria-label="Menu de navigation">
         {/* LOGO CVcraft */}
         <div className="nav-rail-top">
@@ -1937,22 +2004,24 @@ function ResumeBuilder({
           </section>
         </aside>
       </main>
-      <button className="mobile-preview-toggle" onClick={() => setMobilePreviewOpen((current) => !current)} aria-label={mobilePreviewOpen ? 'Modifier le CV' : 'Prévisualiser le CV'}>{mobilePreviewOpen ? 'Modifier' : 'Prévisualiser'} <span aria-hidden="true">↗</span></button>
+      {/* BOUTON TÉLÉCHARGER EN BAS (MODE PRÉVISUALISATION MOBILE) */}
       {mobilePreviewOpen && (
-        <div className="mobile-preview-actions">
-          {!userId && (
-            <button
-              className="button button-outline mobile-home-btn"
-              type="button"
-              onClick={() => saveBeforeNavigation(onHome)}
-              title="Retourner à la page d'accueil"
-            >
-              ← Accueil
-            </button>
-          )}
-          <button className="button-dark mobile-export-btn" type="button" onClick={handleExport}>
-            {!canDownload ? <PremiumCrown /> : <span aria-hidden="true">↓</span>}
-            <span>{canDownload ? 'Télécharger PDF' : 'Télécharger PDF (Upgrade requis)'}</span>
+        <div className="builder-mobile-preview-bottom-bar">
+          <button
+            type="button"
+            className={`builder-mobile-download-btn ${!canDownload ? 'is-locked' : ''}`}
+            onClick={handleExport}
+          >
+            {!canDownload ? (
+              <PremiumCrown />
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            )}
+            <span>{canDownload ? 'Télécharger en PDF' : 'Télécharger (Débloquer)'}</span>
           </button>
         </div>
       )}
@@ -2103,28 +2172,110 @@ const dummySelectedFont = { family: "'Sora', sans-serif", display: "'Fraunces', 
 const dummyFormatDateRange = (start, end) => `${start} — ${end || "Aujourd'hui"}`
 
 function TemplateMiniPreview({ template }) {
+  const containerRef = useRef(null)
+  const [scale, setScale] = useState(0.4)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return undefined
+    const update = () => {
+      const w = el.clientWidth
+      if (w > 0) {
+        setScale(w / 650)
+      }
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const defaultColor = template?.id === 'atlas'
+    ? '#5f7d3b'
+    : template?.id === 'signal'
+    ? '#e49a68'
+    : template?.id === 'sillage'
+    ? '#3d6fa8'
+    : '#17191a'
+
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', background: '#fff', containerType: 'inline-size' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, width: '794px', transform: 'scale(calc(100cqw / 794))', transformOrigin: 'top left', pointerEvents: 'none' }}>
-        <ResumeDocument resume={dummyResume} template={template.id} selectedFont={dummySelectedFont} formatDateRange={dummyFormatDateRange} baseColor="#17191a" />
+    <div className="template-a4-preview-frame" ref={containerRef} aria-label={`Aperçu A4 du modèle ${template?.name || ''}`}>
+      <div
+        className="template-a4-preview-scaler"
+        style={{
+          width: '650px',
+          height: '919px',
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          pointerEvents: 'none',
+        }}
+      >
+        <ResumeSingleSheet
+          resume={dummyResume}
+          template={template?.id || 'gratuit'}
+          sectionVisibility={dummyResume.sectionVisibility}
+          selectedFont={dummySelectedFont}
+          formatDateRange={dummyFormatDateRange}
+          baseColor={defaultColor}
+          showBranding={template?.id === 'gratuit'}
+        />
       </div>
     </div>
   )
 }
 
-function MobileTemplateSelection({ currentTemplate, isAuthenticated, onSelect, onUnlock, onHome }) {
-  const [selectedIndex, setSelectedIndex] = useState(
-    Math.max(0, resumeTemplates.findIndex((item) => item.id === currentTemplate))
-  )
-  const selectedTemplate = resumeTemplates[selectedIndex]
-  const isLocked = !isAuthenticated && selectedTemplate.id !== 'gratuit'
+function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated, onSelect, onUnlock, onHome }) {
+  const getIndexFor = (tplId) => {
+    const target = tplId || 'gratuit'
+    const idx = resumeTemplates.findIndex((item) => item.id === target)
+    return idx >= 0 ? idx : 0
+  }
+
+  const [selectedIndex, setSelectedIndex] = useState(() => getIndexFor(currentTemplate))
+  const selectedTemplate = resumeTemplates[selectedIndex] || resumeTemplates[0]
+  const isGratuit = selectedTemplate.id === 'gratuit'
+  const isLocked = !isAuthenticated && !isGratuit
   const previousTemplate = () => setSelectedIndex((current) => (current - 1 + resumeTemplates.length) % resumeTemplates.length)
   const nextTemplate = () => setSelectedIndex((current) => (current + 1) % resumeTemplates.length)
 
+  useEffect(() => {
+    setSelectedIndex(getIndexFor(currentTemplate))
+  }, [currentTemplate])
+
   return (
     <div className="mobile-template-page">
-      <div className="mobile-template-top-bar"><button type="button" className="mobile-template-close-btn" onClick={onHome} aria-label="Fermer">✕</button></div>
-      <main className="mobile-template-main"><span className="eyebrow"><span className="eyebrow-dot" /> Première étape</span><h1>Choisissez<br /><em>votre modèle.</em></h1><p>Faites défiler les modèles et prévisualisez celui qui vous ressemble.</p><div className="mobile-template-carousel"><button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button><TemplateMiniPreview template={selectedTemplate} /><button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button></div><div className="mobile-template-meta"><strong>{selectedTemplate.name}</strong><small>{selectedTemplate.description}</small><span>{selectedIndex + 1} / {resumeTemplates.length}</span></div><div className="mobile-template-actions"><button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>{isLocked ? 'Prévisualiser mon CV' : 'Choisir le modèle'} <span aria-hidden="true">↗</span></button>{isLocked && <button className="button-outline mobile-template-unlock" onClick={() => onUnlock(selectedTemplate.id)}><PremiumCrown /> Débloquer</button>}</div></main>
+      <div className="mobile-template-top-bar">
+        <button type="button" className="mobile-template-close-btn" onClick={onHome} aria-label="Fermer">✕</button>
+      </div>
+      <main className="mobile-template-main">
+        <span className="eyebrow"><span className="eyebrow-dot" /> Modèle de départ</span>
+        <h1>Choisissez<br /><em>votre modèle.</em></h1>
+        <p>Aperçu exact au format A4. Faites défiler les modèles pour choisir votre mise en page.</p>
+        <div className="mobile-template-carousel">
+          <button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button>
+          <TemplateMiniPreview template={selectedTemplate} />
+          <button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button>
+        </div>
+        <div className="mobile-template-meta">
+          <div>
+            <strong>{selectedTemplate.name}</strong>
+            {isGratuit && <span className="template-badge-free">Modèle Gratuit</span>}
+            <br />
+            <small>{selectedTemplate.description}</small>
+          </div>
+          <span>{selectedIndex + 1} / {resumeTemplates.length}</span>
+        </div>
+        <div className="mobile-template-actions">
+          <button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>
+            {isLocked ? 'Prévisualiser ce modèle' : 'Choisir ce modèle'} <span aria-hidden="true">↗</span>
+          </button>
+          {isLocked && (
+            <button className="button button-outline mobile-template-unlock" onClick={() => onUnlock(selectedTemplate.id)}>
+              <PremiumCrown /> Débloquer le modèle
+            </button>
+          )}
+        </div>
+      </main>
     </div>
   )
 }
@@ -2890,6 +3041,7 @@ function App() {
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [startChoiceModalOpen, setStartChoiceModalOpen] = useState(false)
   const [pendingTemplateChoice, setPendingTemplateChoice] = useState(null)
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false)
   const [importedResumeDraft, setImportedResumeDraft] = useState(null)
   const [builderSessionKey, setBuilderSessionKey] = useState(1)
   const pendingTemplateRef = useRef(null)
@@ -2899,7 +3051,9 @@ function App() {
   const pendingPlanRef = useRef(null)
 
   const handleRequestCreateResume = (templateChoice = null) => {
+    const defaultTemplate = templateChoice || 'gratuit'
     setPendingTemplateChoice(templateChoice)
+    setSelectedTemplate(defaultTemplate)
     setStartChoiceModalOpen(true)
   }
 
@@ -3571,6 +3725,35 @@ function App() {
     startBuilder('gratuit')
   }
 
+  // Étape « choix du modèle » entre « Partir d'une page blanche » et le builder.
+  const startBlankResume = () => {
+    setStartChoiceModalOpen(false)
+    if (pendingTemplateChoice) {
+      startBuilder(pendingTemplateChoice)
+      return
+    }
+    setSelectedTemplate('gratuit')
+    setTemplatePickerOpen(true)
+  }
+
+  const templatePickerOverlay = templatePickerOpen ? (
+    <div className="mobile-template-overlay">
+      <MobileTemplateSelection
+        currentTemplate={pendingTemplateChoice || selectedTemplate || 'gratuit'}
+        isAuthenticated={Boolean(user)}
+        onSelect={(templateId) => {
+          setTemplatePickerOpen(false)
+          startBuilder(templateId)
+        }}
+        onUnlock={(templateId) => {
+          setTemplatePickerOpen(false)
+          requestUnlock(templateId, null)
+        }}
+        onHome={() => setTemplatePickerOpen(false)}
+      />
+    </div>
+  ) : null
+
   if (view === 'builder') {
     return (
       <>
@@ -3605,15 +3788,13 @@ function App() {
         <StartResumeChoiceModal
           isOpen={startChoiceModalOpen}
           onClose={() => setStartChoiceModalOpen(false)}
-          onSelectBlank={() => {
-            setStartChoiceModalOpen(false)
-            startBuilder(pendingTemplateChoice)
-          }}
+          onSelectBlank={startBlankResume}
           onSelectImport={() => {
             setStartChoiceModalOpen(false)
             setImportModalOpen(true)
           }}
         />
+        {templatePickerOverlay}
         <ImportResumeModal
           isOpen={importModalOpen}
           onClose={() => setImportModalOpen(false)}
@@ -3654,15 +3835,13 @@ function App() {
         <StartResumeChoiceModal
           isOpen={startChoiceModalOpen}
           onClose={() => setStartChoiceModalOpen(false)}
-          onSelectBlank={() => {
-            setStartChoiceModalOpen(false)
-            startBuilder(pendingTemplateChoice)
-          }}
+          onSelectBlank={startBlankResume}
           onSelectImport={() => {
             setStartChoiceModalOpen(false)
             setImportModalOpen(true)
           }}
         />
+        {templatePickerOverlay}
         <ImportResumeModal
           isOpen={importModalOpen}
           onClose={() => setImportModalOpen(false)}
@@ -3711,7 +3890,7 @@ function App() {
         <nav className="main-nav" aria-label="Navigation principale">
           <a href="#process">Comment ça marche</a>
           <a href="#modeles">Modèles</a>
-          <a href="#features">Fonctionnalités</a>
+          <a href="#features">Ce qui nous distingue</a>
           <a href="#pricing">Tarifs</a>
           <a href="#faq">FAQ</a>
         </nav>
@@ -3733,7 +3912,7 @@ function App() {
         <section className="hero section-wrap">
           <div className="hero-copy">
             <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
-            <h1 style={{ display: 'flex', flexDirection: 'column' }}><span style={{ whiteSpace: 'nowrap' }}>Le CV qui donne envie</span><em>de vous recruter.</em></h1>
+            <h1 className="hero-title"><span className="hero-title-main">Le CV qui donne envie</span><em className="hero-title-sub">de vous recruter.</em></h1>
             <p className="hero-lede">Créez un CV moderne, percutant et professionnel en moins de 5 minutes. Démarquez-vous auprès des recruteurs et transformez votre parcours en opportunités concrètes.</p>
             <div className="hero-actions">
               <button className="button button-dark button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
@@ -4002,15 +4181,13 @@ function App() {
       <StartResumeChoiceModal
         isOpen={startChoiceModalOpen}
         onClose={() => setStartChoiceModalOpen(false)}
-        onSelectBlank={() => {
-          setStartChoiceModalOpen(false)
-          startBuilder(pendingTemplateChoice)
-        }}
+        onSelectBlank={startBlankResume}
         onSelectImport={() => {
           setStartChoiceModalOpen(false)
           setImportModalOpen(true)
         }}
       />
+      {templatePickerOverlay}
       <ImportResumeModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}

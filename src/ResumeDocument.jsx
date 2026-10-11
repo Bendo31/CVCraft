@@ -370,11 +370,87 @@ function packAtomicBlocks(items, heights, labelHeights, capacities) {
   return pages
 }
 
+const EMPTY_SECTION_VISIBILITY = Object.freeze({})
+
+export function ResumeSingleSheet({
+  resume,
+  photo,
+  template = 'gratuit',
+  sectionVisibility = EMPTY_SECTION_VISIBILITY,
+  baseColor,
+  selectedFont,
+  formatDateRange,
+  showBranding = true,
+}) {
+  const visible = (section) => sectionVisibility[section] !== false
+    && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
+
+  const personalVisible = visible('personal')
+  const skills = Array.isArray(resume?.skills) ? resume.skills : []
+  const certifications = Array.isArray(resume?.certifications) ? resume.certifications : []
+  const references = Array.isArray(resume?.references) ? resume.references : []
+  const languages = Array.isArray(resume?.languages) ? resume.languages : []
+  const interests = Array.isArray(resume?.interests) ? resume.interests : []
+
+  const leftItems = []
+  if (personalVisible && resume?.summary) leftItems.push({ id: 'summary', type: 'summary' })
+  if (visible('skills') && skills.some(Boolean)) leftItems.push({ id: 'skills', type: 'skills' })
+  if (visible('certifications') && certifications.some((item) => item.name || item.issuer || item.year)) leftItems.push({ id: 'certs', type: 'certs' })
+  if (visible('references') && references.some((item) => item.name || item.role || item.contact)) leftItems.push({ id: 'refs', type: 'refs' })
+  if (visible('languages') && languages.some((item) => item.name || item.level)) leftItems.push({ id: 'languages', type: 'languages' })
+  if (visible('interests') && interests.some(Boolean)) leftItems.push({ id: 'interests', type: 'interests' })
+
+  const experiences = Array.isArray(resume?.experiences) ? resume.experiences : []
+  const educations = Array.isArray(resume?.educations) ? resume.educations : []
+
+  const rightItems = []
+  if (visible('experiences')) experiences.slice(0, template === 'gratuit' ? 3 : undefined).forEach((entry, index) => {
+    if (entry && Object.values(entry).some(Boolean)) rightItems.push({ id: `exp-${index}`, type: 'exp', index })
+  })
+  if (visible('educations')) educations.forEach((entry, index) => {
+    if (entry && Object.values(entry).some(Boolean)) rightItems.push({ id: `edu-${index}`, type: 'edu', index })
+  })
+  if (visible('projects')) {
+    const list = Array.isArray(resume?.projects) ? resume.projects : []
+    list.forEach((entry, index) => {
+      if (!entry || !Object.values(entry).some(Boolean)) return
+      rightItems.push({ id: `project-${index}`, type: 'project', index, label: 'Projets et réalisations' })
+    })
+  }
+
+  const sheetStyleVars = {
+    '--signal-color': baseColor || '#17191a',
+    '--cv-accent': baseColor || '#17191a',
+    '--cv-font': selectedFont?.family || "'DM Sans', sans-serif",
+    '--cv-font-display': selectedFont?.display || "'Fraunces', Georgia, serif",
+  }
+
+  return (
+    <ResumeSheet
+      resume={resume}
+      photo={photo}
+      template={template}
+      sectionVisibility={sectionVisibility}
+      page={{ left: leftItems, right: rightItems }}
+      pageIndex={0}
+      totalPages={1}
+      formatDateRange={formatDateRange}
+      style={{
+        ...sheetStyleVars,
+        width: RESUME_SHEET_WIDTH,
+        height: RESUME_SHEET_HEIGHT,
+        aspectRatio: 'auto',
+      }}
+      showBranding={showBranding}
+    />
+  )
+}
+
 export function ResumeDocument({
   resume,
   photo,
   template,
-  sectionVisibility = {},
+  sectionVisibility = EMPTY_SECTION_VISIBILITY,
   baseColor,
   selectedFont,
   formatDateRange,

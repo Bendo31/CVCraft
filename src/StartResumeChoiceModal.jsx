@@ -1,4 +1,6 @@
-import React from 'react'
+import React, { useRef, useState } from 'react'
+
+const CHOICE_COUNT = 2
 
 export function StartResumeChoiceModal({
   isOpen,
@@ -6,7 +8,27 @@ export function StartResumeChoiceModal({
   onSelectBlank,
   onSelectImport,
 }) {
+  const trackRef = useRef(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+
   if (!isOpen) return null
+
+  const handleTrackScroll = () => {
+    const track = trackRef.current
+    if (!track) return
+    const card = track.firstElementChild
+    if (!card) return
+    const step = card.getBoundingClientRect().width + 12
+    const next = Math.round(track.scrollLeft / step)
+    setActiveIndex(Math.min(CHOICE_COUNT - 1, Math.max(0, next)))
+  }
+
+  const goToChoice = (index) => {
+    const track = trackRef.current
+    const card = track?.children[index]
+    if (!track || !card) return
+    track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: 'smooth' })
+  }
 
   return (
     <div className="payment-backdrop choice-modal-backdrop" role="presentation" onClick={onClose}>
@@ -34,7 +56,7 @@ export function StartResumeChoiceModal({
           </p>
         </div>
 
-        <div className="choice-cards-grid">
+        <div className="choice-cards-grid" ref={trackRef} onScroll={handleTrackScroll}>
           {/* Option 1: Améliorer un CV existant (Recommandé) */}
           <div
             className="choice-card choice-card-featured"
@@ -122,6 +144,20 @@ export function StartResumeChoiceModal({
               Créer de zéro <span aria-hidden="true">→</span>
             </button>
           </div>
+        </div>
+
+        <div className="choice-carousel-dots" role="tablist" aria-label="Options de création">
+          {['Importer un CV', 'Page blanche'].map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              role="tab"
+              aria-selected={activeIndex === index}
+              aria-label={label}
+              className={activeIndex === index ? 'is-active' : ''}
+              onClick={() => goToChoice(index)}
+            />
+          ))}
         </div>
       </div>
     </div>
