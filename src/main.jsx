@@ -30,6 +30,7 @@ import './styles.css'
 // import { ImportResumeModal } from './ImportResumeModal.jsx'
 // import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
 import { normalizeDateToIso } from './resumeParser.js'
+import { improveResumeSummaryWithAi } from './aiService.js'
 
 
 const CROP_VIEW_SIZE = 280
@@ -826,6 +827,9 @@ function ResumeBuilder({
   const [changePlanOpen, setChangePlanOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
+  const [isAiGenerating, setIsAiGenerating] = useState(false)
+  const [aiSuggestion, setAiSuggestion] = useState('')
+  const [aiError, setAiError] = useState('')
   const [resume, setResume] = useState(() => {
     if (initialResumeData?.resume) {
       return normalizeResumeData(initialResumeData.resume)
@@ -1255,6 +1259,51 @@ function ResumeBuilder({
       [section]: JSON.parse(JSON.stringify(defaultResume[section])),
       sectionVisibility: { ...defaultResume.sectionVisibility, ...current.sectionVisibility, [section]: true },
     }))
+  }
+
+  const handleEnhanceSummaryWithAi = async () => {
+    if (isAiGenerating) return
+    setIsAiGenerating(true)
+    setAiError('')
+    try {
+      const generated = await improveResumeSummaryWithAi({
+        currentSummary: resume.summary || '',
+        role: resume.role || '',
+        experiences: Array.isArray(resume?.experiences) ? resume.experiences : [],
+        skills: Array.isArray(resume?.skills) ? resume.skills : [],
+        educations: Array.isArray(resume?.educations) ? resume.educations : [],
+      })
+      if (generated) {
+        setAiSuggestion(generated)
+        showNotice?.('✨ Suggestion IA prête ! Vous pouvez l’appliquer ou la modifier.')
+      } else {
+        setAiError('Impossible de générer une suggestion pour le moment.')
+      }
+    } catch (err) {
+      console.error('Erreur IA:', err)
+      setAiError('Une erreur est survenue lors de la génération avec l’IA.')
+    } finally {
+      setIsAiGenerating(false)
+    }
+  }
+
+  const handleApplyAiSuggestion = (mode = 'replace') => {
+    if (!aiSuggestion) return
+    if (mode === 'replace') {
+      updateResume('summary', aiSuggestion)
+    } else if (mode === 'append') {
+      const combined = resume.summary?.trim()
+        ? `${resume.summary.trim()}\n\n${aiSuggestion.trim()}`
+        : aiSuggestion
+      updateResume('summary', combined)
+    }
+    setAiSuggestion('')
+    showNotice?.('✨ Description mise à jour avec succès !')
+  }
+
+  const handleDismissAiSuggestion = () => {
+    setAiSuggestion('')
+    setAiError('')
   }
   const formatDate = (value) => {
     if (!value) return 'Aujourd’hui'
@@ -1880,10 +1929,89 @@ function ResumeBuilder({
               </span>
               <input type="url" disabled={isFreeModel} value={resume.threads || ''} onChange={(event) => updateResume('threads', event.target.value)} placeholder="https://threads.net/@…" />
             </label>
-            <label>
-              <span className="builder-label-head">Description</span>
-              <textarea value={resume.summary} onChange={(event) => updateResume('summary', event.target.value)} rows="4" />
-            </label>
+            <div className="builder-summary-group">
+              <div className="builder-summary-header">
+                <span className="builder-label-head">
+                  <span>Description</span> <span className="optional-label">(optionnel)</span>
+                </span>
+                <button
+                  type="button"
+                  className={`ai-enhance-btn ${isAiGenerating ? 'is-loading' : ''}`}
+                  onClick={handleEnhanceSummaryWithAi}
+                  disabled={isAiGenerating}
+                  title="Améliorer ou rédiger votre description avec l'intelligence artificielle gratuite"
+                >
+                  {isAiGenerating ? (
+                    <>
+                      <span className="ai-spinner" aria-hidden="true" />
+                      <span>Rédaction en cours…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="ai-sparkle-icon" aria-hidden="true">✨</span>
+                      <span>{resume.summary && resume.summary.trim().length > 10 ? 'Améliorer avec l’IA' : 'Rédiger avec l’IA'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <textarea
+                value={resume.summary}
+                onChange={(event) => updateResume('summary', event.target.value)}
+                rows="4"
+                placeholder="Présentez brièvement vos atouts clés, vos réalisations et votre projet professionnel…"
+              />
+              {aiError && (
+                <div className="ai-error-banner" role="alert">
+                  <span>⚠️ {aiError}</span>
+                  <button type="button" onClick={() => setAiError('')} className="ai-error-dismiss" aria-label="Fermer l'alerte">✕</button>
+                </div>
+              )}
+              {aiSuggestion && (
+                <div className="ai-suggestion-card" role="region" aria-label="Suggestion de l'IA">
+                  <div className="ai-suggestion-header">
+                    <div className="ai-suggestion-badge">
+                      <span className="ai-badge-icon" aria-hidden="true">✨</span>
+                      <span>Suggestion de l’IA</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ai-suggestion-close"
+                      onClick={handleDismissAiSuggestion}
+                      title="Ignorer la suggestion"
+                      aria-label="Ignorer la suggestion"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <p className="ai-suggestion-text">{aiSuggestion}</p>
+                  <div className="ai-suggestion-actions">
+                    <button
+                      type="button"
+                      className="ai-action-btn ai-action-apply"
+                      onClick={() => handleApplyAiSuggestion('replace')}
+                    >
+                      ✓ Remplacer ma description
+                    </button>
+                    {resume.summary && resume.summary.trim().length > 0 && (
+                      <button
+                        type="button"
+                        className="ai-action-btn ai-action-append"
+                        onClick={() => handleApplyAiSuggestion('append')}
+                      >
+                        ＋ Ajouter à la suite
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="ai-action-btn ai-action-dismiss"
+                      onClick={handleDismissAiSuggestion}
+                    >
+                      ✕ Ignorer
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             {!sectionEnabled('personal') && <p className="section-hidden-note">Ces informations sont masquées dans le CV.</p>}
             <SectionHeading number="02" title="Expérience professionnelle" enabled={sectionEnabled('experiences')} onToggle={() => toggleSection('experiences')} onReset={() => resetSection('experiences')} />
             {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => <div className="repeatable-block" key={`experience-${index}`}><div className="repeatable-heading"><span>Expérience {index + 1}</span></div><label>Entreprise<input value={experience.company} onChange={(event) => updateListItem('experiences', index, 'company', event.target.value)} /></label><label>Poste<input value={experience.jobTitle} onChange={(event) => updateListItem('experiences', index, 'jobTitle', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={experience.startDate} onChange={(event) => updateListItem('experiences', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={experience.endDate} onChange={(event) => updateListItem('experiences', index, 'endDate', event.target.value)} /></label></div><label><span className="builder-label-head"><span>Tâches effectuées</span> <span className="optional-label">(facultatif)</span></span><textarea rows="3" placeholder="Décrivez vos principales responsabilités et réalisations" value={experience.tasks} onChange={(event) => updateListItem('experiences', index, 'tasks', event.target.value)} /></label></div>)}
