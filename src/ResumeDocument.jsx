@@ -76,9 +76,6 @@ function ResumeHeader({ resume, photo, template, continued, sectionVisibility })
         {resume.phone && <span>{formatDisplayPhone(resume.phone)}</span>}
         {resume.city && <span>{resume.city}</span>}
         {resume.linkedin && <span>LinkedIn · {resume.linkedin}</span>}
-        {resume.facebook && <span>Facebook · {resume.facebook}</span>}
-        {resume.x && <span>X · {resume.x}</span>}
-        {resume.threads && <span>Threads · {resume.threads}</span>}
         {resume.website && <span>{resume.website}</span>}
       </div>}
     </div>
@@ -105,9 +102,6 @@ function LeftBlock({ item, resume }) {
             resume.phone && formatDisplayPhone(resume.phone),
             resume.city,
             resume.linkedin && `LinkedIn · ${resume.linkedin}`,
-            resume.facebook && `Facebook · ${resume.facebook}`,
-            resume.x && `X · ${resume.x}`,
-            resume.threads && `Threads · ${resume.threads}`,
             resume.website,
           ].filter(Boolean).map((value, index) => (
             <span key={`${value}-${index}`}>{value}<br /></span>

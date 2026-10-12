@@ -757,26 +757,155 @@ function PremiumCrown() {
   return <svg className="premium-crown" viewBox="0 0 20 20" role="img" aria-label="Fonctionnalité Premium" focusable="false"><path d="M3.1 7.3 6.5 10l3.5-5 3.5 5 3.4-2.7-1.5 7.2H4.6L3.1 7.3Z" /><path d="M4.9 16.3h10.2" /></svg>
 }
 
-function SectionHeading({ number, title, enabled, onToggle, onReset, locked = false }) {
+function SectionHeading({ number, title, onReset, locked = false }) {
   return (
     <div className="builder-section-heading">
-      <div className="builder-section-title section-spaced"><span>{number}</span><h2>{title}</h2>{locked && <PremiumCrown />}</div>
-      <div className="section-actions">
-        <button
-          className="section-toggle"
-          type="button"
-          role="switch"
-          aria-label={`Activer ${title}`}
-          aria-checked={enabled}
-          title={locked ? 'Disponible avec un modèle Premium' : enabled ? 'Rubrique activée' : 'Rubrique désactivée'}
-          disabled={locked}
-          onClick={onToggle}
-        >
-          <span className="section-toggle-thumb" />
-        </button>
-        <button type="button" aria-label={`Réinitialiser ${title}`} title={locked ? 'Disponible avec un modèle Premium' : 'Réinitialiser la rubrique'} disabled={locked} onClick={onReset}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5" /></svg>
-        </button>
+      <div className="builder-section-title section-spaced">
+        <span>{number}</span>
+        <h2>{title}</h2>
+        {locked && <PremiumCrown />}
+      </div>
+      {onReset && (
+        <div className="section-actions">
+          <button type="button" aria-label={`Réinitialiser ${title}`} title={locked ? 'Disponible avec un modèle Premium' : 'Réinitialiser la rubrique'} disabled={locked} onClick={onReset}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5" /></svg>
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddSectionModal({
+  isOpen,
+  onClose,
+  isFreeModel,
+  onUnlockPremium,
+  onAddSection,
+  activeSections = {},
+}) {
+  if (!isOpen) return null
+
+  const premiumSections = [
+    {
+      id: 'projects',
+      title: 'Projets et réalisations',
+      icon: '💼',
+      description: 'Mettez en valeur vos réalisations marquantes, portfolios, projets personnels ou études de cas.',
+      details: 'Nom du projet, description détaillée, lien web et année de réalisation.',
+    },
+    {
+      id: 'certifications',
+      title: 'Certifications professionnelles',
+      icon: '📜',
+      description: 'Valorisez vos diplômes complémentaires, accréditations officielles et certifications techniques.',
+      details: 'Nom de la certification, organisme émetteur et année d’obtention.',
+    },
+    {
+      id: 'interests',
+      title: 'Centres d’intérêt',
+      icon: '🎯',
+      description: 'Dévoilez votre personnalité, vos passions extra-professionnelles et vos engagements associatifs.',
+      details: 'Passions, sports, bénévolat, activités créatives.',
+    },
+    {
+      id: 'references',
+      title: 'Références professionnelles',
+      icon: '🤝',
+      description: 'Ajoutez les coordonnées de vos anciens managers ou professeurs prêts à vous recommander.',
+      details: 'Nom complet, fonction occupée, email ou téléphone de contact.',
+    },
+    {
+      id: 'qrcode',
+      title: 'QR Code interactif',
+      icon: '📱',
+      description: 'Permettez aux recruteurs d’accéder instantanément à votre profil en ligne ou portfolio en un scan.',
+      details: 'Génération automatique de QR Code haute résolution sur votre CV.',
+    },
+  ]
+
+  return (
+    <div className="payment-backdrop add-section-backdrop" role="presentation" onClick={onClose}>
+      <div className="add-section-dialog" role="dialog" aria-modal="true" aria-labelledby="add-section-title" onClick={(e) => e.stopPropagation()}>
+        <div className="add-section-header">
+          <div>
+            <div className="add-section-eyebrow">
+              <span className="add-section-eyebrow-badge">👑 Rubriques Premium</span>
+            </div>
+            <h2 id="add-section-title">Ajouter une section</h2>
+            <p className="add-section-subtitle">
+              Enrichissez votre CV avec des rubriques professionnelles avancées pour retenir l’attention des recruteurs.
+            </p>
+          </div>
+          <button type="button" className="add-section-close-btn" onClick={onClose} aria-label="Fermer">✕</button>
+        </div>
+
+        <div className="add-section-grid">
+          {premiumSections.map((sec) => {
+            const isAdded = Boolean(activeSections[sec.id])
+            return (
+              <div key={sec.id} className="add-section-card">
+                <div className="add-section-card-top">
+                  <div className="add-section-card-icon">{sec.icon}</div>
+                  <div className="add-section-card-titles">
+                    <div className="add-section-card-name-row">
+                      <h3>{sec.title}</h3>
+                      <span className="premium-tag"><PremiumCrown /> Premium</span>
+                    </div>
+                    <p className="add-section-card-desc">{sec.description}</p>
+                    <small className="add-section-card-details">{sec.details}</small>
+                  </div>
+                </div>
+
+                <div className="add-section-card-action">
+                  {isFreeModel ? (
+                    <button
+                      type="button"
+                      className="add-section-unlock-btn"
+                      onClick={() => {
+                        onClose()
+                        onUnlockPremium()
+                      }}
+                    >
+                      <PremiumCrown />
+                      <span>Débloquer avec un modèle Premium</span>
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className={`add-section-add-btn ${isAdded ? 'is-added' : ''}`}
+                      onClick={() => {
+                        onAddSection(sec.id)
+                        onClose()
+                      }}
+                    >
+                      {isAdded ? '✓ Section déjà dans le CV' : '＋ Ajouter au CV'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {isFreeModel && (
+          <div className="add-section-footer-banner">
+            <div className="add-section-footer-text">
+              <strong>Passez à un modèle Premium pour débloquer toutes ces rubriques</strong>
+              <p>Accédez aux modèles Sillage, Atlas et Signal avec exports illimités et mise en page soignée.</p>
+            </div>
+            <button
+              type="button"
+              className="button button-yellow add-section-banner-cta"
+              onClick={() => {
+                onClose()
+                onUnlockPremium()
+              }}
+            >
+              Découvrir les modèles Premium
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -825,6 +954,7 @@ function ResumeBuilder({
   const [paymentPhone, setPaymentPhone] = useState('')
   const [templateChooserOpen, setTemplateChooserOpen] = useState(false)
   const [changePlanOpen, setChangePlanOpen] = useState(false)
+  const [addSectionModalOpen, setAddSectionModalOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
   const [isAiGenerating, setIsAiGenerating] = useState(false)
@@ -1304,6 +1434,32 @@ function ResumeBuilder({
   const handleDismissAiSuggestion = () => {
     setAiSuggestion('')
     setAiError('')
+  }
+
+  const handleAddPremiumSection = (sectionId) => {
+    if (isFreeModel) {
+      setAddSectionModalOpen(false)
+      setTemplateChooserOpen(true)
+      return
+    }
+    if (sectionId === 'projects') {
+      if (projects.length === 0) {
+        addListItem('projects', { name: '', description: '', link: '', year: '' })
+      }
+    } else if (sectionId === 'certifications') {
+      if (certifications.length === 0) {
+        addListItem('certifications', { name: '', issuer: '', year: '' })
+      }
+    } else if (sectionId === 'interests') {
+      if (interests.length === 0) {
+        addListItem('interests', '')
+      }
+    } else if (sectionId === 'references') {
+      if (references.length === 0) {
+        addListItem('references', { name: '', role: '', contact: '' })
+      }
+    }
+    showNotice?.('✨ Rubrique ajoutée au CV !')
   }
   const formatDate = (value) => {
     if (!value) return 'Aujourd’hui'
@@ -1835,12 +1991,11 @@ function ResumeBuilder({
           <div className="builder-progress"><span className="active" /><span /><span /></div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
           <div className="builder-form">
-            <SectionHeading number="01" title="Informations personnelles" enabled={sectionEnabled('personal')} onToggle={() => toggleSection('personal')} onReset={() => resetSection('personal')} />
+            <SectionHeading number="01" title="Informations personnelles" onReset={() => resetSection('personal')} />
             <div className="photo-field">
               <div className="photo-thumb">{photo ? <img src={photo} alt="Portrait du CV" /> : <span>+</span>}</div>
               <div className="photo-actions">
                 <label className="photo-upload">Photo<input type="file" accept="image/*" onChange={handlePhoto} /><span>{photo ? 'Changer la photo' : 'Ajouter une photo'}</span></label>
-                {photo && <button className="photo-recrop" type="button" onClick={openRecrop}>Recadrer</button>}
               </div>
             </div>
             <div className="field-row">
@@ -1908,26 +2063,6 @@ function ResumeBuilder({
                 <span>Site web ou portfolio</span> <span className="optional-label">(optionnel)</span>
               </span>
               <input value={resume.website || ''} onChange={(event) => updateResume('website', event.target.value)} />
-            </label>
-            <div className="field-row">
-              <label>
-                <span className="builder-label-head">
-                  <span>Facebook</span> <span className="optional-label">(optionnel)</span>
-                </span>
-                <input type="url" value={resume.facebook || ''} onChange={(event) => updateResume('facebook', event.target.value)} placeholder="https://facebook.com/…" />
-              </label>
-              <label>
-                <span className="builder-label-head">
-                  <span>X</span> <span className="optional-label">(optionnel)</span>
-                </span>
-                <input type="url" value={resume.x || ''} onChange={(event) => updateResume('x', event.target.value)} placeholder="https://x.com/…" />
-              </label>
-            </div>
-            <label>
-              <span className="builder-label-head">
-                <span>Threads</span> <span className="optional-label">(optionnel)</span>
-              </span>
-              <input type="url" value={resume.threads || ''} onChange={(event) => updateResume('threads', event.target.value)} placeholder="https://threads.net/@…" />
             </label>
             <div className="builder-summary-group">
               <div className="builder-summary-header">
@@ -2012,52 +2147,80 @@ function ResumeBuilder({
                 </div>
               )}
             </div>
-            {!sectionEnabled('personal') && <p className="section-hidden-note">Ces informations sont masquées dans le CV.</p>}
-            <SectionHeading number="02" title="Expérience professionnelle" enabled={sectionEnabled('experiences')} onToggle={() => toggleSection('experiences')} onReset={() => resetSection('experiences')} />
+
+            <SectionHeading number="02" title="Expérience professionnelle" onReset={() => resetSection('experiences')} />
             {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => <div className="repeatable-block" key={`experience-${index}`}><div className="repeatable-heading"><span>Expérience {index + 1}</span></div><label>Entreprise<input value={experience.company} onChange={(event) => updateListItem('experiences', index, 'company', event.target.value)} /></label><label>Poste<input value={experience.jobTitle} onChange={(event) => updateListItem('experiences', index, 'jobTitle', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={experience.startDate} onChange={(event) => updateListItem('experiences', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={experience.endDate} onChange={(event) => updateListItem('experiences', index, 'endDate', event.target.value)} /></label></div><label><span className="builder-label-head"><span>Tâches effectuées</span> <span className="optional-label">(facultatif)</span></span><textarea rows="3" placeholder="Décrivez vos principales responsabilités et réalisations" value={experience.tasks} onChange={(event) => updateListItem('experiences', index, 'tasks', event.target.value)} /></label></div>)}
             <button className="add-entry" disabled={isFreeModel && experiences.length >= 3} onClick={() => addListItem('experiences', { company: '', jobTitle: '', startDate: '', endDate: '', tasks: '' })}>+ Ajouter une expérience {isFreeModel && experiences.length >= 3 && <PremiumCrown />}</button>
-            {!sectionEnabled('experiences') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="03" title="Formation académique" enabled={sectionEnabled('educations')} onToggle={() => toggleSection('educations')} onReset={() => resetSection('educations')} locked={isSectionLocked('educations')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('educations')}>
+
+            <SectionHeading number="03" title="Formation académique" onReset={() => resetSection('educations')} />
+            <fieldset className="premium-fieldset">
               {educations.map((education, index) => <div className="repeatable-block" key={`education-${index}`}><div className="repeatable-heading"><span>Formation {index + 1}</span></div><label>Établissement<input value={education.school} onChange={(event) => updateListItem('educations', index, 'school', event.target.value)} /></label><label>Diplôme<input value={education.degree} onChange={(event) => updateListItem('educations', index, 'degree', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={education.startDate} onChange={(event) => updateListItem('educations', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={education.endDate} onChange={(event) => updateListItem('educations', index, 'endDate', event.target.value)} /></label></div></div>)}
-              <button className="add-entry" onClick={() => addListItem('educations', { school: '', degree: '', startDate: '', endDate: '' })}>+ Ajouter une formation {isSectionLocked('educations') && <PremiumCrown />}</button>
+              <button className="add-entry" onClick={() => addListItem('educations', { school: '', degree: '', startDate: '', endDate: '' })}>+ Ajouter une formation</button>
             </fieldset>
-            {!sectionEnabled('educations') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="04" title="Compétences" enabled={sectionEnabled('skills')} onToggle={() => toggleSection('skills')} onReset={() => resetSection('skills')} locked={isSectionLocked('skills')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('skills')}>
-              <div className="skill-fields">{skills.map((skill, index) => <input key={`skill-${index}`} value={skill} placeholder="Ex. Photoshop" onChange={(event) => updateSkill(index, event.target.value)} />)}</div><button className="add-entry" onClick={() => addListItem('skills', '')}>+ Ajouter une compétence {isSectionLocked('skills') && <PremiumCrown />}</button>
+
+            <SectionHeading number="04" title="Compétences" onReset={() => resetSection('skills')} />
+            <fieldset className="premium-fieldset">
+              <div className="skill-fields">{skills.map((skill, index) => <input key={`skill-${index}`} value={skill} placeholder="Ex. Photoshop" onChange={(event) => updateSkill(index, event.target.value)} />)}</div>
+              <button className="add-entry" onClick={() => addListItem('skills', '')}>+ Ajouter une compétence</button>
             </fieldset>
-            {!sectionEnabled('skills') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="05" title="Langues" enabled={sectionEnabled('languages')} onToggle={() => toggleSection('languages')} onReset={() => resetSection('languages')} locked={isSectionLocked('languages')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('languages')}>
+
+            <SectionHeading number="05" title="Langues" onReset={() => resetSection('languages')} />
+            <fieldset className="premium-fieldset">
               {languages.map((language, index) => <div className="repeatable-block" key={`language-${index}`}><div className="repeatable-heading"><span>Langue {index + 1}</span></div><div className="field-row"><label>Langue<input value={language.name} onChange={(event) => updateListItem('languages', index, 'name', event.target.value)} /></label><label>Niveau<select value={Math.min(5, Math.max(1, Number(language.level) || 1))} onChange={(event) => updateListItem('languages', index, 'level', Number(event.target.value))}>{[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>{level} / 5</option>)}</select></label></div></div>)}
-              <button className="add-entry" onClick={() => addListItem('languages', { name: '', level: 1 })}>+ Ajouter une langue {isSectionLocked('languages') && <PremiumCrown />}</button>
+              <button className="add-entry" onClick={() => addListItem('languages', { name: '', level: 1 })}>+ Ajouter une langue</button>
             </fieldset>
-            {!sectionEnabled('languages') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="06" title="Projets et réalisations" enabled={sectionEnabled('projects')} onToggle={() => toggleSection('projects')} onReset={() => resetSection('projects')} locked={isSectionLocked('projects')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('projects')}>
-              {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
-              <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet {isSectionLocked('projects') && <PremiumCrown />}</button>
-            </fieldset>
-            {!sectionEnabled('projects') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="07" title="Certifications" enabled={sectionEnabled('certifications')} onToggle={() => toggleSection('certifications')} onReset={() => resetSection('certifications')} locked={isSectionLocked('certifications')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('certifications')}>
-              {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
-              <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification {isSectionLocked('certifications') && <PremiumCrown />}</button>
-            </fieldset>
-            {!sectionEnabled('certifications') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="08" title="Centres d’intérêt" enabled={sectionEnabled('interests')} onToggle={() => toggleSection('interests')} onReset={() => resetSection('interests')} locked={isSectionLocked('interests')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('interests')}>
-              <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
-              <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt {isSectionLocked('interests') && <PremiumCrown />}</button>
-            </fieldset>
-            {!sectionEnabled('interests') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
-            <SectionHeading number="09" title="Références" enabled={sectionEnabled('references')} onToggle={() => toggleSection('references')} onReset={() => resetSection('references')} locked={isSectionLocked('references')} />
-            <fieldset className="premium-fieldset" disabled={isSectionLocked('references')}>
-              {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
-              <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence {isSectionLocked('references') && <PremiumCrown />}</button>
-            </fieldset>
-            {!sectionEnabled('references') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
+
+            {(!isFreeModel || projects.length > 0) && (
+              <>
+                <SectionHeading number="06" title="Projets et réalisations" onReset={() => resetSection('projects')} locked={isFreeModel} />
+                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                  {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
+                  <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet {isFreeModel && <PremiumCrown />}</button>
+                </fieldset>
+              </>
+            )}
+
+            {(!isFreeModel || certifications.length > 0) && (
+              <>
+                <SectionHeading number="07" title="Certifications" onReset={() => resetSection('certifications')} locked={isFreeModel} />
+                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                  {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
+                  <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification {isFreeModel && <PremiumCrown />}</button>
+                </fieldset>
+              </>
+            )}
+
+            {(!isFreeModel || interests.length > 0) && (
+              <>
+                <SectionHeading number="08" title="Centres d’intérêt" onReset={() => resetSection('interests')} locked={isFreeModel} />
+                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                  <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
+                  <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt {isFreeModel && <PremiumCrown />}</button>
+                </fieldset>
+              </>
+            )}
+
+            {(!isFreeModel || references.length > 0) && (
+              <>
+                <SectionHeading number="09" title="Références" onReset={() => resetSection('references')} locked={isFreeModel} />
+                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                  {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
+                  <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence {isFreeModel && <PremiumCrown />}</button>
+                </fieldset>
+              </>
+            )}
+
+            <div className="builder-add-section-wrap">
+              <button
+                type="button"
+                className="builder-add-section-btn"
+                onClick={() => setAddSectionModalOpen(true)}
+              >
+                <span className="add-section-btn-icon">＋</span>
+                <span>Ajouter une section</span>
+                <span className="add-section-btn-crown"><PremiumCrown /></span>
+              </button>
+            </div>
           </div>
         </aside>
         <section className="builder-preview-area">
@@ -2330,6 +2493,23 @@ function ResumeBuilder({
           />
         </div>
       )}
+      <AddSectionModal
+        isOpen={addSectionModalOpen}
+        onClose={() => setAddSectionModalOpen(false)}
+        isFreeModel={isFreeModel}
+        onUnlockPremium={() => {
+          setAddSectionModalOpen(false)
+          setTemplateChooserOpen(true)
+        }}
+        onAddSection={handleAddPremiumSection}
+        activeSections={{
+          projects: projects.length > 0,
+          certifications: certifications.length > 0,
+          interests: interests.length > 0,
+          references: references.length > 0,
+          qrcode: false,
+        }}
+      />
     </div>
   )
 }
