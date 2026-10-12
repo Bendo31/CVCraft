@@ -62,7 +62,7 @@ function ResumeHeader({ resume, photo, template, continued, sectionVisibility })
   return (
     <div className="resume-sheet-top" data-measure="header-full">
       <div className="resume-identity">
-        {photo && template !== 'gratuit' && sectionVisibility.personal !== false && <img className="resume-photo" src={photo} alt="Portrait" />}
+        {photo && sectionVisibility.personal !== false && <img className="resume-photo" src={photo} alt="Portrait" />}
         <div>
           {(resume.firstName || resume.lastName) && <h2>
             {resume.firstName}
@@ -74,12 +74,12 @@ function ResumeHeader({ resume, photo, template, continued, sectionVisibility })
       {sectionVisibility.personal !== false && <div className="resume-contact">
         {resume.email && <span>{resume.email}</span>}
         {resume.phone && <span>{formatDisplayPhone(resume.phone)}</span>}
-        {template !== 'gratuit' && resume.city && <span>{resume.city}</span>}
-        {template !== 'gratuit' && resume.linkedin && <span>LinkedIn · {resume.linkedin}</span>}
-        {template !== 'gratuit' && resume.facebook && <span>Facebook · {resume.facebook}</span>}
-        {template !== 'gratuit' && resume.x && <span>X · {resume.x}</span>}
-        {template !== 'gratuit' && resume.threads && <span>Threads · {resume.threads}</span>}
-        {template !== 'gratuit' && resume.website && <span>{resume.website}</span>}
+        {resume.city && <span>{resume.city}</span>}
+        {resume.linkedin && <span>LinkedIn · {resume.linkedin}</span>}
+        {resume.facebook && <span>Facebook · {resume.facebook}</span>}
+        {resume.x && <span>X · {resume.x}</span>}
+        {resume.threads && <span>Threads · {resume.threads}</span>}
+        {resume.website && <span>{resume.website}</span>}
       </div>}
     </div>
   )

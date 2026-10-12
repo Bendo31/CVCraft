@@ -1837,10 +1837,10 @@ function ResumeBuilder({
           <div className="builder-form">
             <SectionHeading number="01" title="Informations personnelles" enabled={sectionEnabled('personal')} onToggle={() => toggleSection('personal')} onReset={() => resetSection('personal')} />
             <div className="photo-field">
-              <div className="photo-thumb">{photo && !isFreeModel ? <img src={photo} alt="Portrait du CV" /> : <span>+</span>}</div>
+              <div className="photo-thumb">{photo ? <img src={photo} alt="Portrait du CV" /> : <span>+</span>}</div>
               <div className="photo-actions">
-                <label className={`photo-upload ${isFreeModel ? 'premium-disabled-label' : ''}`}>Photo {isFreeModel && <PremiumCrown />}<input type="file" accept="image/*" disabled={isFreeModel} onChange={handlePhoto} /><span>{photo ? 'Changer la photo' : 'Ajouter une photo'}</span></label>
-                {photo && <button className="photo-recrop" type="button" disabled={isFreeModel} onClick={openRecrop}>Recadrer {isFreeModel && <PremiumCrown />}</button>}
+                <label className="photo-upload">Photo<input type="file" accept="image/*" onChange={handlePhoto} /><span>{photo ? 'Changer la photo' : 'Ajouter une photo'}</span></label>
+                {photo && <button className="photo-recrop" type="button" onClick={openRecrop}>Recadrer</button>}
               </div>
             </div>
             <div className="field-row">
@@ -1890,44 +1890,44 @@ function ResumeBuilder({
               </label>
             </div>
             <div className="field-row">
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+              <label>
                 <span className="builder-label-head">
-                  <span>Ville</span>{isFreeModel && <PremiumCrown />}
+                  <span>Ville</span>
                 </span>
-                <input disabled={isFreeModel} value={resume.city} onChange={(event) => updateResume('city', event.target.value)} />
+                <input value={resume.city} onChange={(event) => updateResume('city', event.target.value)} />
               </label>
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+              <label>
                 <span className="builder-label-head">
-                  <span>LinkedIn</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                  <span>LinkedIn</span> <span className="optional-label">(optionnel)</span>
                 </span>
-                <input disabled={isFreeModel} value={resume.linkedin} onChange={(event) => updateResume('linkedin', event.target.value)} />
+                <input value={resume.linkedin} onChange={(event) => updateResume('linkedin', event.target.value)} />
               </label>
             </div>
-            <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+            <label>
               <span className="builder-label-head">
-                <span>Site web ou portfolio</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                <span>Site web ou portfolio</span> <span className="optional-label">(optionnel)</span>
               </span>
-              <input disabled={isFreeModel} value={resume.website || ''} onChange={(event) => updateResume('website', event.target.value)} />
+              <input value={resume.website || ''} onChange={(event) => updateResume('website', event.target.value)} />
             </label>
             <div className="field-row">
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+              <label>
                 <span className="builder-label-head">
-                  <span>Facebook</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                  <span>Facebook</span> <span className="optional-label">(optionnel)</span>
                 </span>
-                <input type="url" disabled={isFreeModel} value={resume.facebook || ''} onChange={(event) => updateResume('facebook', event.target.value)} placeholder="https://facebook.com/…" />
+                <input type="url" value={resume.facebook || ''} onChange={(event) => updateResume('facebook', event.target.value)} placeholder="https://facebook.com/…" />
               </label>
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+              <label>
                 <span className="builder-label-head">
-                  <span>X</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                  <span>X</span> <span className="optional-label">(optionnel)</span>
                 </span>
-                <input type="url" disabled={isFreeModel} value={resume.x || ''} onChange={(event) => updateResume('x', event.target.value)} placeholder="https://x.com/…" />
+                <input type="url" value={resume.x || ''} onChange={(event) => updateResume('x', event.target.value)} placeholder="https://x.com/…" />
               </label>
             </div>
-            <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+            <label>
               <span className="builder-label-head">
-                <span>Threads</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                <span>Threads</span> <span className="optional-label">(optionnel)</span>
               </span>
-              <input type="url" disabled={isFreeModel} value={resume.threads || ''} onChange={(event) => updateResume('threads', event.target.value)} placeholder="https://threads.net/@…" />
+              <input type="url" value={resume.threads || ''} onChange={(event) => updateResume('threads', event.target.value)} placeholder="https://threads.net/@…" />
             </label>
             <div className="builder-summary-group">
               <div className="builder-summary-header">
