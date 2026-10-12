@@ -983,6 +983,8 @@ function ResumeBuilder({
   const [saveRetry, setSaveRetry] = useState(0)
   const [userResumes, setUserResumes] = useState([])
   const [resumesLoading, setResumesLoading] = useState(false)
+  const [openExperienceIndex, setOpenExperienceIndex] = useState(0)
+  const [openEducationIndex, setOpenEducationIndex] = useState(0)
   const editVersion = useRef(0)
   const cloudSaveQueue = useRef(Promise.resolve())
   const autoDownloadStarted = useRef(false)
@@ -1342,6 +1344,47 @@ function ResumeBuilder({
     markEdited()
     setResume((current) => ({ ...current, [field]: [...current[field], item] }))
   }
+  const removeListItem = (field, index) => {
+    markEdited()
+    setResume((current) => ({
+      ...current,
+      [field]: (current[field] || []).filter((_, itemIndex) => itemIndex !== index),
+    }))
+  }
+
+  const handleAddExperience = () => {
+    const list = Array.isArray(resume?.experiences) ? resume.experiences : []
+    if (isFreeModel && list.length >= 3) return
+    const newIdx = list.length
+    addListItem('experiences', { company: '', jobTitle: '', startDate: '', endDate: '', tasks: '' })
+    setOpenExperienceIndex(newIdx)
+  }
+
+  const handleDeleteExperience = (index) => {
+    removeListItem('experiences', index)
+    if (openExperienceIndex === index) {
+      setOpenExperienceIndex(-1)
+    } else if (openExperienceIndex > index) {
+      setOpenExperienceIndex(openExperienceIndex - 1)
+    }
+  }
+
+  const handleAddEducation = () => {
+    const list = Array.isArray(resume?.educations) ? resume.educations : []
+    const newIdx = list.length
+    addListItem('educations', { school: '', degree: '', startDate: '', endDate: '' })
+    setOpenEducationIndex(newIdx)
+  }
+
+  const handleDeleteEducation = (index) => {
+    removeListItem('educations', index)
+    if (openEducationIndex === index) {
+      setOpenEducationIndex(-1)
+    } else if (openEducationIndex > index) {
+      setOpenEducationIndex(openEducationIndex - 1)
+    }
+  }
+
   const updateSkill = (index, value) => {
     markEdited()
     setResume((current) => ({ ...current, skills: current.skills.map((skill, skillIndex) => skillIndex === index ? value : skill) }))
@@ -1368,6 +1411,8 @@ function ResumeBuilder({
     setResume((current) => ({ ...current, [section]: value }))
   }
   const resetSection = (section) => {
+    if (section === 'experiences') setOpenExperienceIndex(0)
+    if (section === 'educations') setOpenEducationIndex(0)
     if (section === 'personal') {
       markEdited()
       setPhoto('')
@@ -2159,13 +2204,286 @@ function ResumeBuilder({
             </div>
 
             <SectionHeading number="02" title="Expérience professionnelle" onReset={() => resetSection('experiences')} />
-            {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => <div className="repeatable-block" key={`experience-${index}`}><div className="repeatable-heading"><span>Expérience {index + 1}</span></div><label>Entreprise<input value={experience.company} onChange={(event) => updateListItem('experiences', index, 'company', event.target.value)} /></label><label>Poste<input value={experience.jobTitle} onChange={(event) => updateListItem('experiences', index, 'jobTitle', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={experience.startDate} onChange={(event) => updateListItem('experiences', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={experience.endDate} onChange={(event) => updateListItem('experiences', index, 'endDate', event.target.value)} /></label></div><label><span className="builder-label-head"><span>Tâches effectuées</span> <span className="optional-label">(facultatif)</span></span><textarea rows="3" placeholder="Décrivez vos principales responsabilités et réalisations" value={experience.tasks} onChange={(event) => updateListItem('experiences', index, 'tasks', event.target.value)} /></label></div>)}
-            <button className="add-entry" disabled={isFreeModel && experiences.length >= 3} onClick={() => addListItem('experiences', { company: '', jobTitle: '', startDate: '', endDate: '', tasks: '' })}>+ Ajouter une expérience {isFreeModel && experiences.length >= 3 && <PremiumCrown />}</button>
+            {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => {
+              const isOpen = openExperienceIndex === index
+              if (!isOpen) {
+                return (
+                  <div
+                    className="repeatable-block repeatable-block-collapsed"
+                    key={`experience-${index}`}
+                    onClick={() => setOpenExperienceIndex(index)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenExperienceIndex(index) }}
+                    title="Cliquer pour modifier cette expérience"
+                  >
+                    <div className="repeatable-collapsed-content">
+                      <div className="repeatable-collapsed-header">
+                        <span className="repeatable-badge">Expérience {index + 1}</span>
+                      </div>
+                      <div className="repeatable-collapsed-main">
+                        <strong className="repeatable-collapsed-title">
+                          {experience.company || <span className="repeatable-empty">Entreprise non renseignée</span>}
+                        </strong>
+                        <span className="repeatable-collapsed-role">
+                          {experience.jobTitle || <span className="repeatable-empty">Poste non renseigné</span>}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="repeatable-collapsed-actions" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="repeatable-action-del"
+                        onClick={() => handleDeleteExperience(index)}
+                        title="Supprimer cette expérience"
+                        aria-label="Supprimer"
+                      >
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="repeatable-action-edit"
+                        onClick={() => setOpenExperienceIndex(index)}
+                        title="Modifier cette expérience"
+                      >
+                        Modifier ▾
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+
+              return (
+                <div className="repeatable-block repeatable-block-open" key={`experience-${index}`}>
+                  <div
+                    className="repeatable-heading repeatable-heading-interactive"
+                    onClick={() => setOpenExperienceIndex(-1)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenExperienceIndex(-1) }}
+                    title="Cliquer pour replier cette expérience"
+                  >
+                    <div className="repeatable-heading-info">
+                      <span className="repeatable-badge">Expérience {index + 1}</span>
+                      {(experience.company || experience.jobTitle) && (
+                        <span className="repeatable-heading-sub">
+                          <strong>{experience.company || 'Entreprise'}</strong>
+                          {experience.jobTitle ? ` · ${experience.jobTitle}` : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="repeatable-heading-actions" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        className="repeatable-action-del"
+                        onClick={() => handleDeleteExperience(index)}
+                        title="Supprimer cette expérience"
+                        aria-label="Supprimer"
+                      >
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="repeatable-action-toggle"
+                        onClick={() => setOpenExperienceIndex(-1)}
+                        title="Replier cette expérience"
+                      >
+                        Fermer ▴
+                      </button>
+                    </div>
+                  </div>
+
+                  <label>
+                    Entreprise
+                    <input
+                      value={experience.company}
+                      placeholder="Ex: Orange, MTN, Cabinet conseil..."
+                      onChange={(event) => updateListItem('experiences', index, 'company', event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Poste
+                    <input
+                      value={experience.jobTitle}
+                      placeholder="Ex: Chef de projet, Développeur Web..."
+                      onChange={(event) => updateListItem('experiences', index, 'jobTitle', event.target.value)}
+                    />
+                  </label>
+                  <div className="field-row date-fields">
+                    <label>
+                      Date de début
+                      <input
+                        type="date"
+                        value={experience.startDate}
+                        onChange={(event) => updateListItem('experiences', index, 'startDate', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Date de fin
+                      <input
+                        type="date"
+                        value={experience.endDate}
+                        onChange={(event) => updateListItem('experiences', index, 'endDate', event.target.value)}
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    <span className="builder-label-head">
+                      <span>Tâches effectuées</span> <span className="optional-label">(facultatif)</span>
+                    </span>
+                    <textarea
+                      rows="3"
+                      placeholder="Décrivez vos principales responsabilités et réalisations"
+                      value={experience.tasks}
+                      onChange={(event) => updateListItem('experiences', index, 'tasks', event.target.value)}
+                    />
+                  </label>
+                </div>
+              )
+            })}
+            <button className="add-entry" disabled={isFreeModel && experiences.length >= 3} onClick={handleAddExperience}>+ Ajouter une expérience {isFreeModel && experiences.length >= 3 && <PremiumCrown />}</button>
 
             <SectionHeading number="03" title="Formation académique" onReset={() => resetSection('educations')} />
             <fieldset className="premium-fieldset">
-              {educations.map((education, index) => <div className="repeatable-block" key={`education-${index}`}><div className="repeatable-heading"><span>Formation {index + 1}</span></div><label>Établissement<input value={education.school} onChange={(event) => updateListItem('educations', index, 'school', event.target.value)} /></label><label>Diplôme<input value={education.degree} onChange={(event) => updateListItem('educations', index, 'degree', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={education.startDate} onChange={(event) => updateListItem('educations', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={education.endDate} onChange={(event) => updateListItem('educations', index, 'endDate', event.target.value)} /></label></div></div>)}
-              <button className="add-entry" onClick={() => addListItem('educations', { school: '', degree: '', startDate: '', endDate: '' })}>+ Ajouter une formation</button>
+              {educations.map((education, index) => {
+                const isOpen = openEducationIndex === index
+                if (!isOpen) {
+                  return (
+                    <div
+                      className="repeatable-block repeatable-block-collapsed"
+                      key={`education-${index}`}
+                      onClick={() => setOpenEducationIndex(index)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenEducationIndex(index) }}
+                      title="Cliquer pour modifier cette formation"
+                    >
+                      <div className="repeatable-collapsed-content">
+                        <div className="repeatable-collapsed-header">
+                          <span className="repeatable-badge">Formation {index + 1}</span>
+                        </div>
+                        <div className="repeatable-collapsed-main">
+                          <strong className="repeatable-collapsed-title">
+                            {education.school || <span className="repeatable-empty">Établissement non renseigné</span>}
+                          </strong>
+                          <span className="repeatable-collapsed-role">
+                            {education.degree || <span className="repeatable-empty">Diplôme non renseigné</span>}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="repeatable-collapsed-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="repeatable-action-del"
+                          onClick={() => handleDeleteEducation(index)}
+                          title="Supprimer cette formation"
+                          aria-label="Supprimer"
+                        >
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="repeatable-action-edit"
+                          onClick={() => setOpenEducationIndex(index)}
+                          title="Modifier cette formation"
+                        >
+                          Modifier ▾
+                        </button>
+                      </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div className="repeatable-block repeatable-block-open" key={`education-${index}`}>
+                    <div
+                      className="repeatable-heading repeatable-heading-interactive"
+                      onClick={() => setOpenEducationIndex(-1)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenEducationIndex(-1) }}
+                      title="Cliquer pour replier cette formation"
+                    >
+                      <div className="repeatable-heading-info">
+                        <span className="repeatable-badge">Formation {index + 1}</span>
+                        {(education.school || education.degree) && (
+                          <span className="repeatable-heading-sub">
+                            <strong>{education.school || 'Établissement'}</strong>
+                            {education.degree ? ` · ${education.degree}` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <div className="repeatable-heading-actions" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className="repeatable-action-del"
+                          onClick={() => handleDeleteEducation(index)}
+                          title="Supprimer cette formation"
+                          aria-label="Supprimer"
+                        >
+                          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          className="repeatable-action-toggle"
+                          onClick={() => setOpenEducationIndex(-1)}
+                          title="Replier cette formation"
+                        >
+                          Fermer ▴
+                        </button>
+                      </div>
+                    </div>
+
+                    <label>
+                      Établissement
+                      <input
+                        value={education.school}
+                        placeholder="Ex: Université de Yaoundé I, ESSEC..."
+                        onChange={(event) => updateListItem('educations', index, 'school', event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Diplôme
+                      <input
+                        value={education.degree}
+                        placeholder="Ex: Master en Informatique, Licence..."
+                        onChange={(event) => updateListItem('educations', index, 'degree', event.target.value)}
+                      />
+                    </label>
+                    <div className="field-row date-fields">
+                      <label>
+                        Date de début
+                        <input
+                          type="date"
+                          value={education.startDate}
+                          onChange={(event) => updateListItem('educations', index, 'startDate', event.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Date de fin
+                        <input
+                          type="date"
+                          value={education.endDate}
+                          onChange={(event) => updateListItem('educations', index, 'endDate', event.target.value)}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                )
+              })}
+              <button className="add-entry" onClick={handleAddEducation}>+ Ajouter une formation</button>
             </fieldset>
 
             <SectionHeading number="04" title="Compétences" onReset={() => resetSection('skills')} />
