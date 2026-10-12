@@ -757,6 +757,14 @@ function PremiumCrown() {
   return <svg className="premium-crown" viewBox="0 0 20 20" role="img" aria-label="Fonctionnalité Premium" focusable="false"><path d="M3.1 7.3 6.5 10l3.5-5 3.5 5 3.4-2.7-1.5 7.2H4.6L3.1 7.3Z" /><path d="M4.9 16.3h10.2" /></svg>
 }
 
+function PremiumStar() {
+  return (
+    <svg className="premium-star" viewBox="0 0 20 20" role="img" aria-label="Rubrique Premium incluse" focusable="false">
+      <path d="M10 2.2l2.4 5 5.5.8-4 3.9 1 5.5-4.9-2.6-4.9 2.6 1-5.5-4-3.9 5.5-.8L10 2.2z" />
+    </svg>
+  )
+}
+
 function SectionHeading({ number, title, onReset, locked = false }) {
   return (
     <div className="builder-section-heading">
@@ -858,30 +866,16 @@ function AddSectionModal({
                 </div>
 
                 <div className="add-section-card-action">
-                  {isFreeModel ? (
-                    <button
-                      type="button"
-                      className="add-section-unlock-btn"
-                      onClick={() => {
-                        onClose()
-                        onUnlockPremium()
-                      }}
-                    >
-                      <PremiumCrown />
-                      <span>Débloquer avec un modèle Premium</span>
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className={`add-section-add-btn ${isAdded ? 'is-added' : ''}`}
-                      onClick={() => {
-                        onAddSection(sec.id)
-                        onClose()
-                      }}
-                    >
-                      {isAdded ? '✓ Section déjà dans le CV' : '＋ Ajouter au CV'}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className={`add-section-add-btn ${isAdded ? 'is-added' : ''}`}
+                    onClick={() => {
+                      if (!isAdded) onAddSection(sec.id)
+                      onClose()
+                    }}
+                  >
+                    {isAdded ? '✓ Section déjà ajoutée' : '＋ Ajouter au CV'}
+                  </button>
                 </div>
               </div>
             )
@@ -891,8 +885,8 @@ function AddSectionModal({
         {isFreeModel && (
           <div className="add-section-footer-banner">
             <div className="add-section-footer-text">
-              <strong>Passez à un modèle Premium pour débloquer toutes ces rubriques</strong>
-              <p>Accédez aux modèles Sillage, Atlas et Signal avec exports illimités et mise en page soignée.</p>
+              <strong>Envie d’un design encore plus abouti ?</strong>
+              <p>Découvrez nos modèles Sillage, Atlas et Signal avec options graphiques poussées.</p>
             </div>
             <button
               type="button"
@@ -902,7 +896,7 @@ function AddSectionModal({
                 onUnlockPremium()
               }}
             >
-              Découvrir les modèles Premium
+              Découvrir les modèles
             </button>
           </div>
         )}
@@ -1437,11 +1431,6 @@ function ResumeBuilder({
   }
 
   const handleAddPremiumSection = (sectionId) => {
-    if (isFreeModel) {
-      setAddSectionModalOpen(false)
-      setTemplateChooserOpen(true)
-      return
-    }
     if (sectionId === 'projects') {
       if (projects.length === 0) {
         addListItem('projects', { name: '', description: '', link: '', year: '' })
@@ -1458,8 +1447,11 @@ function ResumeBuilder({
       if (references.length === 0) {
         addListItem('references', { name: '', role: '', contact: '' })
       }
+    } else if (sectionId === 'qrcode') {
+      showNotice?.('📱 Le QR Code interactif est automatiquement activé sur votre profil public.')
+      return
     }
-    showNotice?.('✨ Rubrique ajoutée au CV !')
+    showNotice?.(isFreeModel ? '★ Rubrique ajoutée à votre structure gratuite !' : '✨ Rubrique ajoutée au CV !')
   }
   const formatDate = (value) => {
     if (!value) return 'Aujourd’hui'
@@ -1683,6 +1675,12 @@ function ResumeBuilder({
   const certifications = Array.isArray(resume?.certifications) ? resume.certifications : []
   const interests = Array.isArray(resume?.interests) ? resume.interests : []
   const references = Array.isArray(resume?.references) ? resume.references : []
+  const hasPremiumSections = Boolean(
+    projects.length > 0 ||
+    certifications.length > 0 ||
+    interests.length > 0 ||
+    references.length > 0
+  )
 
   return (
     <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
@@ -2172,40 +2170,40 @@ function ResumeBuilder({
 
             {(!isFreeModel || projects.length > 0) && (
               <>
-                <SectionHeading number="06" title="Projets et réalisations" onReset={() => resetSection('projects')} locked={isFreeModel} />
-                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                <SectionHeading number="06" title="Projets et réalisations" onReset={() => resetSection('projects')} />
+                <fieldset className="premium-fieldset">
                   {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
-                  <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet {isFreeModel && <PremiumCrown />}</button>
+                  <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet</button>
                 </fieldset>
               </>
             )}
 
             {(!isFreeModel || certifications.length > 0) && (
               <>
-                <SectionHeading number="07" title="Certifications" onReset={() => resetSection('certifications')} locked={isFreeModel} />
-                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                <SectionHeading number="07" title="Certifications" onReset={() => resetSection('certifications')} />
+                <fieldset className="premium-fieldset">
                   {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
-                  <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification {isFreeModel && <PremiumCrown />}</button>
+                  <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification</button>
                 </fieldset>
               </>
             )}
 
             {(!isFreeModel || interests.length > 0) && (
               <>
-                <SectionHeading number="08" title="Centres d’intérêt" onReset={() => resetSection('interests')} locked={isFreeModel} />
-                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                <SectionHeading number="08" title="Centres d’intérêt" onReset={() => resetSection('interests')} />
+                <fieldset className="premium-fieldset">
                   <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
-                  <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt {isFreeModel && <PremiumCrown />}</button>
+                  <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt</button>
                 </fieldset>
               </>
             )}
 
             {(!isFreeModel || references.length > 0) && (
               <>
-                <SectionHeading number="09" title="Références" onReset={() => resetSection('references')} locked={isFreeModel} />
-                <fieldset className="premium-fieldset" disabled={isFreeModel}>
+                <SectionHeading number="09" title="Références" onReset={() => resetSection('references')} />
+                <fieldset className="premium-fieldset">
                   {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
-                  <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence {isFreeModel && <PremiumCrown />}</button>
+                  <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence</button>
                 </fieldset>
               </>
             )}
@@ -2293,7 +2291,14 @@ function ResumeBuilder({
                 </div>
               </div>
               <div className="template-tier template-tier-free">
-                <div className="template-tier-heading"><span>Accès libre</span></div>
+                <div className="template-tier-heading">
+                  <span>Accès libre</span>
+                  {hasPremiumSections && (
+                    <span className="tier-star-badge" title="Rubrique premium ajoutée">
+                      <PremiumStar />
+                    </span>
+                  )}
+                </div>
                 <div className="design-template-list">
                   {resumeTemplates.filter((item) => item.id === 'gratuit').map((item) => (
                     <div className="design-template-item" key={item.id}>
@@ -2304,7 +2309,18 @@ function ResumeBuilder({
                         onClick={() => selectTemplate(item.id)}
                       >
                         <span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span>
-                        <span><b>{item.name}</b><small>{item.description}</small></span>
+                        <span>
+                          <b>
+                            {item.name}
+                            {hasPremiumSections && <span className="free-template-star" title="Rubrique premium ajoutée"> ★</span>}
+                          </b>
+                          <small>{hasPremiumSections ? `${item.description} · enrichi` : item.description}</small>
+                        </span>
+                        {hasPremiumSections && (
+                          <span className="free-template-star-icon" title="Rubrique premium ajoutée">
+                            <PremiumStar />
+                          </span>
+                        )}
                         {userId && template === item.id && <em>✓</em>}
                       </button>
                     </div>
@@ -2490,6 +2506,7 @@ function ResumeBuilder({
               unlockTemplate(templateId)
             }}
             onHome={() => setTemplateChooserOpen(false)}
+            hasPremiumSections={hasPremiumSections}
           />
         </div>
       )}
@@ -2591,7 +2608,7 @@ function TemplateMiniPreview({ template }) {
   )
 }
 
-function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated, onSelect, onUnlock, onHome }) {
+function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated, onSelect, onUnlock, onHome, hasPremiumSections = false }) {
   const getIndexFor = (tplId) => {
     const target = tplId || 'gratuit'
     const idx = resumeTemplates.findIndex((item) => item.id === target)
@@ -2625,8 +2642,15 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
         </div>
         <div className="mobile-template-meta">
           <div>
-            <strong>{selectedTemplate.name}</strong>
-            {isGratuit && <span className="template-badge-free">Modèle Gratuit</span>}
+            <strong>
+              {selectedTemplate.name}
+              {isGratuit && hasPremiumSections && <span className="free-template-star"> ★</span>}
+            </strong>
+            {isGratuit && (
+              <span className="template-badge-free">
+                Modèle Gratuit{hasPremiumSections ? ' ★' : ''}
+              </span>
+            )}
             <br />
             <small>{selectedTemplate.description}</small>
           </div>

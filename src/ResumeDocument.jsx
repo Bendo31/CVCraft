@@ -391,7 +391,6 @@ export function ResumeSingleSheet({
   showBranding = true,
 }) {
   const visible = (section) => sectionVisibility[section] !== false
-    && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
 
   const personalVisible = visible('personal')
   const skills = Array.isArray(resume?.skills) ? resume.skills : []
@@ -471,7 +470,6 @@ export function ResumeDocument({
 
   const leftItems = useMemo(() => {
     const visible = (section) => sectionVisibility[section] !== false
-      && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
     const personalVisible = visible('personal')
     const skills = Array.isArray(resume?.skills) ? resume.skills : []
     const certifications = Array.isArray(resume?.certifications) ? resume.certifications : []
@@ -491,7 +489,6 @@ export function ResumeDocument({
 
   const rightItems = useMemo(() => {
     const visible = (section) => sectionVisibility[section] !== false
-      && (template !== 'gratuit' || ['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section))
     const experiences = Array.isArray(resume?.experiences) ? resume.experiences : []
     const educations = Array.isArray(resume?.educations) ? resume.educations : []
 

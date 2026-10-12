@@ -3549,4 +3549,54 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   }
 }
 
+/* Étoile structure gratuite avec rubriques premium */
+.premium-star {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
+  color: #f59e0b;
+  fill: currentColor;
+  stroke: #b45309;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.2;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 2px rgba(245, 158, 11, 0.45));
+}
+
+.free-template-star {
+  display: inline-block;
+  color: #f59e0b;
+  font-weight: 800;
+  margin-left: 3px;
+  text-shadow: 0 1px 2px rgba(245, 158, 11, 0.4);
+}
+
+.free-template-star-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
+
+.tier-star-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 2px 7px;
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  color: #b45309;
+  font-size: 10px;
+  font-weight: 700;
+}
+
 
