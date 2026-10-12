@@ -571,7 +571,6 @@ const resumeTemplates = [
 
   // Modèles Payants (Modèles Pro)
   { id: 'sillage', name: 'Sillage', description: 'Éditorial & Dynamique', color: 'blue' },
-  { id: 'atlas', name: 'Atlas', description: 'Structuré & Bicolore', color: 'lime' },
   { id: 'signal', name: 'Signal', description: 'Audacieux & Moderne', color: 'orange' },
   { id: 'horizon', name: 'Horizon', description: 'Exécutif & Moderne', color: 'teal' },
   { id: 'orbite', name: 'Orbite', description: 'Tech & Digital', color: 'indigo' },
@@ -898,7 +897,7 @@ function AddSectionModal({
           <div className="add-section-footer-banner">
             <div className="add-section-footer-text">
               <strong>Envie d’un design encore plus abouti ?</strong>
-              <p>Découvrez nos modèles Sillage, Atlas et Signal avec options graphiques poussées.</p>
+              <p>Découvrez nos modèles Sillage, Signal, Horizon et plus avec options graphiques poussées.</p>
             </div>
             <button
               type="button"
@@ -2917,11 +2916,9 @@ function TemplateMiniPreview({ template }) {
     return () => ro.disconnect()
   }, [])
 
-  const defaultColor = template?.id === 'atlas'
-    ? '#5f7d3b'
-    : template?.id === 'signal'
-      ? '#e49a68'
-      : template?.id === 'sillage'
+  const defaultColor = template?.id === 'signal'
+    ? '#e49a68'
+    : template?.id === 'sillage'
         ? '#3d6fa8'
         : template?.id === 'epure'
           ? '#475569'
@@ -4661,7 +4658,7 @@ function App() {
 
           {/* ── SECTION MODÈLES ── */}
           <section className="templates-section section-wrap" id="modeles" aria-labelledby="modeles-title">
-            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Dix modèles pensés pour tous les profils et exigences de recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
+            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Des modèles professionnels pensés pour tous les profils et exigences de recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
             <div style={{ position: 'relative' }}>
               <button className="carousel-nav carousel-nav-prev" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: -320, behavior: 'smooth' })} aria-label="Modèles précédents">←</button>
               <button className="carousel-nav carousel-nav-next" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: 320, behavior: 'smooth' })} aria-label="Modèles suivants">→</button>
