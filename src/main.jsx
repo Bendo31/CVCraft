@@ -1562,6 +1562,11 @@ function ResumeBuilder({
 
     // Laisser le temps à React et ResumeDocument de stabiliser le DOM et la pagination
     await new Promise((resolve) => window.setTimeout(resolve, 350))
+    if (document.fonts?.ready) {
+      try {
+        await document.fonts.ready
+      } catch (_) {}
+    }
     const sheets = document.querySelectorAll('#resume-preview .resume-sheet')
     if (!sheets.length) {
       console.warn('downloadPdf: aucune feuille #resume-preview .resume-sheet trouvée.')
@@ -1587,17 +1592,39 @@ function ResumeBuilder({
         sheet.style.transform = 'none'
         sheet.style.zoom = '1'
         exportRoot.replaceChildren(sheet)
+
+        // Attendre que les images (photo, etc.) soient prêtes
+        const imgs = Array.from(sheet.querySelectorAll('img'))
+        if (imgs.length > 0) {
+          await Promise.all(
+            imgs.map((img) => (img.complete ? Promise.resolve() : new Promise((res) => { img.onload = res; img.onerror = res })))
+          )
+        }
+
+        const computedBg = window.getComputedStyle(sheets[index]).backgroundColor || '#fffef9'
         const canvas = await html2canvas(sheet, {
-          scale: 2.5,
+          scale: 4, // 300+ DPI pour une netteté et résolution d'impression professionnelle
           useCORS: true,
-          backgroundColor: '#fffef9',
+          allowTaint: true,
+          backgroundColor: computedBg,
           width: 650,
           height: 919,
           windowWidth: 650,
           windowHeight: 919,
+          logging: false,
+          imageTimeout: 15000,
+          onclone: (clonedDoc) => {
+            const clonedSheet = clonedDoc.querySelector('.pdf-export-root .resume-sheet')
+            if (clonedSheet) {
+              clonedSheet.style.webkitFontSmoothing = 'antialiased'
+              clonedSheet.style.mozOsxFontSmoothing = 'grayscale'
+              clonedSheet.style.textRendering = 'geometricPrecision'
+            }
+          },
         })
         if (index > 0) pdf.addPage()
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageWidth, pageHeight)
+        // Utiliser le format PNG sans perte pour un texte parfaitement net sans compression JPEG
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST')
       }
 
       const fullName = `${(resume.lastName || '').trim()} ${(resume.firstName || '').trim()}`.trim()
