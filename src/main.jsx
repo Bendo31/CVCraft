@@ -3258,7 +3258,6 @@ function ResumeDashboard({
   accountPlan,
   onPlanUpdate,
   onHome,
-  onOpenAdminDashboard,
   onCreateResume,
   onOpenResume,
   onDownloadResume,
@@ -3438,7 +3437,6 @@ function ResumeDashboard({
               </span>
             )}
           </span>
-          <button className="dashboard-home-link" type="button" onClick={onOpenAdminDashboard} style={{ background: '#eeece3', color: '#17191a', fontWeight: 600 }}>📊 Compte rendu</button>
           <button className="dashboard-home-link" type="button" onClick={onHome}>Accueil</button>
           <button type="button" onClick={onLogout}>Déconnexion</button>
         </div>
@@ -3735,26 +3733,46 @@ function hasPersistedSupabaseSession() {
   return false
 }
 
+function isAdminDashboardUrl() {
+  if (typeof window === 'undefined') return false
+  const path = window.location.pathname.toLowerCase().replace(/\/+$/, '')
+  const hash = window.location.hash.toLowerCase().replace(/\/+$/, '')
+  const params = new URLSearchParams(window.location.search)
+
+  return (
+    path === '/dashboard' ||
+    path === '/admin' ||
+    path === '/stats' ||
+    hash === '#dashboard' ||
+    hash === '#admin' ||
+    hash === '#stats' ||
+    params.get('view') === 'admin' ||
+    params.get('view') === 'dashboard' ||
+    params.has('admin')
+  )
+}
+
 function App() {
   const [notice, setNotice] = useState('')
   const [view, setView] = useState(() => {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
-    const hash = typeof window !== 'undefined' ? window.location.hash : ''
     if (params?.get('view') === 'builder') return 'builder'
-    if (params?.get('view') === 'admin' || params?.get('view') === 'dashboard-stats' || hash === '#admin' || hash === '#dashboard-stats') {
-      return 'admin-dashboard'
-    }
+    if (isAdminDashboardUrl()) return 'admin-dashboard'
     return hasPersistedSupabaseSession() ? 'dashboard' : 'landing'
   })
 
   useEffect(() => {
-    const handleHashChange = () => {
-      if (typeof window !== 'undefined' && (window.location.hash === '#admin' || window.location.hash === '#dashboard-stats')) {
+    const handleUrlChange = () => {
+      if (isAdminDashboardUrl()) {
         setView('admin-dashboard')
       }
     }
-    window.addEventListener('hashchange', handleHashChange)
-    return () => window.removeEventListener('hashchange', handleHashChange)
+    window.addEventListener('hashchange', handleUrlChange)
+    window.addEventListener('popstate', handleUrlChange)
+    return () => {
+      window.removeEventListener('hashchange', handleUrlChange)
+      window.removeEventListener('popstate', handleUrlChange)
+    }
   }, [])
   const [user, setUser] = useState(null)
   const [authReady, setAuthReady] = useState(false)
@@ -4504,8 +4522,8 @@ function App() {
       <AdminDashboard
         user={user}
         onBack={() => {
-          if (typeof window !== 'undefined' && (window.location.hash === '#admin' || window.location.hash === '#dashboard-stats')) {
-            window.history.pushState(null, '', window.location.pathname + window.location.search)
+          if (typeof window !== 'undefined') {
+            window.history.pushState(null, '', '/')
           }
           setView(user ? 'dashboard' : 'landing')
         }}
@@ -4566,7 +4584,6 @@ function App() {
           accountPlan={accountPlan}
           onPlanUpdate={(plan) => setAccountPlan({ ...plan, ready: true })}
           onHome={goHome}
-          onOpenAdminDashboard={() => setView('admin-dashboard')}
           onCreateResume={() => handleRequestCreateResume()}
           onOpenResume={openDashboardResume}
           onDownloadResume={downloadDashboardResume}
@@ -4621,10 +4638,8 @@ function App() {
             <a href="#features">Ce qui nous distingue</a>
             <a href="#pricing">Tarifs</a>
             <a href="#faq">FAQ</a>
-            <a href="#admin" onClick={(e) => { e.preventDefault(); setView('admin-dashboard'); }} style={{ color: '#0f766e', fontWeight: 600 }}>📊 Compte rendu</a>
           </nav>
           <div className="header-actions">
-            <button className="button button-outline button-small button-pill" type="button" onClick={() => setView('admin-dashboard')} title="Compte rendu du site">📊 Dashboard</button>
             {user ? (
               <button className="button button-outline button-small button-pill" onClick={goDashboard}>Mes CV</button>
             ) : (
@@ -4906,7 +4921,7 @@ function App() {
           </section>
         </main>
 
-        <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><button type="button" onClick={() => setView('admin-dashboard')} style={{ background: 'none', border: 'none', color: 'inherit', padding: 0, cursor: 'pointer', font: 'inherit', textDecoration: 'underline' }}>📊 Compte rendu du site</button><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
+        <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
         {notice && <div className="toast" role="status">{notice}</div>}
       </div>
       {templatePickerOverlay}

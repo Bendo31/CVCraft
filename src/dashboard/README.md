@@ -36,10 +36,15 @@ Ce dossier contient le module complet de **Compte Rendu & Dashboard de pilotage*
    - **Mode Données Réelles** : Connecté en temps réel à Supabase via la fonction RPC `get_admin_dashboard_stats` et les tables `cvcraft_plan_payments`, `cvcraft_subscriptions`, `tara_payments`, `resumes`.
    - **Mode Simulation** : Permet de tester et visualiser instantanément l'ensemble des graphiques et fonctionnalités même avec une base de données vide.
 
-## Accès
+## Accès (Adresse Spécifique)
 
-- Depuis l'application :
-  - Lien dans le pied de page (`Dashboard Site`)
-  - Bouton dans la barre de navigation
-  - Bouton dans l'espace personnel de l'utilisateur
-  - Accès direct par URL : `?view=admin` ou `?view=dashboard` ou hash `#admin`
+Le dashboard est masqué des menus publics de navigation pour des raisons de confidentialité. Il est accessible uniquement via ses adresses d'accès directes :
+
+- **Chemin direct** :
+  - `http://localhost:5173/dashboard` ou `https://votre-domaine.com/dashboard`
+  - ou `/admin`
+- **Hash direct** :
+  - `https://votre-domaine.com/#dashboard` ou `#admin`
+- **Paramètre URL** :
+  - `https://votre-domaine.com/?view=admin` ou `?admin`
+
