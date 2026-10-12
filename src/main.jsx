@@ -27,8 +27,8 @@ import {
   updateResumeModelStatus,
 } from './supabaseClient.js'
 import './styles.css'
-import { ImportResumeModal } from './ImportResumeModal.jsx'
-import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
+// import { ImportResumeModal } from './ImportResumeModal.jsx'
+// import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
 import { normalizeDateToIso } from './resumeParser.js'
 
 
@@ -804,7 +804,6 @@ function ResumeBuilder({
   onRetryPayment,
   onSwitchResume,
   onCreateResume,
-  onImportResume,
   showNotice,
   notice,
 }) {
@@ -1639,16 +1638,6 @@ function ResumeBuilder({
                     <span>Nouveau CV</span>
                   </button>
                 )}
-
-                <button
-                  type="button"
-                  className="nav-rail-add-cv-btn nav-rail-import-btn"
-                  onClick={onImportResume}
-                  title="Importer et améliorer un CV existant (PDF, Word, texte)"
-                >
-                  <span className="add-cv-icon">📄</span>
-                  <span>Importer un CV</span>
-                </button>
               </div>
             ) : (
               <div className="nav-rail-guest-hint">
@@ -1659,14 +1648,6 @@ function ResumeBuilder({
                   onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
                 >
                   Connectez-vous pour plusieurs CV
-                </button>
-                <button
-                  type="button"
-                  className="nav-rail-signin-link"
-                  style={{ marginTop: '5px', color: '#f8f7f2' }}
-                  onClick={onImportResume}
-                >
-                  📄 Importer un CV existant
                 </button>
               </div>
             )}
@@ -1804,17 +1785,6 @@ function ResumeBuilder({
           <div className="builder-sidebar-heading"><div><span className="section-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
           <div className="builder-progress"><span className="active" /><span /><span /></div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
-          <div className="builder-quick-imports">
-            <button
-              type="button"
-              className="builder-quick-import-btn"
-              onClick={onImportResume}
-              title="Importer un CV existant (PDF, Word, texte) pour l'améliorer"
-            >
-              <span className="quick-import-icon">📄</span>
-              <span>Améliorer un CV existant</span>
-            </button>
-          </div>
           <div className="builder-form">
             <SectionHeading number="01" title="Informations personnelles" enabled={sectionEnabled('personal')} onToggle={() => toggleSection('personal')} onReset={() => resetSection('personal')} />
             <div className="photo-field">
@@ -2529,7 +2499,6 @@ function ResumeDashboard({
   onPlanUpdate,
   onHome,
   onCreateResume,
-  onImportResume,
   onOpenResume,
   onDownloadResume,
   onPurchasePlan,
@@ -2721,15 +2690,6 @@ function ResumeDashboard({
             </div>
             <div className="dashboard-heading-actions">
               {plan.planId === 'free' && <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>{isPlanExpired ? 'Renouveler mon offre' : 'Changer mon offre'}</button>}
-              <button
-                className="dashboard-import-button"
-                type="button"
-                disabled={isLoading || freeQuotaReached}
-                onClick={onImportResume}
-                title="Importer et améliorer un CV existant (PDF, Word, texte)"
-              >
-                <span aria-hidden="true">📄</span> Importer un CV
-              </button>
               <button className="dashboard-create-button" type="button" disabled={isLoading || freeQuotaReached} title={freeQuotaReached ? (isPlanExpired ? 'Votre offre a expiré et la limite de CV est atteinte. Réactivez votre offre pour créer d’autres CV.' : 'La limite de CV de votre offre est atteinte.') : undefined} onClick={onCreateResume}>
                 <span aria-hidden="true">＋</span> Créer
               </button>
@@ -2829,24 +2789,16 @@ function ResumeDashboard({
             <div className="dashboard-welcome-banner">
               <div className="dashboard-welcome-info">
                 <h2>Bienvenue sur votre espace CVCraft !</h2>
-                <p>Prêt à créer votre CV ? Améliorez un document existant (PDF, Word, texte) avec nos modèles professionnels ou débutez sur une page blanche.</p>
+                <p>Prêt à créer votre CV ? Créez un CV professionnel en quelques minutes grâce à nos modèles optimisés.</p>
               </div>
               <div className="dashboard-welcome-actions">
                 <button
-                  className="button button-dark"
-                  type="button"
-                  disabled={isLoading || freeQuotaReached}
-                  onClick={onImportResume}
-                >
-                  📄 Améliorer un CV existant
-                </button>
-                <button
-                  className="button button-outline"
+                  className="button button-yellow"
                   type="button"
                   disabled={isLoading || freeQuotaReached}
                   onClick={onCreateResume}
                 >
-                  ＋ Partir de zéro
+                  ＋ Créer mon premier CV
                 </button>
               </div>
             </div>
@@ -3066,8 +3018,12 @@ function App() {
   const handleRequestCreateResume = (templateChoice = null) => {
     const defaultTemplate = templateChoice || 'gratuit'
     setPendingTemplateChoice(templateChoice)
+    if (templateChoice) {
+      startBuilder(templateChoice)
+      return
+    }
     setSelectedTemplate(defaultTemplate)
-    setStartChoiceModalOpen(true)
+    setTemplatePickerOpen(true)
   }
 
   const handleApplyImportedResume = ({ resumeData, template, photo }) => {
@@ -3794,26 +3750,10 @@ function App() {
           onRetryPayment={() => setPaymentVerifyAttempt((current) => current + 1)}
           onSwitchResume={switchBuilderResume}
           onCreateResume={createBuilderResume}
-          onImportResume={() => setImportModalOpen(true)}
           showNotice={showNotice}
           notice={notice}
         />
-        <StartResumeChoiceModal
-          isOpen={startChoiceModalOpen}
-          onClose={() => setStartChoiceModalOpen(false)}
-          onSelectBlank={startBlankResume}
-          onSelectImport={() => {
-            setStartChoiceModalOpen(false)
-            setImportModalOpen(true)
-          }}
-        />
         {templatePickerOverlay}
-        <ImportResumeModal
-          isOpen={importModalOpen}
-          onClose={() => setImportModalOpen(false)}
-          onApplyResume={handleApplyImportedResume}
-          templates={resumeTemplates}
-        />
         {authOpen && (
           <AccountModal
             mode={authMode}
@@ -3837,7 +3777,6 @@ function App() {
           onPlanUpdate={(plan) => setAccountPlan({ ...plan, ready: true })}
           onHome={goHome}
           onCreateResume={() => handleRequestCreateResume()}
-          onImportResume={() => setImportModalOpen(true)}
           onOpenResume={openDashboardResume}
           onDownloadResume={downloadDashboardResume}
           onPurchasePlan={requestPlanCheckout}
@@ -3845,22 +3784,7 @@ function App() {
           showNotice={showNotice}
           downloadInProgressId={downloadingResumeId}
         />
-        <StartResumeChoiceModal
-          isOpen={startChoiceModalOpen}
-          onClose={() => setStartChoiceModalOpen(false)}
-          onSelectBlank={startBlankResume}
-          onSelectImport={() => {
-            setStartChoiceModalOpen(false)
-            setImportModalOpen(true)
-          }}
-        />
         {templatePickerOverlay}
-        <ImportResumeModal
-          isOpen={importModalOpen}
-          onClose={() => setImportModalOpen(false)}
-          onApplyResume={handleApplyImportedResume}
-          templates={resumeTemplates}
-        />
         {notice && <div className="toast" role="status">{notice}</div>}
         {dashboardDownloadRequested && (
           <div className="dashboard-download-host" aria-hidden="true">
@@ -4192,22 +4116,7 @@ function App() {
         <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
         {notice && <div className="toast" role="status">{notice}</div>}
       </div>
-      <StartResumeChoiceModal
-        isOpen={startChoiceModalOpen}
-        onClose={() => setStartChoiceModalOpen(false)}
-        onSelectBlank={startBlankResume}
-        onSelectImport={() => {
-          setStartChoiceModalOpen(false)
-          setImportModalOpen(true)
-        }}
-      />
       {templatePickerOverlay}
-      <ImportResumeModal
-        isOpen={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        onApplyResume={handleApplyImportedResume}
-        templates={resumeTemplates}
-      />
       {planMobilePayDialog}
       {authOpen && (
         <AccountModal
