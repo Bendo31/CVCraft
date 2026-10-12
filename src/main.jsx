@@ -215,13 +215,13 @@ function detectUserCountryCode() {
       if (saved && FRANCOPHONE_AFRICA_COUNTRIES.some((c) => c.code === saved)) {
         return saved
       }
-    } catch {}
+    } catch { }
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
       if (tz && TIMEZONE_TO_COUNTRY[tz]) {
         return TIMEZONE_TO_COUNTRY[tz]
       }
-    } catch {}
+    } catch { }
   }
   return 'CM'
 }
@@ -283,7 +283,7 @@ function MobileMoneyPhoneInput({
     if (onCountryChange) onCountryChange(nextCode)
     try {
       window.localStorage.setItem('cvcraft_user_country', nextCode)
-    } catch {}
+    } catch { }
   }
 
   const handlePhoneInput = (e) => {
@@ -530,7 +530,7 @@ const plans = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '100',
+    price: '1 500',
     suffix: 'pour 3 mois',
     description: 'Pour valoriser son profil et convaincre les recruteurs.',
     features: [
@@ -546,7 +546,7 @@ const plans = [
   {
     id: 'gold',
     name: 'Gold',
-    price: '100',
+    price: '2 500',
     suffix: 'par mois',
     description: 'Pour les candidats actifs postulant à plusieurs offres.',
     features: [
@@ -881,7 +881,7 @@ function ResumeBuilder({
       }
       return result
     })
-    cloudSaveQueue.current = save.catch(() => {})
+    cloudSaveQueue.current = save.catch(() => { })
     return save
   }
 
@@ -1264,7 +1264,7 @@ function ResumeBuilder({
       if (!isNaN(d.getTime())) {
         return new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(d).replace('.', '')
       }
-    } catch (_) {}
+    } catch (_) { }
     return String(value)
   }
   const formatDateRange = (startDate, endDate) => `${formatDate(startDate)} — ${formatDate(endDate)}`
@@ -1301,6 +1301,12 @@ function ResumeBuilder({
   const selectedFont = resumeFonts.find((item) => item.id === resumeFont) || resumeFonts[0]
 
   const downloadPdf = async () => {
+    if (!userId) {
+      showNotice('Veuillez vous connecter pour pouvoir télécharger votre CV.')
+      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId }, { downloadAfterAuth: true })
+      return false
+    }
+
     // Laisser le temps à React et ResumeDocument de stabiliser le DOM et la pagination
     await new Promise((resolve) => window.setTimeout(resolve, 350))
     const sheets = document.querySelectorAll('#resume-preview .resume-sheet')
@@ -1371,7 +1377,11 @@ function ResumeBuilder({
   }
 
   useEffect(() => {
-    if (!downloadAfterPayment || !resumeLoaded || autoDownloadStarted.current) return
+    if (!downloadAfterPayment) {
+      autoDownloadStarted.current = false
+      return
+    }
+    if (!resumeLoaded || autoDownloadStarted.current) return
     const timeout = window.setTimeout(() => {
       if (autoDownloadStarted.current) return
       autoDownloadStarted.current = true
@@ -1409,23 +1419,22 @@ function ResumeBuilder({
   }
 
   const handleExport = () => {
+    if (!userId) {
+      if (template === 'gratuit') {
+        showNotice('Veuillez vous connecter pour pouvoir télécharger votre CV.')
+        onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId }, { downloadAfterAuth: true })
+        return
+      }
+      showNotice('Veuillez vous connecter ou mettre à niveau votre compte pour pouvoir télécharger ce CV.')
+      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
+      return
+    }
+
     if (canDownload) {
       downloadPdf()
       return
     }
-    if (template === 'gratuit') {
-      if (!userId) {
-        onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId }, { downloadAfterAuth: true })
-        return
-      }
-      downloadPdf()
-      return
-    }
-    if (!userId) {
-      showNotice("Veuillez mettre à niveau votre abonnement ou vous connecter pour pouvoir télécharger votre CV avec ce modèle.")
-      onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId })
-      return
-    }
+
     showNotice("Veuillez mettre à niveau votre abonnement (Pro ou Gold) pour pouvoir télécharger ce CV en PDF.")
     setChangePlanOpen(true)
   }
@@ -1836,43 +1845,43 @@ function ResumeBuilder({
             {!sectionEnabled('experiences') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="03" title="Formation académique" enabled={sectionEnabled('educations')} onToggle={() => toggleSection('educations')} onReset={() => resetSection('educations')} locked={isSectionLocked('educations')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('educations')}>
-            {educations.map((education, index) => <div className="repeatable-block" key={`education-${index}`}><div className="repeatable-heading"><span>Formation {index + 1}</span></div><label>Établissement<input value={education.school} onChange={(event) => updateListItem('educations', index, 'school', event.target.value)} /></label><label>Diplôme<input value={education.degree} onChange={(event) => updateListItem('educations', index, 'degree', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={education.startDate} onChange={(event) => updateListItem('educations', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={education.endDate} onChange={(event) => updateListItem('educations', index, 'endDate', event.target.value)} /></label></div></div>)}
-            <button className="add-entry" onClick={() => addListItem('educations', { school: '', degree: '', startDate: '', endDate: '' })}>+ Ajouter une formation {isSectionLocked('educations') && <PremiumCrown />}</button>
+              {educations.map((education, index) => <div className="repeatable-block" key={`education-${index}`}><div className="repeatable-heading"><span>Formation {index + 1}</span></div><label>Établissement<input value={education.school} onChange={(event) => updateListItem('educations', index, 'school', event.target.value)} /></label><label>Diplôme<input value={education.degree} onChange={(event) => updateListItem('educations', index, 'degree', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={education.startDate} onChange={(event) => updateListItem('educations', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={education.endDate} onChange={(event) => updateListItem('educations', index, 'endDate', event.target.value)} /></label></div></div>)}
+              <button className="add-entry" onClick={() => addListItem('educations', { school: '', degree: '', startDate: '', endDate: '' })}>+ Ajouter une formation {isSectionLocked('educations') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('educations') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="04" title="Compétences" enabled={sectionEnabled('skills')} onToggle={() => toggleSection('skills')} onReset={() => resetSection('skills')} locked={isSectionLocked('skills')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('skills')}>
-            <div className="skill-fields">{skills.map((skill, index) => <input key={`skill-${index}`} value={skill} placeholder="Ex. Photoshop" onChange={(event) => updateSkill(index, event.target.value)} />)}</div><button className="add-entry" onClick={() => addListItem('skills', '')}>+ Ajouter une compétence {isSectionLocked('skills') && <PremiumCrown />}</button>
+              <div className="skill-fields">{skills.map((skill, index) => <input key={`skill-${index}`} value={skill} placeholder="Ex. Photoshop" onChange={(event) => updateSkill(index, event.target.value)} />)}</div><button className="add-entry" onClick={() => addListItem('skills', '')}>+ Ajouter une compétence {isSectionLocked('skills') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('skills') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="05" title="Langues" enabled={sectionEnabled('languages')} onToggle={() => toggleSection('languages')} onReset={() => resetSection('languages')} locked={isSectionLocked('languages')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('languages')}>
-            {languages.map((language, index) => <div className="repeatable-block" key={`language-${index}`}><div className="repeatable-heading"><span>Langue {index + 1}</span></div><div className="field-row"><label>Langue<input value={language.name} onChange={(event) => updateListItem('languages', index, 'name', event.target.value)} /></label><label>Niveau<select value={Math.min(5, Math.max(1, Number(language.level) || 1))} onChange={(event) => updateListItem('languages', index, 'level', Number(event.target.value))}>{[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>{level} / 5</option>)}</select></label></div></div>)}
-            <button className="add-entry" onClick={() => addListItem('languages', { name: '', level: 1 })}>+ Ajouter une langue {isSectionLocked('languages') && <PremiumCrown />}</button>
+              {languages.map((language, index) => <div className="repeatable-block" key={`language-${index}`}><div className="repeatable-heading"><span>Langue {index + 1}</span></div><div className="field-row"><label>Langue<input value={language.name} onChange={(event) => updateListItem('languages', index, 'name', event.target.value)} /></label><label>Niveau<select value={Math.min(5, Math.max(1, Number(language.level) || 1))} onChange={(event) => updateListItem('languages', index, 'level', Number(event.target.value))}>{[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>{level} / 5</option>)}</select></label></div></div>)}
+              <button className="add-entry" onClick={() => addListItem('languages', { name: '', level: 1 })}>+ Ajouter une langue {isSectionLocked('languages') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('languages') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="06" title="Projets et réalisations" enabled={sectionEnabled('projects')} onToggle={() => toggleSection('projects')} onReset={() => resetSection('projects')} locked={isSectionLocked('projects')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('projects')}>
-            {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label>Lien <span className="optional-label">(facultatif)</span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
-            <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet {isSectionLocked('projects') && <PremiumCrown />}</button>
+              {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label>Lien <span className="optional-label">(facultatif)</span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
+              <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet {isSectionLocked('projects') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('projects') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="07" title="Certifications" enabled={sectionEnabled('certifications')} onToggle={() => toggleSection('certifications')} onReset={() => resetSection('certifications')} locked={isSectionLocked('certifications')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('certifications')}>
-            {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
-            <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification {isSectionLocked('certifications') && <PremiumCrown />}</button>
+              {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
+              <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification {isSectionLocked('certifications') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('certifications') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="08" title="Centres d’intérêt" enabled={sectionEnabled('interests')} onToggle={() => toggleSection('interests')} onReset={() => resetSection('interests')} locked={isSectionLocked('interests')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('interests')}>
-            <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
-            <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt {isSectionLocked('interests') && <PremiumCrown />}</button>
+              <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
+              <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt {isSectionLocked('interests') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('interests') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="09" title="Références" enabled={sectionEnabled('references')} onToggle={() => toggleSection('references')} onReset={() => resetSection('references')} locked={isSectionLocked('references')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('references')}>
-            {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
-            <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence {isSectionLocked('references') && <PremiumCrown />}</button>
+              {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
+              <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence {isSectionLocked('references') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('references') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
           </div>
@@ -1883,7 +1892,11 @@ function ResumeBuilder({
               type="button"
               className={`preview-floating-export${!canDownload ? ' preview-floating-export-locked' : ''}`}
               onClick={handleExport}
-              title={!canDownload ? 'Mettre à niveau votre abonnement pour pouvoir télécharger ce CV en PDF' : 'Télécharger le CV en PDF'}
+              title={
+                !canDownload
+                  ? 'Mettre à niveau votre abonnement pour pouvoir télécharger ce CV en PDF'
+                  : (!userId ? 'Connectez-vous pour télécharger le CV en PDF' : 'Télécharger le CV en PDF')
+              }
             >
               {!canDownload ? (
                 <PremiumCrown />
@@ -2193,10 +2206,10 @@ function TemplateMiniPreview({ template }) {
   const defaultColor = template?.id === 'atlas'
     ? '#5f7d3b'
     : template?.id === 'signal'
-    ? '#e49a68'
-    : template?.id === 'sillage'
-    ? '#3d6fa8'
-    : '#17191a'
+      ? '#e49a68'
+      : template?.id === 'sillage'
+        ? '#3d6fa8'
+        : '#17191a'
 
   return (
     <div className="template-a4-preview-frame" ref={containerRef} aria-label={`Aperçu A4 du modèle ${template?.name || ''}`}>
@@ -2757,57 +2770,57 @@ function ResumeDashboard({
                     const canDuplicate = resumeWithinQuota && plan.active && plan.planId === 'gold' && resumes.length < 3
                     const isDownloadingThis = downloadInProgressId === resume.id
                     return <tr key={resume.id}>
-                    <td>
-                      <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
-                        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
-                        <span>{resumeTitle}</span>
-                      </button>
-                    </td>
-                    <td>
-                      <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" onClick={() => onOpenResume(resume)}>
-                        {!resume.resume?.role && <span aria-hidden="true">＋</span>}
-                        {resume.resume?.role || 'Ajouter'}
-                      </button>
-                    </td>
-                    <td>
-                      <span className="dashboard-document-type">CV</span>
-                      <small className="dashboard-document-model">{selectedTemplate?.name || 'Gratuit'}</small>
-                      {!resumeWithinQuota && plan.active && <small className="dashboard-document-payment">Hors quota actif</small>}
-                      {resume.modelStatus === 'pending_payment' && <small className="dashboard-document-payment">Paiement requis</small>}
-                      {resume.modelStatus === 'paid' && <small className="dashboard-document-paid">Payé</small>}
-                    </td>
-                    <td>{formatDate(resume.createdAt)}</td>
-                    <td>{formatRelativeDate(resume.updatedAt) || '—'}</td>
-                    <td>
-                      <div className="dashboard-document-actions">
-                        <button
-                          className={`dashboard-icon-button ${isDownloadingThis ? 'is-downloading' : ''}`}
-                          type="button"
-                          aria-label={`Télécharger ${resumeTitle}`}
-                          title={isDownloadingThis ? 'Téléchargement en cours...' : !resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'}
-                          disabled={!resumeWithinQuota || isDownloadingThis}
-                          onClick={() => onDownloadResume(resume)}
-                        >
-                          {isDownloadingThis ? (
-                            <span className="download-spinner" aria-hidden="true" />
-                          ) : (
-                            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3 13v3.5h14V13" /></svg>
-                          )}
+                      <td>
+                        <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
+                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
+                          <span>{resumeTitle}</span>
                         </button>
-                        <div className="dashboard-more-wrap">
+                      </td>
+                      <td>
+                        <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" onClick={() => onOpenResume(resume)}>
+                          {!resume.resume?.role && <span aria-hidden="true">＋</span>}
+                          {resume.resume?.role || 'Ajouter'}
+                        </button>
+                      </td>
+                      <td>
+                        <span className="dashboard-document-type">CV</span>
+                        <small className="dashboard-document-model">{selectedTemplate?.name || 'Gratuit'}</small>
+                        {!resumeWithinQuota && plan.active && <small className="dashboard-document-payment">Hors quota actif</small>}
+                        {resume.modelStatus === 'pending_payment' && <small className="dashboard-document-payment">Paiement requis</small>}
+                        {resume.modelStatus === 'paid' && <small className="dashboard-document-paid">Payé</small>}
+                      </td>
+                      <td>{formatDate(resume.createdAt)}</td>
+                      <td>{formatRelativeDate(resume.updatedAt) || '—'}</td>
+                      <td>
+                        <div className="dashboard-document-actions">
                           <button
-                            className="dashboard-icon-button"
+                            className={`dashboard-icon-button ${isDownloadingThis ? 'is-downloading' : ''}`}
                             type="button"
-                            aria-label={`Plus d’actions pour ${resumeTitle}`}
-                            aria-expanded={actionsOpen?.resume?.id === resume.id}
-                            onClick={(event) => handleToggleActions(event, resume)}
+                            aria-label={`Télécharger ${resumeTitle}`}
+                            title={isDownloadingThis ? 'Téléchargement en cours...' : !resumeWithinQuota ? 'Ce CV dépasse le quota actif de votre offre.' : 'Télécharger le CV'}
+                            disabled={!resumeWithinQuota || isDownloadingThis}
+                            onClick={() => onDownloadResume(resume)}
                           >
-                            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1" /><circle cx="10" cy="10" r="1" /><circle cx="16" cy="10" r="1" /></svg>
+                            {isDownloadingThis ? (
+                              <span className="download-spinner" aria-hidden="true" />
+                            ) : (
+                              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3.5-3.5M10 11.5 6.5 8M3 13v3.5h14V13" /></svg>
+                            )}
                           </button>
+                          <div className="dashboard-more-wrap">
+                            <button
+                              className="dashboard-icon-button"
+                              type="button"
+                              aria-label={`Plus d’actions pour ${resumeTitle}`}
+                              aria-expanded={actionsOpen?.resume?.id === resume.id}
+                              onClick={(event) => handleToggleActions(event, resume)}
+                            >
+                              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="4" cy="10" r="1" /><circle cx="10" cy="10" r="1" /><circle cx="16" cy="10" r="1" /></svg>
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
                   })}
                 </tbody>
               </table>
@@ -2967,7 +2980,7 @@ function PlanMobilePayDialog({
   onSubmit,
 }) {
   const planName = planId === 'gold' ? 'Gold' : 'Pro'
-  const amount = 100
+  const amount = planId === 'gold' ? 2500 : 1500
   return (
     <div className="payment-backdrop" role="presentation">
       <form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-payment-title" onSubmit={onSubmit}>
@@ -3132,7 +3145,7 @@ function App() {
         setMobilePayError('')
         setMobilePayPlan(intent.planId)
         setView('dashboard')
-          return
+        return
       }
       setView(intent.destination === 'dashboard' && !templateId ? 'dashboard' : 'builder')
       pendingAuthDestinationRef.current = null
@@ -3864,14 +3877,14 @@ function App() {
               downloadAfterPayment={false}
               downloadRequested
               onDownloadRequestComplete={handleDashboardDownloadComplete}
-              onAutoDownloadComplete={() => {}}
+              onAutoDownloadComplete={() => { }}
               onHome={goHome}
               onDashboard={goDashboard}
               onLogout={logout}
               onRequestUnlock={requestUnlock}
               onPaymentStarted={handleMobilePayStarted}
               paymentStatus={null}
-              onRetryPayment={() => {}}
+              onRetryPayment={() => { }}
               showNotice={showNotice}
               notice=""
             />
@@ -3884,300 +3897,301 @@ function App() {
 
   return (
     <>
-    <div className="app-shell">
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="CVcraft, accueil"><span className="brand-mark">c</span><span>CVcraft</span></a>
-        <nav className="main-nav" aria-label="Navigation principale">
-          <a href="#process">Comment ça marche</a>
-          <a href="#modeles">Modèles</a>
-          <a href="#features">Ce qui nous distingue</a>
-          <a href="#pricing">Tarifs</a>
-          <a href="#faq">FAQ</a>
-        </nav>
-        <div className="header-actions">
-          {user ? (
-            <button className="button button-outline button-small button-pill" onClick={goDashboard}>Mes CV</button>
-          ) : (
-            <button className="button button-outline button-small button-pill" onClick={() => {
-              pendingAuthDestinationRef.current = 'dashboard'
-              setAuthMode('signup')
-              setAuthOpen(true)
-            }}>Créer mon compte</button>
-          )}
-          <button className="button button-dark button-small button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
-        </div>
-      </header>
-
-      <main id="top">
-        <section className="hero section-wrap">
-          <div className="hero-copy">
-            <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
-            <h1 className="hero-title"><span className="hero-title-main">Le CV qui donne envie</span><em className="hero-title-sub">de vous recruter.</em></h1>
-            <p className="hero-lede">Créez un CV moderne, percutant et professionnel en moins de 5 minutes. Démarquez-vous auprès des recruteurs et transformez votre parcours en opportunités concrètes.</p>
-            <div className="hero-actions">
-              <button className="button button-dark button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
-              <a className="button button-ghost" href="#modeles">Voir les modèles</a>
-            </div>
-            <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
+      <div className="app-shell">
+        <header className="site-header">
+          <a className="brand" href="#top" aria-label="CVcraft, accueil"><span className="brand-mark">c</span><span>CVcraft</span></a>
+          <nav className="main-nav" aria-label="Navigation principale">
+            <a href="#process">Comment ça marche</a>
+            <a href="#modeles">Modèles</a>
+            <a href="#features">Ce qui nous distingue</a>
+            <a href="#pricing">Tarifs</a>
+            <a href="#faq">FAQ</a>
+          </nav>
+          <div className="header-actions">
+            {user ? (
+              <button className="button button-outline button-small button-pill" onClick={goDashboard}>Mes CV</button>
+            ) : (
+              <button type="button" className="header-auth-link" onClick={() => {
+                pendingAuthDestinationRef.current = 'dashboard'
+                setAuthMode('signup')
+                setAuthOpen(true)
+              }}>Créer mon compte</button>
+            )}
+            <button className="button button-dark button-small button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
           </div>
-          <div className="hero-visual" aria-label="Aperçu du tableau de bord">
-            <div style={{ width: '100%', height: '400px', backgroundColor: '#eeece3', borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 48px rgba(0,0,0,0.15)', border: '1px solid #d7d7ce', transform: 'rotate(2deg)' }}>
-              <div style={{ height: '40px', backgroundColor: '#fffef9', borderBottom: '1px solid #d7d7ce', display: 'flex', alignItems: 'center', padding: '0 16px', gap: '8px' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ff5f56' }}></div>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#ffbd2e' }}></div>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: '#27c93f' }}></div>
-                <div style={{ marginLeft: 'auto', fontWeight: 'bold', fontSize: '12px', color: '#17191a' }}>CVcraft Studio</div>
+        </header>
+
+        <main id="top">
+          <section className="hero section-wrap">
+            <div className="hero-copy">
+              <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
+              <h1 className="hero-title">Votre talent<br />mérite un CV<br />à sa hauteur</h1>
+              <p className="hero-lede">Créez un CV moderne, percutant et professionnel en moins de 5 minutes.</p>
+              <div className="hero-actions">
+                <button className="button button-dark button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
+                <a className="button button-ghost" href="#modeles">Voir les modèles</a>
               </div>
-              <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-                <div style={{ width: '40%', backgroundColor: '#fffef9', borderRight: '1px solid #d7d7ce', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ width: '60%', height: '16px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
-                  <div style={{ width: '100%', height: '24px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
-                  <div style={{ width: '100%', height: '24px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
-                  <div style={{ width: '80%', height: '24px', backgroundColor: '#e3e2da', borderRadius: '4px' }}></div>
-                  <div style={{ marginTop: 'auto', width: '100%', height: '32px', backgroundColor: '#17191a', borderRadius: '50px' }}></div>
+              <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
+            </div>
+            <div className="hero-visual" aria-label="Aperçu du studio CVcraft">
+              <div className="hero-visual-wrapper">
+                {/* Bulles animées de mots liés à l'emploi */}
+                <div className="hero-bubble bubble-interview">
+                  <span className="bubble-icon">🎯</span>
+                  <span>Entretien décroché</span>
                 </div>
-                <div style={{ width: '60%', backgroundColor: '#e3e2da', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
-                  <div style={{ width: '100%', height: '100%', backgroundColor: '#fffef9', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ width: '40%', height: '12px', backgroundColor: '#17191a', borderRadius: '2px' }}></div>
-                    <div style={{ width: '30%', height: '8px', backgroundColor: '#8b918a', borderRadius: '2px' }}></div>
-                    <div style={{ width: '100%', height: '1px', backgroundColor: '#d7d7ce', margin: '4px 0' }}></div>
-                    <div style={{ width: '100%', height: '8px', backgroundColor: '#e3e2da', borderRadius: '2px' }}></div>
-                    <div style={{ width: '90%', height: '8px', backgroundColor: '#e3e2da', borderRadius: '2px' }}></div>
-                    <div style={{ width: '95%', height: '8px', backgroundColor: '#e3e2da', borderRadius: '2px' }}></div>
-                  </div>
+                <div className="hero-bubble bubble-recruited">
+                  <span className="bubble-icon">✨</span>
+                  <span>Recruté en CDI</span>
+                </div>
+                <div className="hero-bubble bubble-first-job">
+                  <span className="bubble-icon">🚀</span>
+                  <span>Premier emploi</span>
+                </div>
+                <div className="hero-bubble bubble-internship">
+                  <span className="bubble-icon">💼</span>
+                  <span>Stage validé</span>
+                </div>
+
+                {/* Capture du CVBuilder avec profil camerounais */}
+                <div className="builder-window-mockup">
+                  <img
+                    src="/cvbuilder-preview.jpg"
+                    alt="Aperçu du CVBuilder avec profil camerounais"
+                    className="builder-preview-img"
+                    loading="eager"
+                  />
                 </div>
               </div>
             </div>
-            <div className="visual-note note-top" style={{ zIndex: 10 }}><span className="note-star">✳</span><span>Édition<br /><strong>en temps réel</strong></span></div>
-          </div>
-        </section>
+          </section>
 
-        <section className="marquee" aria-label="Promesse CVcraft"><div className="marquee-track"><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span></div></section>
+          <section className="marquee" aria-label="Promesse CVcraft"><div className="marquee-track"><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span></div></section>
 
-        <section className="process section-wrap" id="process">
-          <div className="section-heading"><div><div className="eyebrow">Simple comme bonjour</div><h2>De l’idée au<br /><em>oui.</em></h2></div><p>Pas de jargon, pas de mise en page qui casse. Juste les bons outils pour donner à votre histoire la place qu’elle mérite.</p></div>
-          <div className="step-grid">{steps.map((step) => <article className="step" key={step.number}><span className="step-number">{step.number}</span><h3>{step.title}</h3><p>{step.text}</p><span className="step-arrow" aria-hidden="true">↗</span></article>)}</div>
-        </section>
+          <section className="process section-wrap" id="process">
+            <div className="section-heading"><div><div className="eyebrow">Simple comme bonjour</div><h2>De l’idée au<br /><em>oui.</em></h2></div><p>Pas de jargon, pas de mise en page qui casse. Juste les bons outils pour donner à votre histoire la place qu’elle mérite.</p></div>
+            <div className="step-grid">{steps.map((step) => <article className="step" key={step.number}><span className="step-number">{step.number}</span><h3>{step.title}</h3><p>{step.text}</p><span className="step-arrow" aria-hidden="true">↗</span></article>)}</div>
+          </section>
 
-        {/* ── SECTION MODÈLES ── */}
-        <section className="templates-section section-wrap" id="modeles" aria-labelledby="modeles-title">
-          <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Quatre modèles pensés pour les recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
-          <div style={{ position: 'relative' }}>
-            <button className="carousel-nav carousel-nav-prev" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: -320, behavior: 'smooth' })} aria-label="Modèles précédents">←</button>
-            <button className="carousel-nav carousel-nav-next" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: 320, behavior: 'smooth' })} aria-label="Modèles suivants">→</button>
-            <div className="templates-grid" id="templates-carousel">
-              {resumeTemplates.map((item) => (
-                <article className="template-card" key={item.id} onClick={() => setSelectedTemplate(item.id)} style={{ cursor: 'pointer' }}>
-                  <div className="template-card-frame" style={{ position: 'relative', border: selectedTemplate === item.id ? '2px solid var(--ink)' : '2px solid transparent', backgroundColor: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', transition: 'border-color 0.2s', padding: 0 }}>
-                    {item.id !== 'gratuit' && (
-                      <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, background: '#fff', borderRadius: '50%', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-                        <PremiumCrown />
-                      </div>
-                    )}
-                    <TemplateMiniPreview template={item} />
+          {/* ── SECTION MODÈLES ── */}
+          <section className="templates-section section-wrap" id="modeles" aria-labelledby="modeles-title">
+            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Quatre modèles pensés pour les recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
+            <div style={{ position: 'relative' }}>
+              <button className="carousel-nav carousel-nav-prev" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: -320, behavior: 'smooth' })} aria-label="Modèles précédents">←</button>
+              <button className="carousel-nav carousel-nav-next" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: 320, behavior: 'smooth' })} aria-label="Modèles suivants">→</button>
+              <div className="templates-grid" id="templates-carousel">
+                {resumeTemplates.map((item) => (
+                  <article className="template-card" key={item.id} onClick={() => setSelectedTemplate(item.id)} style={{ cursor: 'pointer' }}>
+                    <div className="template-card-frame" style={{ position: 'relative', border: selectedTemplate === item.id ? '2px solid var(--ink)' : '2px solid transparent', backgroundColor: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', transition: 'border-color 0.2s', padding: 0 }}>
+                      {item.id !== 'gratuit' && (
+                        <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, background: '#fff', borderRadius: '50%', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+                          <PremiumCrown />
+                        </div>
+                      )}
+                      <TemplateMiniPreview template={item} />
+                    </div>
+                    <div className="template-card-meta" style={{ marginTop: '16px', textAlign: 'center', display: 'block' }}>
+                      <div><strong>{item.name}</strong><br /><small>{item.description}</small></div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* ── SECTION FEATURES ── */}
+          <section className="features-section section-wrap" id="features" aria-label="Fonctionnalités CVcraft">
+            <div className="features-heading">
+              <div className="eyebrow"><span className="eyebrow-dot" /> Ce qui nous distingue</div>
+              <h2>Tout ce qu'il vous faut<br /><em>pour décrocher le job.</em></h2>
+            </div>
+            <div className="features-grid">
+              <article className="feature-card">
+                <div className="feature-icon" aria-hidden="true">⚡</div>
+                <h3>Créez en 5 minutes</h3>
+                <p>Un formulaire guidé, clair et rapide. Votre CV est prêt avant même la fin de votre café.</p>
+              </article>
+              <article className="feature-card">
+                <div className="feature-icon" aria-hidden="true">📱</div>
+                <h3>100 % mobile</h3>
+                <p>Conçu pour fonctionner parfaitement sur téléphone. Créez et exportez depuis n'importe où.</p>
+              </article>
+              <article className="feature-card">
+                <div className="feature-icon" aria-hidden="true">🎨</div>
+                <h3>Modèles élégants</h3>
+                <p>Des templates pensés par des designers, adaptés aux recruteurs africains et internationaux.</p>
+              </article>
+              <article className="feature-card">
+                <div className="feature-icon" aria-hidden="true">📄</div>
+                <h3>Export PDF net</h3>
+                <p>Un PDF haute qualité, prêt à envoyer par email ou à déposer sur une plateforme RH.</p>
+              </article>
+              <article className="feature-card">
+                <div className="feature-icon" aria-hidden="true">☁️</div>
+                <h3>Sauvegarde cloud</h3>
+                <p>Vos CV sont enregistrés en ligne. Reprenez votre travail sur n'importe quel appareil.</p>
+              </article>
+              <article className="feature-card">
+                <div className="feature-icon" aria-hidden="true">🔒</div>
+                <h3>Paiement sécurisé</h3>
+                <p>Mobile Money MTN &amp; Orange intégré via Tara. Simple, rapide et sans carte bancaire.</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="pricing section-wrap" id="pricing" aria-labelledby="pricing-title">
+            <div className="pricing-heading">
+              <div className="eyebrow"><span className="eyebrow-dot" /> Tarifs transparents</div>
+              <h2 id="pricing-title">Le bon plan pour<br /><em>chaque étape.</em></h2>
+              <p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p>
+            </div>
+            <div className="plans">
+              {plans.map((plan) => (
+                <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>
+                  {plan.featured && <div className="popular">Le plus populaire</div>}
+                  <div className="plan-top">
+                    <span className="plan-name">{plan.name}</span>
+                    <span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span>
                   </div>
-                  <div className="template-card-meta" style={{ marginTop: '16px', textAlign: 'center', display: 'block' }}>
-                    <div><strong>{item.name}</strong><br /><small>{item.description}</small></div>
+                  <div className="plan-price">
+                    <span>{plan.price}</span>
+                    <span className="plan-currency">FCFA</span>
+                    <small>{plan.id === 'free' ? '· à vie' : (plan.suffix.startsWith('pour ') || plan.suffix.startsWith('par ') ? plan.suffix : `/ ${plan.suffix}`)}</small>
+                  </div>
+                  <p className="plan-desc">{plan.description}</p>
+                  <ul className="plan-features">
+                    {plan.features.map((feature) => (
+                      <li key={feature}>
+                        <span className="feature-check" aria-hidden="true">✓</span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="plan-action-wrap">
+                    <button
+                      className={`button ${plan.featured ? 'button-light' : 'button-outline'}`}
+                      onClick={() => plan.id === 'free' ? handleRequestCreateResume() : requestPlanCheckout(plan.id)}
+                    >
+                      {plan.action} <span aria-hidden="true">→</span>
+                    </button>
                   </div>
                 </article>
               ))}
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* ── SECTION FEATURES ── */}
-        <section className="features-section section-wrap" id="features" aria-label="Fonctionnalités CVcraft">
-          <div className="features-heading">
-            <div className="eyebrow"><span className="eyebrow-dot" /> Ce qui nous distingue</div>
-            <h2>Tout ce qu'il vous faut<br /><em>pour décrocher le job.</em></h2>
-          </div>
-          <div className="features-grid">
-            <article className="feature-card">
-              <div className="feature-icon" aria-hidden="true">⚡</div>
-              <h3>Créez en 5 minutes</h3>
-              <p>Un formulaire guidé, clair et rapide. Votre CV est prêt avant même la fin de votre café.</p>
-            </article>
-            <article className="feature-card">
-              <div className="feature-icon" aria-hidden="true">📱</div>
-              <h3>100 % mobile</h3>
-              <p>Conçu pour fonctionner parfaitement sur téléphone. Créez et exportez depuis n'importe où.</p>
-            </article>
-            <article className="feature-card">
-              <div className="feature-icon" aria-hidden="true">🎨</div>
-              <h3>Modèles élégants</h3>
-              <p>Des templates pensés par des designers, adaptés aux recruteurs africains et internationaux.</p>
-            </article>
-            <article className="feature-card">
-              <div className="feature-icon" aria-hidden="true">📄</div>
-              <h3>Export PDF net</h3>
-              <p>Un PDF haute qualité, prêt à envoyer par email ou à déposer sur une plateforme RH.</p>
-            </article>
-            <article className="feature-card">
-              <div className="feature-icon" aria-hidden="true">☁️</div>
-              <h3>Sauvegarde cloud</h3>
-              <p>Vos CV sont enregistrés en ligne. Reprenez votre travail sur n'importe quel appareil.</p>
-            </article>
-            <article className="feature-card">
-              <div className="feature-icon" aria-hidden="true">🔒</div>
-              <h3>Paiement sécurisé</h3>
-              <p>Mobile Money MTN &amp; Orange intégré via Tara. Simple, rapide et sans carte bancaire.</p>
-            </article>
-          </div>
-        </section>
+          {/* ── SECTION TÉMOIGNAGES ── */}
+          <section className="testimonials-section" id="testimonials" aria-label="Témoignages clients">
+            <div className="testimonials-inner section-wrap">
+              <div className="testimonials-heading">
+                <div className="eyebrow"><span className="eyebrow-dot" /> Ils nous font confiance</div>
+                <h2>Ce que disent<br /><em>nos utilisateurs.</em></h2>
+              </div>
+              <div className="testimonials-grid">
+                <blockquote className="testimonial-card testimonial-featured">
+                  <p>"J'ai créé mon CV en moins de 10 minutes depuis mon téléphone. Le lendemain, j'avais un entretien. CVcraft a changé la donne pour moi."</p>
+                  <footer>
+                    <div className="testimonial-avatar">AM</div>
+                    <div>
+                      <strong>Aminata M.</strong>
+                      <span>Étudiante en Master, Dakar</span>
+                    </div>
+                  </footer>
+                </blockquote>
+                <blockquote className="testimonial-card">
+                  <p>"Le design est vraiment professionnel. Mes recruteurs ont commenté la qualité de mon CV. Je le recommande à tous mes amis."</p>
+                  <footer>
+                    <div className="testimonial-avatar">KD</div>
+                    <div>
+                      <strong>Kofi D.</strong>
+                      <span>Développeur, Abidjan</span>
+                    </div>
+                  </footer>
+                </blockquote>
+                <blockquote className="testimonial-card">
+                  <p>"Enfin un outil pensé pour l'Afrique. Le paiement par Mobile Money, c'est exactement ce qu'il nous fallait. Simple et efficace."</p>
+                  <footer>
+                    <div className="testimonial-avatar">NB</div>
+                    <div>
+                      <strong>Nadia B.</strong>
+                      <span>Freelance RH, Douala</span>
+                    </div>
+                  </footer>
+                </blockquote>
+                <blockquote className="testimonial-card">
+                  <p>"Interface super intuitive. J'ai pu aider ma sœur à créer son premier CV. Elle a décroché son stage la semaine suivante !"</p>
+                  <footer>
+                    <div className="testimonial-avatar">JT</div>
+                    <div>
+                      <strong>Jean-Paul T.</strong>
+                      <span>Ingénieur, Yaoundé</span>
+                    </div>
+                  </footer>
+                </blockquote>
+              </div>
+            </div>
+          </section>
 
-        <section className="pricing section-wrap" id="pricing" aria-labelledby="pricing-title">
-          <div className="pricing-heading">
-            <div className="eyebrow"><span className="eyebrow-dot" /> Tarifs transparents</div>
-            <h2 id="pricing-title">Le bon plan pour<br /><em>chaque étape.</em></h2>
-            <p>Commencez gratuitement, passez à la vitesse supérieure quand vous êtes prêt.</p>
-          </div>
-          <div className="plans">
-            {plans.map((plan) => (
-              <article className={`plan ${plan.featured ? 'plan-featured' : ''}`} key={plan.id}>
-                {plan.featured && <div className="popular">Le plus populaire</div>}
-                <div className="plan-top">
-                  <span className="plan-name">{plan.name}</span>
-                  <span className="plan-symbol">{plan.id === 'gold' ? '✦' : plan.id === 'pro' ? '◆' : '○'}</span>
+          {/* ── SECTION FAQ ── */}
+          <section className="faq-section section-wrap" id="faq" aria-label="Questions fréquentes">
+            <div className="faq-heading">
+              <div className="eyebrow"><span className="eyebrow-dot" /> Questions fréquentes</div>
+              <h2>On répond à<br /><em>vos questions.</em></h2>
+            </div>
+            <div className="faq-list">
+              {[
+                { q: 'CVcraft est-il vraiment gratuit ?', a: 'Oui ! Le plan gratuit vous permet de créer un CV complet et de le télécharger en PDF. Les plans payants débloquent des modèles premium et des fonctionnalités avancées.' },
+                { q: 'Comment fonctionne le paiement Mobile Money ?', a: 'Nous utilisons Tara Money pour les paiements. Sélectionnez votre pays, entrez votre numéro mobile (MTN, Orange...) et validez la demande sur votre téléphone. Simple, rapide et sécurisé.' },
+                { q: 'Puis-je créer plusieurs CV ?', a: 'Le plan gratuit et le plan Pro vous permettent de créer 1 CV complet. L’offre Gold vous permet de gérer jusqu’à 3 CV différents en simultané, idéal si vous postulez à plusieurs types de postes.' },
+                { q: 'Mon CV est-il sauvegardé automatiquement ?', a: 'Oui, avec un compte CVcraft, votre travail est sauvegardé en temps réel dans le cloud. Vous pouvez reprendre depuis n\'importe quel appareil.' },
+                { q: 'Quelle est la qualité du PDF exporté ?', a: 'Nos PDF sont générés en haute résolution et formatés pour l\'impression A4. Ils sont compatibles avec toutes les plateformes de dépôt de candidature.' },
+              ].map((item, index) => (
+                <details className="faq-item" key={index}>
+                  <summary className="faq-question">{item.q}<span className="faq-arrow" aria-hidden="true">↓</span></summary>
+                  <p className="faq-answer">{item.a}</p>
+                </details>
+              ))}
+            </div>
+          </section>
+
+          {/* ── SECTION CTA FINAL ── */}
+          <section className="cta-section" id="cta" aria-label="Appel à l'action">
+            <div className="cta-inner section-wrap">
+              <div className="cta-content">
+                <div className="eyebrow cta-eyebrow"><span className="eyebrow-dot" /> Prêt à commencer ?</div>
+                <h2>Votre prochain emploi<br /><em>commence ici.</em></h2>
+                <p>Rejoignez 12 000+ candidats qui ont déjà transformé leur parcours en opportunité. Créez votre CV professionnel en moins de 5 minutes, gratuitement.</p>
+                <div className="cta-actions">
+                  <button className="button button-dark cta-btn" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span aria-hidden="true">↗</span></button>
+                  <a className="text-link" href="#pricing">Voir les tarifs <span aria-hidden="true">↓</span></a>
                 </div>
-                <div className="plan-price">
-                  <span>{plan.price}</span>
-                  <span className="plan-currency">FCFA</span>
-                  <small>/ {plan.suffix}</small>
+                <div className="cta-badges">
+                  <span className="cta-badge">✓ Sans carte bancaire</span>
+                  <span className="cta-badge">✓ CV en 5 minutes</span>
+                  <span className="cta-badge">✓ Mobile Money accepté</span>
                 </div>
-                <p className="plan-desc">{plan.description}</p>
-                <ul className="plan-features">
-                  {plan.features.map((feature) => (
-                    <li key={feature}>
-                      <span className="feature-check" aria-hidden="true">✓</span>
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="plan-action-wrap">
-                  <button
-                    className={`button ${plan.featured ? 'button-light' : 'button-outline'}`}
-                    onClick={() => plan.id === 'free' ? handleRequestCreateResume() : requestPlanCheckout(plan.id)}
-                  >
-                    {plan.action} <span aria-hidden="true">→</span>
-                  </button>
+              </div>
+              <div className="cta-visual" aria-hidden="true">
+                <div className="cta-stat">
+                  <span className="cta-stat-number">12k+</span>
+                  <span className="cta-stat-label">Candidats actifs</span>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* ── SECTION TÉMOIGNAGES ── */}
-        <section className="testimonials-section" id="testimonials" aria-label="Témoignages clients">
-          <div className="testimonials-inner section-wrap">
-            <div className="testimonials-heading">
-              <div className="eyebrow"><span className="eyebrow-dot" /> Ils nous font confiance</div>
-              <h2>Ce que disent<br /><em>nos utilisateurs.</em></h2>
-            </div>
-            <div className="testimonials-grid">
-              <blockquote className="testimonial-card testimonial-featured">
-                <p>"J'ai créé mon CV en moins de 10 minutes depuis mon téléphone. Le lendemain, j'avais un entretien. CVcraft a changé la donne pour moi."</p>
-                <footer>
-                  <div className="testimonial-avatar">AM</div>
-                  <div>
-                    <strong>Aminata M.</strong>
-                    <span>Étudiante en Master, Dakar</span>
-                  </div>
-                </footer>
-              </blockquote>
-              <blockquote className="testimonial-card">
-                <p>"Le design est vraiment professionnel. Mes recruteurs ont commenté la qualité de mon CV. Je le recommande à tous mes amis."</p>
-                <footer>
-                  <div className="testimonial-avatar">KD</div>
-                  <div>
-                    <strong>Kofi D.</strong>
-                    <span>Développeur, Abidjan</span>
-                  </div>
-                </footer>
-              </blockquote>
-              <blockquote className="testimonial-card">
-                <p>"Enfin un outil pensé pour l'Afrique. Le paiement par Mobile Money, c'est exactement ce qu'il nous fallait. Simple et efficace."</p>
-                <footer>
-                  <div className="testimonial-avatar">NB</div>
-                  <div>
-                    <strong>Nadia B.</strong>
-                    <span>Freelance RH, Douala</span>
-                  </div>
-                </footer>
-              </blockquote>
-              <blockquote className="testimonial-card">
-                <p>"Interface super intuitive. J'ai pu aider ma sœur à créer son premier CV. Elle a décroché son stage la semaine suivante !"</p>
-                <footer>
-                  <div className="testimonial-avatar">JT</div>
-                  <div>
-                    <strong>Jean-Paul T.</strong>
-                    <span>Ingénieur, Yaoundé</span>
-                  </div>
-                </footer>
-              </blockquote>
-            </div>
-          </div>
-        </section>
-
-        {/* ── SECTION FAQ ── */}
-        <section className="faq-section section-wrap" id="faq" aria-label="Questions fréquentes">
-          <div className="faq-heading">
-            <div className="eyebrow"><span className="eyebrow-dot" /> Questions fréquentes</div>
-            <h2>On répond à<br /><em>vos questions.</em></h2>
-          </div>
-          <div className="faq-list">
-            {[
-              { q: 'CVcraft est-il vraiment gratuit ?', a: 'Oui ! Le plan gratuit vous permet de créer un CV complet et de le télécharger en PDF. Les plans payants débloquent des modèles premium et des fonctionnalités avancées.' },
-              { q: 'Comment fonctionne le paiement Mobile Money ?', a: 'Nous utilisons Tara Money pour les paiements. Sélectionnez votre pays, entrez votre numéro mobile (MTN, Orange...) et validez la demande sur votre téléphone. Simple, rapide et sécurisé.' },
-              { q: 'Puis-je créer plusieurs CV ?', a: 'Avec le plan Pro, vous pouvez créer jusqu\'à 3 CV différents. Le plan Gold vous offre des CV illimités, parfait si vous postulez à plusieurs types de postes.' },
-              { q: 'Mon CV est-il sauvegardé automatiquement ?', a: 'Oui, avec un compte CVcraft, votre travail est sauvegardé en temps réel dans le cloud. Vous pouvez reprendre depuis n\'importe quel appareil.' },
-              { q: 'Quelle est la qualité du PDF exporté ?', a: 'Nos PDF sont générés en haute résolution et formatés pour l\'impression A4. Ils sont compatibles avec toutes les plateformes de dépôt de candidature.' },
-            ].map((item, index) => (
-              <details className="faq-item" key={index}>
-                <summary className="faq-question">{item.q}<span className="faq-arrow" aria-hidden="true">↓</span></summary>
-                <p className="faq-answer">{item.a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-
-        {/* ── SECTION CTA FINAL ── */}
-        <section className="cta-section" id="cta" aria-label="Appel à l'action">
-          <div className="cta-inner section-wrap">
-            <div className="cta-content">
-              <div className="eyebrow cta-eyebrow"><span className="eyebrow-dot" /> Prêt à commencer ?</div>
-              <h2>Votre prochain emploi<br /><em>commence ici.</em></h2>
-              <p>Rejoignez 12 000+ candidats qui ont déjà transformé leur parcours en opportunité. Créez votre CV professionnel en moins de 5 minutes, gratuitement.</p>
-              <div className="cta-actions">
-                <button className="button button-dark cta-btn" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span aria-hidden="true">↗</span></button>
-                <a className="text-link" href="#pricing">Voir les tarifs <span aria-hidden="true">↓</span></a>
-              </div>
-              <div className="cta-badges">
-                <span className="cta-badge">✓ Sans carte bancaire</span>
-                <span className="cta-badge">✓ CV en 5 minutes</span>
-                <span className="cta-badge">✓ Mobile Money accepté</span>
+                <div className="cta-stat">
+                  <span className="cta-stat-number">98%</span>
+                  <span className="cta-stat-label">Satisfaction</span>
+                </div>
+                <div className="cta-stat">
+                  <span className="cta-stat-number">5min</span>
+                  <span className="cta-stat-label">Pour un CV complet</span>
+                </div>
               </div>
             </div>
-            <div className="cta-visual" aria-hidden="true">
-              <div className="cta-stat">
-                <span className="cta-stat-number">12k+</span>
-                <span className="cta-stat-label">Candidats actifs</span>
-              </div>
-              <div className="cta-stat">
-                <span className="cta-stat-number">98%</span>
-                <span className="cta-stat-label">Satisfaction</span>
-              </div>
-              <div className="cta-stat">
-                <span className="cta-stat-number">5min</span>
-                <span className="cta-stat-label">Pour un CV complet</span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+          </section>
+        </main>
 
-      <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
-      {notice && <div className="toast" role="status">{notice}</div>}
-    </div>
+        <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
+        {notice && <div className="toast" role="status">{notice}</div>}
+      </div>
       <StartResumeChoiceModal
         isOpen={startChoiceModalOpen}
         onClose={() => setStartChoiceModalOpen(false)}

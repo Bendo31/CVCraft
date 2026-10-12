@@ -41,7 +41,7 @@ export async function extractTextFromFile(file) {
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum += 1) {
         const page = await pdf.getPage(pageNum)
         const textContent = await page.getTextContent()
-        
+
         let lastY = null
         let pageStr = ''
         for (const item of textContent.items) {
@@ -56,7 +56,8 @@ export async function extractTextFromFile(file) {
         pagesText.push(pageStr.trim())
       }
 
-      return pagesText.join('\n\n')
+      const fullText = pagesText.join('\n\n').replace(/\u00a0/g, ' ')
+      return fullText
     } catch (pdfErr) {
       console.error('Erreur lors de l’extraction PDF avec pdfjs:', pdfErr)
       throw new Error('Impossible de lire le document PDF. Vérifiez qu’il n’est pas protégé par un mot de passe.')
@@ -64,6 +65,419 @@ export async function extractTextFromFile(file) {
   }
 
   throw new Error('Format de fichier non pris en charge. Veuillez importer un fichier PDF, TXT ou JSON.')
+}
+
+/**
+ * Supprime les accents d'une chaîne pour la comparaison
+ */
+export function removeAccents(str) {
+  if (!str) return ''
+  return String(str).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+/**
+ * Calcule la distance de Levenshtein entre deux mots courts
+ */
+export function levenshteinDistance(a, b) {
+  if (a === b) return 0
+  if (!a) return b.length
+  if (!b) return a.length
+  const al = a.length
+  const bl = b.length
+  const matrix = Array.from({ length: bl + 1 }, () => new Array(al + 1).fill(0))
+
+  for (let i = 0; i <= bl; i += 1) matrix[i][0] = i
+  for (let j = 0; j <= al; j += 1) matrix[0][j] = j
+
+  for (let i = 1; i <= bl; i += 1) {
+    for (let j = 1; j <= al; j += 1) {
+      if (b[i - 1] === a[j - 1]) {
+        matrix[i][j] = matrix[i - 1][j - 1]
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        )
+      }
+    }
+  }
+  return matrix[bl][al]
+}
+
+/**
+ * Nettoie une ligne pour tester si c'est un titre de rubrique
+ */
+export function cleanHeadingLine(line) {
+  if (!line) return ''
+  let cleaned = String(line).trim()
+
+  // 1. Supprime les puces, emojis et symboles de début
+  cleaned = cleaned.replace(/^[\s•●▪►▸▶︎★*✓✔·\-_~#/\\|()\[\]{}–—§]+/, '')
+
+  // 2. Supprime la numérotation au début (ex: "1.", "1 -", "I.", "A)", "01.")
+  cleaned = cleaned.replace(/^(?:[0-9]{1,2}|[IVXLCDM]{1,4}|[A-Z])[\.\)\-\/\:\s]+\s*/i, '')
+
+  // 3. Supprime les séparateurs et ponctuations finales
+  cleaned = cleaned.replace(/[\s\:\-–—\.\·\/\#\\|~]+$/, '')
+
+  // 4. Harmonise les apostrophes et supprime les accents
+  cleaned = cleaned.replace(/[’']/g, "'")
+  cleaned = removeAccents(cleaned).toLowerCase().trim()
+
+  // 5. Supprime les préfixes d'introduction courants
+  cleaned = cleaned.replace(/^(?:mes|mon|nos|les|des|un|une)\s+(?:principaux|principales|propres)?\s*/i, '')
+
+  // 6. Normalise les séparateurs intérieurs (&, +, /, |, et isolé)
+  cleaned = cleaned.replace(/\s*(&|\+|\/|\|)\s*/g, ' ')
+  cleaned = cleaned.replace(/\s+et\s+/g, ' ')
+
+  // 7. Supprime les espaces superflus
+  cleaned = cleaned.replace(/\s+/g, ' ').trim()
+
+  return cleaned
+}
+
+/**
+ * Ordre de priorité de classification pour lever les ambiguïtés
+ */
+export const SECTION_PRIORITY = ['skills', 'educations', 'experiences', 'languages', 'interests', 'summary']
+
+/**
+ * Dictionnaire complet de détection de rubriques avec expressions et mots-clés similaires
+ */
+export const SECTION_DEFINITIONS = {
+  skills: {
+    phrases: [
+      'competences professionnelles',
+      'competences techniques',
+      'competence technique',
+      'domaines de competences',
+      'domaine de competence',
+      'champs de competences',
+      'competences cles',
+      'competences principales',
+      'competences et outils',
+      'outils et competences',
+      'outils et technologies',
+      'technologies et outils',
+      'savoir-faire et savoir-etre',
+      'savoir faire',
+      'savoir-faire',
+      'aptitudes professionnelles',
+      'aptitudes et competences',
+      'expertises techniques',
+      'domaines d expertise',
+      'domaines d expertises',
+      'environnement technique',
+      'technologies maitrisees',
+      'outils maitrises',
+      'outils informatiques',
+      'logiciels et outils',
+      'logiciels maitrises',
+      'connaissances techniques',
+      'connaissances informatiques',
+      'maitrise technique',
+      'atouts et competences',
+      'points forts',
+      'qualites professionnelles',
+      'hard skills',
+      'soft skills',
+      'technical skills',
+      'core competencies',
+      'key skills',
+      'competences',
+      'competence',
+      'skills',
+      'aptitudes',
+      'aptitude',
+      'expertises',
+      'expertise',
+      'technologies',
+      'logiciels',
+      'outils',
+    ],
+    stems: ['competenc', 'competan', 'skill', 'aptitud', 'expertise', 'savoir-fair', 'technolog', 'hard skill', 'soft skill'],
+  },
+
+  educations: {
+    phrases: [
+      'formation academique',
+      'formations academiques',
+      'cursus academique',
+      'cursus scolaire',
+      'cursus universitaire',
+      'parcours academique',
+      'parcours scolaire',
+      'parcours universitaire',
+      'formations et diplomes',
+      'diplomes et formations',
+      'etudes et diplomes',
+      'diplomes et etudes',
+      'titres et diplomes',
+      'diplomes obtenus',
+      'etudes superieures',
+      'etudes universitaires',
+      'scolarite et diplomes',
+      'certifications et diplomes',
+      'diplomes et certifications',
+      'background academique',
+      'academic background',
+      'educational background',
+      'formation continue',
+      'formation initiale',
+      'formations',
+      'formation',
+      'education',
+      'etudes',
+      'etude',
+      'cursus',
+      'diplomes',
+      'diplome',
+      'scolarite',
+      'certifications',
+      'certification',
+      'certificats',
+      'certificat',
+      'qualifications',
+      'qualification',
+      'degrees',
+      'studies',
+    ],
+    stems: ['formatio', 'diplom', 'educat', 'etud', 'cursus', 'scolar', 'certificat', 'academ'],
+  },
+
+  experiences: {
+    phrases: [
+      'experiences professionnelles',
+      'experience professionnelle',
+      'experiences de travail',
+      'experience de travail',
+      'parcours professionnel',
+      'emplois et stages',
+      'stages et emplois',
+      'stages professionnels',
+      'stages academiques',
+      'emplois occupes',
+      'postes occupes',
+      'missions realisees',
+      'missions professionnelles',
+      'carrieres professionnelles',
+      'historique professionnel',
+      'antecedents professionnels',
+      'activites professionnelles',
+      'vie professionnelle',
+      'experience acquise',
+      'projets professionnels',
+      'travaux professionnels',
+      'fonctions occupees',
+      'experiences pro',
+      'parcours pro',
+      'work experience',
+      'professional experience',
+      'employment history',
+      'work history',
+      'career history',
+      'experiences',
+      'experience',
+      'emplois',
+      'emploi',
+      'postes',
+      'poste',
+      'stages',
+      'stage',
+      'missions',
+      'mission',
+      'carriere',
+      'carrieres',
+      'career',
+      'jobs',
+      'internships',
+    ],
+    stems: ['experienc', 'stage', 'emploi', 'carriere', 'mission', 'parcours pro', 'work'],
+  },
+
+  languages: {
+    phrases: [
+      'langues maitrisees',
+      'langues parlees',
+      'langues etrangeres',
+      'langues pratiques',
+      'connaissances linguistiques',
+      'competences linguistiques',
+      'pratique des langues',
+      'langues et dialectes',
+      'language skills',
+      'language proficiency',
+      'languages',
+      'language',
+      'langues',
+      'langue',
+      'linguistique',
+      'idiomes',
+    ],
+    stems: ['langu', 'linguist'],
+  },
+
+  interests: {
+    phrases: [
+      'centres d interet',
+      'centre d interet',
+      'centres d interets',
+      'centre d interets',
+      'loisirs et passions',
+      'passions et loisirs',
+      'sports et loisirs',
+      'loisirs et centres d interet',
+      'activites extra-professionnelles',
+      'activites extra professionnelles',
+      'activites extrascolaires',
+      'vie associative et loisirs',
+      'vie associative',
+      'engagements associatifs',
+      'engagements personnels',
+      'benevolat et associations',
+      'hobbies and interests',
+      'extracurricular activities',
+      'leisure activities',
+      'centres d interet et loisirs',
+      'centres d interets et loisirs',
+      'loisirs',
+      'loisir',
+      'hobbies',
+      'hobby',
+      'interets',
+      'interet',
+      'passions',
+      'passion',
+      'sports',
+      'sport',
+      'benevolat',
+      'divers',
+      'interests',
+    ],
+    stems: ['interet', 'loisir', 'hobbi', 'hobby', 'passion', 'benevol', 'associati'],
+  },
+
+  summary: {
+    phrases: [
+      'profil professionnel',
+      'resume professionnel',
+      'projet professionnel',
+      'objectif professionnel',
+      'objectif de carriere',
+      'a propos de moi',
+      'a propos',
+      'qui suis-je',
+      'qui suis je',
+      'presentation generale',
+      'presentation professionnelle',
+      'synthese professionnelle',
+      'resume de carriere',
+      'mon profil',
+      'a mon propos',
+      'about me',
+      'professional summary',
+      'personal statement',
+      'summary',
+      'profil',
+      'resume',
+      'synthese',
+      'presentation',
+      'introduction',
+      'biographie',
+      'bio',
+      'accroche',
+      'objectif',
+      'profile',
+      'objective',
+    ],
+    stems: ['profil', 'propos', 'synthes', 'objecti', 'resum', 'presentat', 'biograph'],
+  },
+}
+
+/**
+ * Détecte si une ligne correspond à un titre de section par mots-clés exacts ou similaires.
+ * @param {string} rawLine Ligne brute du document
+ * @returns {string|null} Clé de la section ou null
+ */
+export function detectSectionHeading(rawLine) {
+  if (!rawLine || typeof rawLine !== 'string') return null
+
+  const trimmed = rawLine.trim()
+  if (trimmed.length < 2 || trimmed.length > 55) return null
+
+  // 1. Ne peut JAMAIS être un titre de section si :
+  // - Contient des virgules ou points-virgules (liste d'éléments)
+  if (/[,;]/.test(trimmed)) return null
+  // - Contient deux-points suivis de contenu (ex: "Français : Langue maternelle", "Titre : Dev")
+  if (/:\s*\S+/.test(trimmed)) return null
+  // - Contient un email ou une URL
+  if (trimmed.includes('@') || /https?:\/\/|www\./i.test(trimmed)) return null
+  // - Contient une plage de dates
+  if (/\b(?:19|20)\d{2}\s*[-–—àto/]\s*(?:(?:19|20)\d{2}|présent|present|actuel)/i.test(trimmed)) return null
+
+  const cleaned = cleanHeadingLine(rawLine)
+  if (!cleaned || cleaned.length < 2) return null
+
+  const words = cleaned.split(/\s+/).filter(Boolean)
+  if (words.length > 5) return null // Un titre de rubrique fait au plus 5 mots
+
+  // 2. Recherche prioritaire par correspondance exacte ou inclusion de phrases clés
+  for (const sectionKey of SECTION_PRIORITY) {
+    const def = SECTION_DEFINITIONS[sectionKey]
+    for (const phrase of def.phrases) {
+      if (cleaned === phrase) return sectionKey
+      if (cleaned.startsWith(`${phrase} `) || cleaned.endsWith(` ${phrase}`)) return sectionKey
+      if (cleaned.includes(` ${phrase} `)) return sectionKey
+    }
+  }
+
+  // 3. Détection rapide pour les lignes courtes (<= 4 mots) commençant par un mot de rubrique
+  if (words.length <= 4) {
+    const first = words[0]
+    if (first.startsWith('competenc') || first.startsWith('competan') || first.startsWith('skill')) return 'skills'
+    if (first.startsWith('formatio') || first.startsWith('diplom') || first.startsWith('etud') || first.startsWith('cursus') || first.startsWith('scolar')) return 'educations'
+    if (first.startsWith('experienc') || first.startsWith('stage') || first.startsWith('emploi') || first.startsWith('carriere') || first.startsWith('mission')) return 'experiences'
+    if (first.startsWith('langu')) return 'languages'
+    if (first.startsWith('interet') || first.startsWith('loisir') || first.startsWith('hobbi') || first.startsWith('passion') || first.startsWith('centre')) return 'interests'
+    if (first.startsWith('profil') || first.startsWith('resum') || first.startsWith('synthes') || first.startsWith('propos') || first.startsWith('objecti')) return 'summary'
+  }
+
+  // 4. Recherche par racines (stems) au début des mots (uniquement pour titres très courts <= 3 mots)
+  if (words.length <= 3) {
+    for (const sectionKey of SECTION_PRIORITY) {
+      const def = SECTION_DEFINITIONS[sectionKey]
+      for (const stem of def.stems) {
+        if (words.some((w) => w.startsWith(stem))) {
+          return sectionKey
+        }
+      }
+    }
+  }
+
+  // 4. Recherche floue (Fuzzy Matching par Levenshtein) pour tolérer les fautes de frappe
+  for (const sectionKey of SECTION_PRIORITY) {
+    const def = SECTION_DEFINITIONS[sectionKey]
+    for (const phrase of def.phrases) {
+      const phraseWords = phrase.split(' ')
+      if (words.length === phraseWords.length && words.length <= 4) {
+        let isMatch = true
+        for (let i = 0; i < words.length; i += 1) {
+          const w = words[i]
+          const pw = phraseWords[i]
+          const maxDist = pw.length > 5 ? 2 : 1
+          if (levenshteinDistance(w, pw) > maxDist) {
+            isMatch = false
+            break
+          }
+        }
+        if (isMatch) return sectionKey
+      }
+    }
+  }
+
+  return null
 }
 
 export function normalizeDateToIso(str) {
@@ -111,14 +525,15 @@ export function normalizeDateToIso(str) {
 
 export function parseDateRange(text) {
   if (!text) return { startDate: '', endDate: '', matchedText: '' }
-  const rangeMatch = text.match(/(?:(?:19|20)\d{2}|janv?|févr?|fevr?|mars?|avr|mai|juin|juil|août|aout|sept?|oct|nov|déc|dec|\d{1,2}\/\d{4})[^\-–—àa/]*?(?:[-–—à]|au|\bto\b)\s*?(?:(?:19|20)\d{2}|janv?|févr?|fevr?|mars?|avr|mai|juin|juil|août|aout|sept?|oct|nov|déc|dec|\d{1,2}\/\d{4}|présent|present|actuel|aujourd'hui)/i)
+
+  const rangeMatch = text.match(/(?:(?:19|20)\d{2}|janv?|févr?|fevr?|mars?|avr|mai|juin|juil|août|aout|sept?|oct|nov|déc|dec|\d{1,2}\/\d{4})[^\-–—àa/]*?(?:[-–—à]|au|\bto\b|\bà\b)\s*?(?:(?:19|20)\d{2}|janv?|févr?|fevr?|mars?|avr|mai|juin|juil|août|aout|sept?|oct|nov|déc|dec|\d{1,2}\/\d{4}|présent|present|actuel|aujourd'hui|en cours)/i)
 
   if (rangeMatch) {
     const rawRange = rangeMatch[0]
-    const parts = rawRange.split(/[-–—]|(?:\s+à\s+)|\bau\b|\bto\b/i)
+    const parts = rawRange.split(/[-–—]|(?:\s+à\s+)|\bau\b|\bto\b|\bà\b/i)
     const startPart = parts[0]?.trim() || ''
     const endPart = parts[1]?.trim() || ''
-    const isCurrent = /présent|present|actuel|aujourd'hui/i.test(endPart)
+    const isCurrent = /présent|present|actuel|aujourd'hui|en cours/i.test(endPart)
     return {
       startDate: normalizeDateToIso(startPart),
       endDate: isCurrent ? '' : normalizeDateToIso(endPart),
@@ -126,6 +541,17 @@ export function parseDateRange(text) {
     }
   }
 
+  // Format "Depuis 2021" ou "Depuis Mars 2020"
+  const sinceMatch = text.match(/(?:depuis|since)\s+((?:(?:19|20)\d{2}|janv?|févr?|mars?|avr|mai|juin|juil|août|sept?|oct|nov|déc|\d{1,2}\/\d{4}))/i)
+  if (sinceMatch) {
+    return {
+      startDate: normalizeDateToIso(sinceMatch[1]),
+      endDate: '',
+      matchedText: sinceMatch[0],
+    }
+  }
+
+  // Année unique
   const singleMatch = text.match(/\b(19\d{2}|20\d{2})\b/)
   if (singleMatch) {
     return {
@@ -163,7 +589,7 @@ export function parseResumeText(rawText) {
     }
   }
 
-  // Si c'est un format JSON exporté
+  // 0. Format JSON exporté préalable
   try {
     const jsonCandidate = JSON.parse(rawText)
     if (jsonCandidate.resume || jsonCandidate.firstName || jsonCandidate.email) {
@@ -214,15 +640,21 @@ export function parseResumeText(rawText) {
   const websiteMatch = text.match(/(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.(?:com|org|io|dev|fr|net|me|africa|cm|ci|sn)[^\s]*)/i)
   const website = websiteMatch && !websiteMatch[0].includes('linkedin') ? websiteMatch[0].trim() : ''
 
-  // 4. Détection de ville / localisation
+  // 4. Détection de ville / pays (dans les premières lignes d'en-tête)
   let city = ''
-  const locationRegex = /(?:à\s+|adresse\s*:\s*|ville\s*:\s*|localisation\s*:\s*)?([A-ZÀ-ÿ][a-zà-ÿ\-]+(?:\s*,\s*[A-ZÀ-ÿ][a-zà-ÿ\-]+)?)/
-  const cityCandidates = lines.slice(0, 10).filter((line) => {
-    if (line.includes('@') || line.includes('http') || /^\+?\d/.test(line)) return false
-    return /\b(Douala|Yaoundé|Abidjan|Dakar|Libreville|Brazzaville|Lomé|Cotonou|Kinshasa|Bamako|Ouagadougou|Niamey|N'Djamena|Paris|Lyon|Marseille|Bruxelles|Montréal|Genève|Casablanca|Rabat|Tunis|Alger|Cameroun|Sénégal|Côte d'Ivoire|France|Belgique|Canada)\b/i.test(line)
-  })
-  if (cityCandidates.length > 0) {
-    city = cityCandidates[0].replace(/^(adresse|ville|localisation|domicile)\s*[:\-]\s*/i, '').trim().slice(0, 50)
+  for (let i = 0; i < Math.min(10, lines.length); i += 1) {
+    const line = lines[i]
+    if (/^[•\-\*▪►]/.test(line) || /\b(?:19|20)\d{2}\b/.test(line)) continue
+    const parts = line.split(/[|·•/]/).map((p) => p.trim())
+    for (const part of parts) {
+      if (part.includes('@') || /^\+?\d{6,}/.test(part) || part.length > 50) continue
+      const cityMatch = part.match(/\b(Douala|Yaoundé|Yaounde|Abidjan|Dakar|Libreville|Brazzaville|Lomé|Lome|Cotonou|Kinshasa|Bamako|Ouagadougou|Niamey|N'Djamena|Paris|Lyon|Marseille|Bruxelles|Montréal|Montreal|Genève|Geneve|Casablanca|Rabat|Tunis|Alger|Cameroun|Sénégal|Senegal|Côte d'Ivoire|Cote d'Ivoire|France|Belgique|Canada)\b/i)
+      if (cityMatch) {
+        city = part.replace(/^(adresse|ville|localisation|domicile|residence)\s*[:\-]\s*/i, '').trim().slice(0, 45)
+        break
+      }
+    }
+    if (city) break
   }
 
   // 5. Détection du Nom et Prénom sur les premières lignes
@@ -237,6 +669,7 @@ export function parseResumeText(rawText) {
     if (l.includes('@') || l.includes('http') || l.includes('.com')) return false
     if (/^\+?\d[\d\s.-]+$/.test(line)) return false
     if (line === city) return false
+    if (/^[•\-\*▪►]/.test(line)) return false
     return line.length > 2 && line.length < 50
   })
 
@@ -252,7 +685,6 @@ export function parseResumeText(rawText) {
       }
     }
 
-    // Le titre/rôle est souvent sur la 2e ou 3e ligne utile
     if (candidateNameLines.length > 1) {
       const potentialRole = candidateNameLines[1]
       if (potentialRole !== lastName && !potentialRole.includes('@')) {
@@ -261,97 +693,40 @@ export function parseResumeText(rawText) {
     }
   }
 
-  // 5. Découpage par sections du CV
-  const sectionKeywords = {
-    experiences: [
-      'expériences professionnelles',
-      'expérience professionnelle',
-      'expériences',
-      'experience',
-      'work experience',
-      'parcours professionnel',
-      'emplois',
-      'stages',
-    ],
-    educations: [
-      'formation académique',
-      'formation',
-      'formations',
-      'education',
-      'études',
-      'etudes',
-      'diplômes',
-      'diplomes',
-      'cursus',
-    ],
-    skills: [
-      'compétences',
-      'competences',
-      'skills',
-      'compétences techniques',
-      'outils et technologies',
-      'savoir-faire',
-      'aptitudes',
-    ],
-    languages: [
-      'langues',
-      'languages',
-      'langues maîtrisées',
-      'langues maitrisees',
-    ],
-    interests: [
-      'centres d’intérêt',
-      'centres d\'intérêt',
-      'centres d’interet',
-      'centres d\'interet',
-      'loisirs',
-      'hobbies',
-      'intérêts',
-    ],
-    summary: [
-      'profil professionnel',
-      'profil',
-      'résumé',
-      'resume',
-      'à propos',
-      'a propos',
-      'synthèse',
-      'objectif',
-      'about me',
-    ],
-  }
-
-  // Détection des positions de chaque section
+  // 6. Découpage intelligent par sections du CV
   const sectionIndices = []
   lines.forEach((line, index) => {
-    const cleanLine = line.toLowerCase().replace(/[:\-_#]/g, '').trim()
-    for (const [key, keywords] of Object.entries(sectionKeywords)) {
-      if (keywords.some((kw) => cleanLine === kw || cleanLine.startsWith(`${kw} `))) {
-        sectionIndices.push({ section: key, lineIndex: index })
-        break
-      }
+    if (index < 2) return // L'en-tête (nom & rôle) n'est jamais un titre de section
+    const detectedKey = detectSectionHeading(line)
+    if (detectedKey) {
+      sectionIndices.push({ section: detectedKey, lineIndex: index, rawLine: line })
     }
   })
 
   // Trie par ordre d'apparition
   sectionIndices.sort((a, b) => a.lineIndex - b.lineIndex)
 
+  // Construction des blocs de chaque section
   const sectionBlocks = {}
   for (let i = 0; i < sectionIndices.length; i += 1) {
     const current = sectionIndices[i]
     const next = sectionIndices[i + 1]
     const start = current.lineIndex + 1
     const end = next ? next.lineIndex : lines.length
-    sectionBlocks[current.section] = lines.slice(start, end)
+    const sectionContent = lines.slice(start, end)
+    if (!sectionBlocks[current.section]) {
+      sectionBlocks[current.section] = []
+    }
+    sectionBlocks[current.section].push(...sectionContent)
   }
 
-  // 6. Extraction du résumé / description
+  // 7. Extraction du résumé / description
   let summary = ''
   if (sectionBlocks.summary && sectionBlocks.summary.length > 0) {
     summary = sectionBlocks.summary.join(' ').slice(0, 600)
   }
 
-  // 7. Extraction des expériences professionnelles
+  // 8. Extraction des expériences professionnelles
   const experiences = []
   if (sectionBlocks.experiences && sectionBlocks.experiences.length > 0) {
     const expLines = sectionBlocks.experiences
@@ -359,10 +734,12 @@ export function parseResumeText(rawText) {
 
     for (let i = 0; i < expLines.length; i += 1) {
       const line = expLines[i]
-      // Détection de dates (ex: "2020 - 2023", "Janvier 2021 à Présent", "06/2019 - 09/2022")
-      const dateMatch = line.match(/(?:(?:19|20)\d{2}|jan|fév|mar|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|\d{2}\/\d{4}).*?(?:(?:19|20)\d{2}|présent|present|actuel|aujourd'hui|\d{2}\/\d{4})/i) || line.match(/\b(19\d{2}|20\d{2})\b/)
+      const dateMatch = line.match(/(?:(?:19|20)\d{2}|jan|fév|fev|mar|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec|\d{2}\/\d{4}).*?(?:(?:19|20)\d{2}|présent|present|actuel|aujourd'hui|en cours|\d{2}\/\d{4})/i)
+        || line.match(/\b(19\d{2}|20\d{2})\b/)
 
-      if (dateMatch || !currentExp) {
+      const isBullet = /^[•\-\*▪►]\s*/.test(line)
+
+      if (dateMatch || (!currentExp && !isBullet)) {
         if (currentExp && (currentExp.company || currentExp.jobTitle)) {
           experiences.push(currentExp)
         }
@@ -374,38 +751,36 @@ export function parseResumeText(rawText) {
           tasks: '',
         }
 
-        // Tente d'extraire date et titre/entreprise
         if (dateMatch) {
           const parts = line.split(dateMatch[0])
           const titleCompanyPart = (parts[0] || parts[1] || '').trim()
           if (titleCompanyPart) {
-            const splitted = titleCompanyPart.split(/[-–—|@·]/)
+            const splitted = titleCompanyPart.split(/[-–—|@·]|(?:\s+chez\s+)|\s+at\s+|(?:\s+à\s+)/i)
             if (splitted.length >= 2) {
-              currentExp.jobTitle = splitted[0].replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
-              currentExp.company = splitted[1].replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+              currentExp.jobTitle = splitted[0].replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+              currentExp.company = splitted[1].replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
             } else {
-              currentExp.jobTitle = titleCompanyPart.replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+              currentExp.jobTitle = titleCompanyPart.replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
             }
           }
           const range = parseDateRange(dateMatch[0])
           currentExp.startDate = range.startDate
           currentExp.endDate = range.endDate
         } else {
-          // Ligne sans date évidente : titre ou entreprise
-          const splitted = line.split(/[-–—|@·]/)
+          // Ligne sans date évidente
+          const splitted = line.split(/[-–—|@·]|(?:\s+chez\s+)|\s+at\s+|(?:\s+à\s+)/i)
           if (splitted.length >= 2) {
-            currentExp.jobTitle = splitted[0].replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
-            currentExp.company = splitted[1].replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+            currentExp.jobTitle = splitted[0].replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+            currentExp.company = splitted[1].replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
           } else {
-            currentExp.jobTitle = line.replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+            currentExp.jobTitle = line.replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
           }
         }
       } else if (currentExp) {
-        if (!currentExp.company && line.length < 50 && !line.startsWith('•') && !line.startsWith('-')) {
-          currentExp.company = line.replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+        if (!currentExp.company && line.length < 55 && !isBullet) {
+          currentExp.company = line.replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
         } else {
-          // Description / tâches
-          const cleanTask = line.replace(/^[•\-\*]\s*/, '').trim()
+          const cleanTask = line.replace(/^[•\-\*▪►]\s*/, '').trim()
           if (cleanTask) {
             currentExp.tasks = currentExp.tasks ? `${currentExp.tasks}\n${cleanTask}` : cleanTask
           }
@@ -418,7 +793,7 @@ export function parseResumeText(rawText) {
     }
   }
 
-  // 8. Extraction des formations
+  // 9. Extraction des formations
   const educations = []
   if (sectionBlocks.educations && sectionBlocks.educations.length > 0) {
     const eduLines = sectionBlocks.educations
@@ -426,9 +801,12 @@ export function parseResumeText(rawText) {
 
     for (let i = 0; i < eduLines.length; i += 1) {
       const line = eduLines[i]
-      const dateMatch = line.match(/(?:(?:19|20)\d{2}|jan|fév|mar|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|\d{2}\/\d{4}).*?(?:(?:19|20)\d{2}|présent|present|actuel|aujourd'hui|\d{2}\/\d{4})/i) || line.match(/\b(19\d{2}|20\d{2})\b/)
+      const dateMatch = line.match(/(?:(?:19|20)\d{2}|jan|fév|fev|mar|avr|mai|juin|juil|août|aout|sept|oct|nov|déc|dec|\d{2}\/\d{4}).*?(?:(?:19|20)\d{2}|présent|present|actuel|aujourd'hui|\d{2}\/\d{4})/i)
+        || line.match(/\b(19\d{2}|20\d{2})\b/)
 
-      if (dateMatch || !currentEdu) {
+      const isBullet = /^[•\-\*▪►]\s*/.test(line)
+
+      if (dateMatch || (!currentEdu && !isBullet)) {
         if (currentEdu && (currentEdu.school || currentEdu.degree)) {
           educations.push(currentEdu)
         }
@@ -441,12 +819,12 @@ export function parseResumeText(rawText) {
 
         const dateStr = dateMatch ? dateMatch[0] : ''
         const lineWithoutDate = dateStr ? line.replace(dateStr, '').trim() : line
-        const splitted = lineWithoutDate.split(/[-–—|@·,]/)
+        const splitted = lineWithoutDate.split(/[-–—|@·,]|(?:\s+à\s+)|\s+at\s+/i)
         if (splitted.length >= 2) {
-          currentEdu.degree = splitted[0].replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
-          currentEdu.school = splitted[1].replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+          currentEdu.degree = splitted[0].replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+          currentEdu.school = splitted[1].replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
         } else {
-          currentEdu.degree = lineWithoutDate.replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+          currentEdu.degree = lineWithoutDate.replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
         }
         if (dateStr) {
           const range = parseDateRange(dateStr)
@@ -454,8 +832,8 @@ export function parseResumeText(rawText) {
           currentEdu.endDate = range.endDate
         }
       } else if (currentEdu) {
-        if (!currentEdu.school && line.length < 60) {
-          currentEdu.school = line.replace(/^[\(\[\:\-–—\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
+        if (!currentEdu.school && line.length < 65 && !isBullet) {
+          currentEdu.school = line.replace(/^[•\-\*▪►\s]+|[\(\)\[\]\:\-–—\s]+$/g, '').trim()
         }
       }
     }
@@ -465,51 +843,82 @@ export function parseResumeText(rawText) {
     }
   }
 
-  // 9. Extraction des compétences
+  // 10. Extraction des compétences
   const skills = []
   if (sectionBlocks.skills && sectionBlocks.skills.length > 0) {
     sectionBlocks.skills.forEach((line) => {
-      // Découpe par virgules, puces ou points-virgules
-      const tokens = line
+      // Évite d'ingérer par erreur des coordonnées
+      if (line.includes('@') || /^\+?\d{8,}/.test(line)) return
+      // Si la ligne commence par "Technologies : React, Node", on retire le préfixe
+      const cleanedCategoryLine = line.replace(/^[^:]+:\s*/, '')
+      const tokens = (cleanedCategoryLine || line)
         .split(/[,;•·|\/\\]/)
-        .map((s) => s.replace(/^[•\-\*]\s*/, '').trim())
-        .filter((s) => s.length > 1 && s.length < 40)
+        .map((s) => s.replace(/^[•\-\*▪►]\s*/, '').trim())
+        .filter((s) => s.length > 1 && s.length < 45 && !s.includes('@') && !/^\+?\d/.test(s))
       skills.push(...tokens)
     })
   }
 
-  // 10. Extraction des langues
+  // 11. Extraction des langues
   const languages = []
   if (sectionBlocks.languages && sectionBlocks.languages.length > 0) {
     sectionBlocks.languages.forEach((line) => {
       const tokens = line.split(/[,;•·|]/).map((s) => s.trim()).filter(Boolean)
       tokens.forEach((t) => {
         const parts = t.split(/[-:()]/)
-        const name = parts[0].trim()
+        const name = parts[0].replace(/^[•\-\*▪►\s]+/, '').trim()
         const levelStr = (parts[1] ? parts[1].replace(/[()]/g, '').trim() : '').toLowerCase()
         let level = 5
         if (levelStr.includes('bilingue') || levelStr.includes('natif') || levelStr.includes('maternelle')) {
           level = 5
-        } else if (levelStr.includes('courant') || levelStr.includes('c1') || levelStr.includes('c2') || levelStr.includes('avancé')) {
+        } else if (levelStr.includes('courant') || levelStr.includes('c1') || levelStr.includes('c2') || levelStr.includes('avancé') || levelStr.includes('avance')) {
           level = 4
-        } else if (levelStr.includes('intermédiaire') || levelStr.includes('b1') || levelStr.includes('b2') || levelStr.includes('pro')) {
+        } else if (levelStr.includes('intermédiaire') || levelStr.includes('intermediaire') || levelStr.includes('b1') || levelStr.includes('b2') || levelStr.includes('pro')) {
           level = 3
-        } else if (levelStr.includes('notion') || levelStr.includes('débutant') || levelStr.includes('a1') || levelStr.includes('a2')) {
+        } else if (levelStr.includes('notion') || levelStr.includes('débutant') || levelStr.includes('debutant') || levelStr.includes('a1') || levelStr.includes('a2')) {
           level = 2
         }
-        if (name && name.length < 30) {
+        if (name && name.length < 35 && !/langue/i.test(name)) {
           languages.push({ name, level })
         }
       })
     })
   }
 
-  // 11. Centres d'intérêt
+  // 12. Centres d'intérêt
   const interests = []
   if (sectionBlocks.interests && sectionBlocks.interests.length > 0) {
     sectionBlocks.interests.forEach((line) => {
-      const tokens = line.split(/[,;•·|]/).map((s) => s.trim()).filter((s) => s.length > 2 && s.length < 30)
+      const tokens = line
+        .split(/[,;•·|]/)
+        .map((s) => s.replace(/^[•\-\*▪►\s]+/, '').trim())
+        .filter((s) => s.length > 2 && s.length < 40)
       interests.push(...tokens)
+    })
+  }
+
+  // 13. Fallback heuristique si aucune section formelle n'a été trouvée
+  if (experiences.length === 0 && educations.length === 0 && skills.length === 0) {
+    lines.forEach((line) => {
+      const dateMatch = line.match(/\b(19\d{2}|20\d{2})\b/)
+      if (dateMatch && line.length < 80) {
+        if (/diplome|bac|licence|master|ecole|universite|institut|formation/i.test(line)) {
+          educations.push({
+            school: '',
+            degree: line.replace(/^[•\-\*▪►\s]+/, '').trim(),
+            startDate: `${dateMatch[1]}-01-01`,
+            endDate: '',
+          })
+        } else {
+          experiences.push({
+            company: '',
+            jobTitle: line.replace(/^[•\-\*▪►\s]+/, '').trim(),
+            startDate: `${dateMatch[1]}-01-01`,
+            endDate: '',
+            tasks: '',
+          })
+        }
+      }
     })
   }
 
@@ -523,11 +932,10 @@ export function parseResumeText(rawText) {
     website,
     linkedin,
     summary,
-    experiences: experiences.slice(0, 8),
-    educations: educations.slice(0, 6),
-    skills: Array.from(new Set(skills)).slice(0, 16),
-    languages: languages.slice(0, 6),
-    interests: Array.from(new Set(interests)).slice(0, 8),
+    experiences: experiences.slice(0, 10),
+    educations: educations.slice(0, 8),
+    skills: Array.from(new Set(skills)).slice(0, 20),
+    languages: languages.slice(0, 8),
+    interests: Array.from(new Set(interests)).slice(0, 10),
   }
 }
-

@@ -8,8 +8,8 @@ const PAID_TEMPLATES = new Map([
   ['signal', 'Signal'],
 ])
 const PAID_PLANS = new Map([
-  ['pro', { name: 'Pro', amount: 100, durationMonths: 3 }],
-  ['gold', { name: 'Gold', amount: 100, durationMonths: 1 }],
+  ['pro', { name: 'Pro', amount: 1500, durationMonths: 3 }],
+  ['gold', { name: 'Gold', amount: 2500, durationMonths: 1 }],
 ])
 
 const envOrigins = (Deno.env.get('APP_ORIGIN') || '')
