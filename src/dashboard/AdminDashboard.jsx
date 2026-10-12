@@ -361,7 +361,7 @@ export default function AdminDashboard({ onBack = () => {}, user = null }) {
                 <div className="breakdown-meta">
                   <span className="breakdown-label">
                     <span className="breakdown-color-tag" style={{ background: '#3b82f6' }} />
-                    Offre Pro (1 500 FCFA / 3 mois)
+                    Offre Pro (100 FCFA / 3 mois)
                   </span>
                   <span className="breakdown-value">
                     {revPro.toLocaleString('fr-FR')} FCFA <small style={{ color: '#777' }}>({pctPro}%)</small>
@@ -377,7 +377,7 @@ export default function AdminDashboard({ onBack = () => {}, user = null }) {
                 <div className="breakdown-meta">
                   <span className="breakdown-label">
                     <span className="breakdown-color-tag" style={{ background: '#eab308' }} />
-                    Offre Gold (2 500 FCFA / 1 mois)
+                    Offre Gold (100 FCFA / 1 mois)
                   </span>
                   <span className="breakdown-value">
                     {revGold.toLocaleString('fr-FR')} FCFA <small style={{ color: '#777' }}>({pctGold}%)</small>
@@ -665,7 +665,7 @@ export default function AdminDashboard({ onBack = () => {}, user = null }) {
                             <td style={{ color: '#555b51' }}>{dateStr}</td>
                             <td>
                               <strong>
-                                {(u.total_spent || (plan === 'gold' ? 2500 : plan === 'pro' ? 1500 : 0)).toLocaleString(
+                                {(u.total_spent || (plan === 'gold' ? 100 : plan === 'pro' ? 100 : 0)).toLocaleString(
                                   'fr-FR'
                                 )}{' '}
                                 FCFA

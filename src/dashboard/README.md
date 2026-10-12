@@ -13,8 +13,8 @@ Ce dossier contient le module complet de **Compte Rendu & Dashboard de pilotage*
 2. **Indicateurs Financiers & Encaissements** :
    - Montant total encaissé en direct (en FCFA)
    - Chiffre d'affaires par offre :
-     - Offre Pro (1 500 FCFA / 3 mois)
-     - Offre Gold (2 500 FCFA / 1 mois)
+     - Offre Pro (100 FCFA / 3 mois)
+     - Offre Gold (100 FCFA / 1 mois)
      - Ventes unitaires de modèles de CV (100 FCFA via Tara Mobile Money)
    - Panier moyen par transaction
 

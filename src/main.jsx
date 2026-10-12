@@ -532,7 +532,7 @@ const plans = [
   {
     id: 'pro',
     name: 'Pro',
-    price: '1 500',
+    price: '100',
     suffix: 'pour 3 mois',
     description: 'Pour valoriser son profil et convaincre les recruteurs.',
     features: [
@@ -548,7 +548,7 @@ const plans = [
   {
     id: 'gold',
     name: 'Gold',
-    price: '2 500',
+    price: '100',
     suffix: 'par mois',
     description: 'Pour les candidats actifs postulant à plusieurs offres.',
     features: [
@@ -3698,7 +3698,7 @@ function PlanMobilePayDialog({
   onSubmit,
 }) {
   const planName = planId === 'gold' ? 'Gold' : 'Pro'
-  const amount = planId === 'gold' ? 2500 : 1500
+  const amount = 100
   return (
     <div className="payment-backdrop" role="presentation">
       <form className="payment-dialog" role="dialog" aria-modal="true" aria-labelledby="plan-payment-title" onSubmit={onSubmit}>
