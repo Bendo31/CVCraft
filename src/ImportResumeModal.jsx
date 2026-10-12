@@ -6,10 +6,16 @@ export function ImportResumeModal({
   onClose,
   onApplyResume,
   templates = [
+    { id: 'gratuit', name: 'Classique', description: 'Basique', color: 'blue' },
+    { id: 'epure', name: 'Épure', description: 'Minimaliste & ATS', color: 'epure' },
     { id: 'sillage', name: 'Sillage', description: 'Éditorial', color: 'blue' },
     { id: 'atlas', name: 'Atlas', description: 'Structuré', color: 'lime' },
     { id: 'signal', name: 'Signal', description: 'Audacieux', color: 'orange' },
-    { id: 'gratuit', name: 'Gratuit', description: 'Basique', color: 'gratuit' },
+    { id: 'horizon', name: 'Horizon', description: 'Exécutif', color: 'teal' },
+    { id: 'orbite', name: 'Orbite', description: 'Tech & Digital', color: 'indigo' },
+    { id: 'impact', name: 'Impact', description: 'Décideur', color: 'crimson' },
+    { id: 'aura', name: 'Aura', description: 'Créatif', color: 'terracotta' },
+    { id: 'zenith', name: 'Zénith', description: 'International & Finance', color: 'emerald' },
   ],
 }) {
   const [activeTab, setActiveTab] = useState('file') // 'file' | 'paste'

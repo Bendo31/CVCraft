@@ -66,7 +66,7 @@ function ResumeHeader({ resume, photo, template, continued, sectionVisibility })
         <div>
           {(resume.firstName || resume.lastName) && <h2>
             {resume.firstName}
-            {resume.lastName && <>{template === 'signal' ? ' ' : <br />}<strong>{resume.lastName}.</strong></>}
+            {resume.lastName && <>{['signal', 'epure', 'horizon', 'zenith', 'impact'].includes(template) ? ' ' : <br />}<strong>{resume.lastName}.</strong></>}
           </h2>}
           {resume.role && <span>{formatRoleTitle(resume.role)}</span>}
         </div>
@@ -411,7 +411,7 @@ export function ResumeSingleSheet({
   const educations = Array.isArray(resume?.educations) ? resume.educations : []
 
   const rightItems = []
-  if (visible('experiences')) experiences.slice(0, template === 'gratuit' ? 3 : undefined).forEach((entry, index) => {
+  if (visible('experiences')) experiences.slice(0, ['gratuit', 'epure'].includes(template) ? 3 : undefined).forEach((entry, index) => {
     if (entry && Object.values(entry).some(Boolean)) rightItems.push({ id: `exp-${index}`, type: 'exp', index })
   })
   if (visible('educations')) educations.forEach((entry, index) => {
@@ -493,7 +493,7 @@ export function ResumeDocument({
     const educations = Array.isArray(resume?.educations) ? resume.educations : []
 
     const items = []
-    if (visible('experiences')) experiences.slice(0, template === 'gratuit' ? 3 : undefined).forEach((entry, index) => {
+    if (visible('experiences')) experiences.slice(0, ['gratuit', 'epure'].includes(template) ? 3 : undefined).forEach((entry, index) => {
       if (entry && Object.values(entry).some(Boolean)) items.push({ id: `exp-${index}`, type: 'exp', index })
     })
     if (visible('educations')) educations.forEach((entry, index) => {

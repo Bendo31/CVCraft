@@ -561,11 +561,23 @@ const plans = [
   },
 ]
 
+const FREE_TEMPLATES = ['gratuit', 'epure']
+const isFreeTemplate = (tplId) => FREE_TEMPLATES.includes(tplId)
+
 const resumeTemplates = [
+  // Modèles Gratuits (Accès libre)
   { id: 'gratuit', name: 'Gratuit', description: 'Classique & Efficace', color: 'gratuit' },
-  { id: 'sillage', name: 'Sillage', description: 'Éditorial', color: 'blue' },
-  { id: 'atlas', name: 'Atlas', description: 'Structuré', color: 'lime' },
-  { id: 'signal', name: 'Signal', description: 'Audacieux', color: 'orange' },
+  { id: 'epure', name: 'Épuré', description: 'Minimaliste & ATS', color: 'epure' },
+
+  // Modèles Payants (Modèles Pro)
+  { id: 'sillage', name: 'Sillage', description: 'Éditorial & Dynamique', color: 'blue' },
+  { id: 'atlas', name: 'Atlas', description: 'Structuré & Bicolore', color: 'lime' },
+  { id: 'signal', name: 'Signal', description: 'Audacieux & Moderne', color: 'orange' },
+  { id: 'horizon', name: 'Horizon', description: 'Exécutif & Moderne', color: 'teal' },
+  { id: 'orbite', name: 'Orbite', description: 'Tech & Digital', color: 'indigo' },
+  { id: 'impact', name: 'Impact', description: 'Décideur & Direction', color: 'crimson' },
+  { id: 'aura', name: 'Aura', description: 'Créatif & Éditorial', color: 'terracotta' },
+  { id: 'zenith', name: 'Zénith', description: 'International & Finance', color: 'emerald' },
 ]
 
 const legacyResumeKeys = [
@@ -933,7 +945,7 @@ function ResumeBuilder({
 }) {
   const [photo, setPhoto] = useState(() => initialResumeData?.photo || '')
   const [template, setTemplate] = useState(() => initialResumeData?.template || initialTemplate)
-  const isFreeModel = template === 'gratuit'
+  const isFreeModel = isFreeTemplate(template)
   const isPlanActive = Boolean(accountPlan?.active && ['pro', 'gold'].includes(accountPlan?.planId))
   const [modelStatus, setModelStatus] = useState(() => {
     if (initialResumeData?.modelStatus) return initialResumeData.modelStatus
@@ -1021,7 +1033,7 @@ function ResumeBuilder({
       setPhoto(initialResumeData.photo || '')
       const targetTemplate = initialResumeData.template || initialTemplate
       setTemplate(targetTemplate)
-      setModelStatus(initialResumeData.modelStatus || (targetTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment'))
+      setModelStatus(initialResumeData.modelStatus || (isFreeTemplate(targetTemplate) || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment'))
       setBaseColor(initialResumeData.baseColor || '#e49a68')
       setResumeFont(initialResumeData.resumeFont || 'classic')
       setResumeId(null)
@@ -1043,7 +1055,7 @@ function ResumeBuilder({
           setResume(normalizeResumeData(guestResume.resume))
           setPhoto(guestResume.photo || '')
           setTemplate(guestResume.template || initialTemplate)
-          setModelStatus(guestResume.modelStatus || (guestResume.template === 'gratuit' ? 'free' : 'pending_payment'))
+          setModelStatus(guestResume.modelStatus || (isFreeTemplate(guestResume.template) ? 'free' : 'pending_payment'))
           setBaseColor(guestResume.baseColor || '#e49a68')
           setResumeFont(guestResume.resumeFont || 'classic')
         } else {
@@ -1063,7 +1075,7 @@ function ResumeBuilder({
       setResume(defaultResume)
       setPhoto('')
       setTemplate(initialTemplate)
-      setModelStatus(initialTemplate === 'gratuit' ? 'free' : 'pending_payment')
+      setModelStatus(isFreeTemplate(initialTemplate) ? 'free' : 'pending_payment')
       setBaseColor('#e49a68')
       setResumeFont('classic')
       setResumeId(null)
@@ -1112,8 +1124,8 @@ function ResumeBuilder({
             : initialTemplate
         setTemplate(resolvedTemplate)
         setModelStatus(isPlanActive ? 'paid' : (resolvedTemplate === savedData.template
-          ? savedData.modelStatus || (resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment')
-          : resolvedTemplate === 'gratuit' ? 'free' : 'pending_payment'))
+          ? savedData.modelStatus || (isFreeTemplate(resolvedTemplate) ? 'free' : 'pending_payment')
+          : isFreeTemplate(resolvedTemplate) ? 'free' : 'pending_payment'))
         setBaseColor(savedData.baseColor || '#e49a68')
         setResumeFont(savedData.resumeFont || 'classic')
         if (preferInitialTemplate && resolvedTemplate !== savedData.template) {
@@ -1128,7 +1140,7 @@ function ResumeBuilder({
         setPhoto(guestData.photo)
         const guestTemplate = preferInitialTemplate ? initialTemplate : guestData.template
         setTemplate(guestTemplate)
-        setModelStatus(guestTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
+        setModelStatus(isFreeTemplate(guestTemplate) || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
         setBaseColor(guestData.baseColor)
         setResumeFont(guestData.resumeFont)
         guestMigrationPending.current = true
@@ -1155,7 +1167,7 @@ function ResumeBuilder({
             ? legacyData.template
             : initialTemplate
           setTemplate(legacyTemplate)
-          setModelStatus(legacyTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
+          setModelStatus(isFreeTemplate(legacyTemplate) || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
           setBaseColor(legacyData.baseColor)
           setResumeFont(legacyData.resumeFont)
           editVersion.current += 1
@@ -1163,7 +1175,7 @@ function ResumeBuilder({
           setSaveStatus('saving')
         } else {
           setTemplate(initialTemplate)
-          setModelStatus(initialTemplate === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
+          setModelStatus(isFreeTemplate(initialTemplate) || isPlanActive ? (isPlanActive ? 'paid' : 'free') : 'pending_payment')
           editVersion.current += 1
           setIsDirty(true)
           setSaveStatus('saving')
@@ -1480,7 +1492,7 @@ function ResumeBuilder({
     if (!selected) return
     markEdited()
     setTemplate(templateId)
-    setModelStatus(templateId === 'gratuit' || isPlanActive ? (isPlanActive ? 'paid' : 'free') : templateId === template && modelStatus === 'paid' ? 'paid' : 'pending_payment')
+    setModelStatus(isFreeTemplate(templateId) || isPlanActive ? (isPlanActive ? 'paid' : 'free') : templateId === template && modelStatus === 'paid' ? 'paid' : 'pending_payment')
     setTemplateChooserOpen(false)
   }
   const unlockTemplate = (templateId) => {
@@ -1616,7 +1628,7 @@ function ResumeBuilder({
 
   const handleExport = () => {
     if (!userId) {
-      if (template === 'gratuit') {
+      if (isFreeModel) {
         showNotice('Veuillez vous connecter pour pouvoir télécharger votre CV.')
         onRequestUnlock(template, { resume, photo, template, baseColor, resumeFont, resumeId }, { downloadAfterAuth: true })
         return
@@ -1642,7 +1654,7 @@ function ResumeBuilder({
     }
     if (!resumeLoaded || dashboardDownloadStarted.current) return
     dashboardDownloadStarted.current = true
-    const download = template === 'gratuit' || modelStatus === 'paid' || accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId)
+    const download = isFreeModel || modelStatus === 'paid' || accountPlan?.active && ['pro', 'gold'].includes(accountPlan.planId)
       ? downloadPdf()
       : Promise.resolve(handleExport())
     Promise.resolve(download).finally(onDownloadRequestComplete)
@@ -2268,7 +2280,7 @@ function ResumeBuilder({
               <div className="template-tier template-tier-pro">
                 <div className="template-tier-heading"><PremiumCrown /><span>Modèles Pro</span></div>
                 <div className="design-template-list">
-                  {resumeTemplates.filter((item) => item.id !== 'gratuit').map((item) => (
+                  {resumeTemplates.filter((item) => !isFreeTemplate(item.id)).map((item) => (
                     <div className="design-template-item" key={item.id}>
                       <button
                         className={`design-template-option ${template === item.id ? 'selected' : ''} ${!userId ? 'locked' : ''}`}
@@ -2296,7 +2308,7 @@ function ResumeBuilder({
                   {hasPremiumSections && <PremiumCrown />}
                 </div>
                 <div className="design-template-list">
-                  {resumeTemplates.filter((item) => item.id === 'gratuit').map((item) => (
+                  {resumeTemplates.filter((item) => isFreeTemplate(item.id)).map((item) => (
                     <div className="design-template-item" key={item.id}>
                       <button
                         className={`design-template-option ${template === item.id ? 'selected' : ''}`}
@@ -2566,7 +2578,19 @@ function TemplateMiniPreview({ template }) {
       ? '#e49a68'
       : template?.id === 'sillage'
         ? '#3d6fa8'
-        : '#17191a'
+        : template?.id === 'epure'
+          ? '#475569'
+          : template?.id === 'horizon'
+            ? '#2d6a6f'
+            : template?.id === 'orbite'
+              ? '#4f46e5'
+              : template?.id === 'impact'
+                ? '#991b1b'
+                : template?.id === 'aura'
+                  ? '#c25e3d'
+                  : template?.id === 'zenith'
+                    ? '#065f46'
+                    : '#17191a'
 
   return (
     <div className="template-a4-preview-frame" ref={containerRef} aria-label={`Aperçu A4 du modèle ${template?.name || ''}`}>
@@ -2587,7 +2611,7 @@ function TemplateMiniPreview({ template }) {
           selectedFont={dummySelectedFont}
           formatDateRange={dummyFormatDateRange}
           baseColor={defaultColor}
-          showBranding={template?.id === 'gratuit'}
+          showBranding={isFreeTemplate(template?.id)}
         />
       </div>
     </div>
@@ -2603,7 +2627,7 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
 
   const [selectedIndex, setSelectedIndex] = useState(() => getIndexFor(currentTemplate))
   const selectedTemplate = resumeTemplates[selectedIndex] || resumeTemplates[0]
-  const isGratuit = selectedTemplate.id === 'gratuit'
+  const isGratuit = isFreeTemplate(selectedTemplate.id)
   const isLocked = !isAuthenticated && !isGratuit
   const previousTemplate = () => setSelectedIndex((current) => (current - 1 + resumeTemplates.length) % resumeTemplates.length)
   const nextTemplate = () => setSelectedIndex((current) => (current + 1) % resumeTemplates.length)
@@ -4292,7 +4316,7 @@ function App() {
 
           {/* ── SECTION MODÈLES ── */}
           <section className="templates-section section-wrap" id="modeles" aria-labelledby="modeles-title">
-            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Quatre modèles pensés pour les recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
+            <div className="section-heading"><div><div className="eyebrow"><span className="eyebrow-dot" /> Nos modèles</div><h2 id="modeles-title">Trouvez le style<br /><em>qui vous ressemble.</em></h2></div><p>Dix modèles pensés pour tous les profils et exigences de recruteurs. Prévisualisez-les, choisissez-en un et commencez à remplir votre CV.</p></div>
             <div style={{ position: 'relative' }}>
               <button className="carousel-nav carousel-nav-prev" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: -320, behavior: 'smooth' })} aria-label="Modèles précédents">←</button>
               <button className="carousel-nav carousel-nav-next" onClick={() => document.getElementById('templates-carousel').scrollBy({ left: 320, behavior: 'smooth' })} aria-label="Modèles suivants">→</button>
@@ -4300,7 +4324,7 @@ function App() {
                 {resumeTemplates.map((item) => (
                   <article className="template-card" key={item.id} onClick={() => setSelectedTemplate(item.id)} style={{ cursor: 'pointer' }}>
                     <div className="template-card-frame" style={{ position: 'relative', border: selectedTemplate === item.id ? '2px solid var(--ink)' : '2px solid transparent', backgroundColor: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.06)', transition: 'border-color 0.2s', padding: 0 }}>
-                      {item.id !== 'gratuit' && (
+                      {!isFreeTemplate(item.id) && (
                         <div style={{ position: 'absolute', top: '12px', right: '12px', zIndex: 10, background: '#fff', borderRadius: '50%', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
                           <PremiumCrown />
                         </div>
