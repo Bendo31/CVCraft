@@ -3863,7 +3863,37 @@ function App() {
     }))
   }
 
+  const cleanAuthUrlFromAddressBar = () => {
+    if (typeof window === 'undefined') return
+    const hash = window.location.hash || ''
+    const search = window.location.search || ''
+
+    const isAuthHash =
+      hash.includes('access_token=') ||
+      hash.includes('refresh_token=') ||
+      hash.includes('type=recovery')
+    const isAuthSearch =
+      search.includes('code=') ||
+      search.includes('error=') ||
+      search.includes('error_description=')
+
+    if (isAuthHash || isAuthSearch) {
+      const cleanSearch = new URLSearchParams(window.location.search)
+      cleanSearch.delete('code')
+      cleanSearch.delete('error')
+      cleanSearch.delete('error_description')
+      cleanSearch.delete('state')
+      const qs = cleanSearch.toString() ? `?${cleanSearch.toString()}` : ''
+      const cleanPath = window.location.pathname || '/'
+      const remainingHash = isAuthHash ? '' : hash
+      window.history.replaceState(null, '', `${cleanPath}${qs}${remainingHash}`)
+    }
+  }
+
   const resumeOAuth = (session) => {
+    if (session?.user) {
+      cleanAuthUrlFromAddressBar()
+    }
     const storedIntent = window.sessionStorage.getItem(OAUTH_INTENT_KEY)
     if (!storedIntent) return
 
@@ -3921,6 +3951,9 @@ function App() {
         setUser(currentUser)
         setAuthReady(true)
         resumeOAuth(session)
+        if (currentUser) {
+          cleanAuthUrlFromAddressBar()
+        }
         if (currentUser && !window.sessionStorage.getItem(OAUTH_INTENT_KEY)) {
           setView((current) => current === 'landing' ? 'dashboard' : current)
         } else if (!currentUser) {
@@ -3940,6 +3973,9 @@ function App() {
       if (event !== 'SIGNED_IN') setUser(currentUser)
       setAuthReady(true)
       resumeOAuth(session)
+      if (currentUser) {
+        cleanAuthUrlFromAddressBar()
+      }
       if (event === 'SIGNED_IN' && currentUser && !window.sessionStorage.getItem(OAUTH_INTENT_KEY)) {
         setView((current) => current === 'landing' ? 'dashboard' : current)
       }
