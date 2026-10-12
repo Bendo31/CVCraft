@@ -2842,6 +2842,7 @@ function ResumeBuilder({
         <div className="mobile-template-overlay">
           <MobileTemplateSelection
             currentTemplate={template}
+            photo={photo}
             isAuthenticated={Boolean(userId)}
             onSelect={selectTemplate}
             onUnlock={(templateId) => {
@@ -2874,9 +2875,13 @@ function ResumeBuilder({
   )
 }
 
+const DUMMY_AVATAR_URL = '/template-profile-avatar.jpg'
+
 const dummyResume = {
   firstName: 'Marie', lastName: 'Lambert', role: 'Directrice Artistique',
   email: 'marie@craft.fr', phone: '+237 699 12 34 56', city: 'Douala', website: 'marielambert.fr',
+  photo: DUMMY_AVATAR_URL,
+  photo_url: DUMMY_AVATAR_URL,
   summary: 'Directrice artistique créant des identités visuelles singulières.',
   experiences: [
     { id: '1', title: 'Direction artistique', company: 'Studio Sillage', startDate: '2021', endDate: 'Aujourd\'hui', description: 'Identités visuelles et campagnes digitales.' },
@@ -2898,7 +2903,7 @@ const dummyResume = {
 const dummySelectedFont = { family: "'Sora', sans-serif", display: "'Fraunces', Georgia, serif" }
 const dummyFormatDateRange = (start, end) => `${start} — ${end || "Aujourd'hui"}`
 
-function TemplateMiniPreview({ template }) {
+function TemplateMiniPreview({ template, photo = DUMMY_AVATAR_URL }) {
   const containerRef = useRef(null)
   const [scale, setScale] = useState(0.4)
 
@@ -2949,6 +2954,7 @@ function TemplateMiniPreview({ template }) {
       >
         <ResumeSingleSheet
           resume={dummyResume}
+          photo={photo || DUMMY_AVATAR_URL}
           template={template?.id || 'gratuit'}
           sectionVisibility={dummyResume.sectionVisibility}
           selectedFont={dummySelectedFont}
@@ -2961,7 +2967,7 @@ function TemplateMiniPreview({ template }) {
   )
 }
 
-function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated, onSelect, onUnlock, onHome, hasPremiumSections = false }) {
+function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated, onSelect, onUnlock, onHome, hasPremiumSections = false, photo = null }) {
   const getIndexFor = (tplId) => {
     const target = tplId || 'gratuit'
     const idx = resumeTemplates.findIndex((item) => item.id === target)
@@ -2990,7 +2996,7 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
         <p>Aperçu exact au format A4. Faites défiler les modèles pour choisir votre mise en page.</p>
         <div className="mobile-template-carousel">
           <button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button>
-          <TemplateMiniPreview template={selectedTemplate} />
+          <TemplateMiniPreview template={selectedTemplate} photo={photo || DUMMY_AVATAR_URL} />
           <button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button>
         </div>
         <div className="mobile-template-meta">
@@ -4504,6 +4510,7 @@ function App() {
       <MobileTemplateSelection
         currentTemplate={pendingTemplateChoice || selectedTemplate || 'gratuit'}
         isAuthenticated={Boolean(user)}
+        photo={DUMMY_AVATAR_URL}
         onSelect={(templateId) => {
           setTemplatePickerOpen(false)
           startBuilder(templateId)
