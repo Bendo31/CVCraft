@@ -2,7 +2,7 @@ import { StrictMode, useCallback, useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
-import { ResumeDocument, ResumeSingleSheet } from './ResumeDocument.jsx'
+import { ResumeDocument, ResumeSingleSheet, formatRoleTitle } from './ResumeDocument.jsx'
 import {
   createTaraCheckout,
   createTaraPlanCheckout,
@@ -1794,23 +1794,99 @@ function ResumeBuilder({
                 {photo && <button className="photo-recrop" type="button" disabled={isFreeModel} onClick={openRecrop}>Recadrer {isFreeModel && <PremiumCrown />}</button>}
               </div>
             </div>
-            <div className="field-row"><label>Prénom<input value={resume.firstName} onChange={(event) => updateResume('firstName', event.target.value)} /></label><label>Nom<input value={resume.lastName} onChange={(event) => updateResume('lastName', event.target.value)} /></label></div>
-            <label>Intitulé du poste<input value={resume.role} onChange={(event) => updateResume('role', event.target.value)} /></label>
-            <div className="field-row"><label>Adresse mail<input type="email" value={resume.email} onChange={(event) => updateResume('email', event.target.value)} /></label><label>Numéro de téléphone<input value={resume.phone} onChange={(event) => updateResume('phone', event.target.value)} /></label></div>
             <div className="field-row">
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>Ville {isFreeModel && <PremiumCrown />}<input disabled={isFreeModel} value={resume.city} onChange={(event) => updateResume('city', event.target.value)} /></label>
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>LinkedIn <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}<input disabled={isFreeModel} value={resume.linkedin} onChange={(event) => updateResume('linkedin', event.target.value)} /></label>
+              <label>
+                <span className="builder-label-head">Prénom</span>
+                <input value={resume.firstName} onChange={(event) => updateResume('firstName', event.target.value)} />
+              </label>
+              <label>
+                <span className="builder-label-head">Nom</span>
+                <input value={resume.lastName} onChange={(event) => updateResume('lastName', event.target.value)} />
+              </label>
             </div>
-            <label className={isFreeModel ? 'premium-disabled-label' : ''}>Site web ou portfolio <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}<input disabled={isFreeModel} value={resume.website || ''} onChange={(event) => updateResume('website', event.target.value)} /></label>
+            <label>
+              <span className="builder-label-head">Intitulé du poste</span>
+              <input
+                value={resume.role}
+                placeholder="Ex. Développeur Web"
+                style={{ textTransform: 'capitalize' }}
+                onChange={(event) => updateResume('role', event.target.value)}
+                onBlur={(event) => {
+                  if (event.target.value) {
+                    updateResume('role', formatRoleTitle(event.target.value))
+                  }
+                }}
+              />
+            </label>
             <div className="field-row">
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>Facebook <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}<input type="url" disabled={isFreeModel} value={resume.facebook || ''} onChange={(event) => updateResume('facebook', event.target.value)} placeholder="https://facebook.com/…" /></label>
-              <label className={isFreeModel ? 'premium-disabled-label' : ''}>X <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}<input type="url" disabled={isFreeModel} value={resume.x || ''} onChange={(event) => updateResume('x', event.target.value)} placeholder="https://x.com/…" /></label>
+              <label>
+                <span className="builder-label-head">Adresse mail</span>
+                <input type="email" value={resume.email} onChange={(event) => updateResume('email', event.target.value)} />
+              </label>
+              <label>
+                <span className="builder-label-head">Numéro de téléphone</span>
+                <div className="builder-phone-wrap">
+                  <span className="builder-phone-prefix">🇨🇲 +237</span>
+                  <input
+                    type="tel"
+                    placeholder="6XX XX XX XX"
+                    value={resume.phone ? resume.phone.replace(/^\+237\s*/, '') : ''}
+                    onChange={(event) => {
+                      const inputVal = event.target.value
+                      const clean = inputVal.replace(/^\+?237\s*/, '')
+                      updateResume('phone', clean ? `+237 ${clean}` : '')
+                    }}
+                  />
+                </div>
+              </label>
             </div>
-            <label className={isFreeModel ? 'premium-disabled-label' : ''}>Threads <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}<input type="url" disabled={isFreeModel} value={resume.threads || ''} onChange={(event) => updateResume('threads', event.target.value)} placeholder="https://threads.net/@…" /></label>
-            <label>Description<textarea value={resume.summary} onChange={(event) => updateResume('summary', event.target.value)} rows="4" /></label>
+            <div className="field-row">
+              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+                <span className="builder-label-head">
+                  <span>Ville</span>{isFreeModel && <PremiumCrown />}
+                </span>
+                <input disabled={isFreeModel} value={resume.city} onChange={(event) => updateResume('city', event.target.value)} />
+              </label>
+              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+                <span className="builder-label-head">
+                  <span>LinkedIn</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                </span>
+                <input disabled={isFreeModel} value={resume.linkedin} onChange={(event) => updateResume('linkedin', event.target.value)} />
+              </label>
+            </div>
+            <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+              <span className="builder-label-head">
+                <span>Site web ou portfolio</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+              </span>
+              <input disabled={isFreeModel} value={resume.website || ''} onChange={(event) => updateResume('website', event.target.value)} />
+            </label>
+            <div className="field-row">
+              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+                <span className="builder-label-head">
+                  <span>Facebook</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                </span>
+                <input type="url" disabled={isFreeModel} value={resume.facebook || ''} onChange={(event) => updateResume('facebook', event.target.value)} placeholder="https://facebook.com/…" />
+              </label>
+              <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+                <span className="builder-label-head">
+                  <span>X</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+                </span>
+                <input type="url" disabled={isFreeModel} value={resume.x || ''} onChange={(event) => updateResume('x', event.target.value)} placeholder="https://x.com/…" />
+              </label>
+            </div>
+            <label className={isFreeModel ? 'premium-disabled-label' : ''}>
+              <span className="builder-label-head">
+                <span>Threads</span> <span className="optional-label">(optionnel)</span>{isFreeModel && <PremiumCrown />}
+              </span>
+              <input type="url" disabled={isFreeModel} value={resume.threads || ''} onChange={(event) => updateResume('threads', event.target.value)} placeholder="https://threads.net/@…" />
+            </label>
+            <label>
+              <span className="builder-label-head">Description</span>
+              <textarea value={resume.summary} onChange={(event) => updateResume('summary', event.target.value)} rows="4" />
+            </label>
             {!sectionEnabled('personal') && <p className="section-hidden-note">Ces informations sont masquées dans le CV.</p>}
             <SectionHeading number="02" title="Expérience professionnelle" enabled={sectionEnabled('experiences')} onToggle={() => toggleSection('experiences')} onReset={() => resetSection('experiences')} />
-            {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => <div className="repeatable-block" key={`experience-${index}`}><div className="repeatable-heading"><span>Expérience {index + 1}</span></div><label>Entreprise<input value={experience.company} onChange={(event) => updateListItem('experiences', index, 'company', event.target.value)} /></label><label>Poste<input value={experience.jobTitle} onChange={(event) => updateListItem('experiences', index, 'jobTitle', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={experience.startDate} onChange={(event) => updateListItem('experiences', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={experience.endDate} onChange={(event) => updateListItem('experiences', index, 'endDate', event.target.value)} /></label></div><label>Tâches effectuées <span className="optional-label">(facultatif)</span><textarea rows="3" placeholder="Décrivez vos principales responsabilités et réalisations" value={experience.tasks} onChange={(event) => updateListItem('experiences', index, 'tasks', event.target.value)} /></label></div>)}
+            {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => <div className="repeatable-block" key={`experience-${index}`}><div className="repeatable-heading"><span>Expérience {index + 1}</span></div><label>Entreprise<input value={experience.company} onChange={(event) => updateListItem('experiences', index, 'company', event.target.value)} /></label><label>Poste<input value={experience.jobTitle} onChange={(event) => updateListItem('experiences', index, 'jobTitle', event.target.value)} /></label><div className="field-row date-fields"><label>Date de début<input type="date" value={experience.startDate} onChange={(event) => updateListItem('experiences', index, 'startDate', event.target.value)} /></label><label>Date de fin<input type="date" value={experience.endDate} onChange={(event) => updateListItem('experiences', index, 'endDate', event.target.value)} /></label></div><label><span className="builder-label-head"><span>Tâches effectuées</span> <span className="optional-label">(facultatif)</span></span><textarea rows="3" placeholder="Décrivez vos principales responsabilités et réalisations" value={experience.tasks} onChange={(event) => updateListItem('experiences', index, 'tasks', event.target.value)} /></label></div>)}
             <button className="add-entry" disabled={isFreeModel && experiences.length >= 3} onClick={() => addListItem('experiences', { company: '', jobTitle: '', startDate: '', endDate: '', tasks: '' })}>+ Ajouter une expérience {isFreeModel && experiences.length >= 3 && <PremiumCrown />}</button>
             {!sectionEnabled('experiences') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="03" title="Formation académique" enabled={sectionEnabled('educations')} onToggle={() => toggleSection('educations')} onReset={() => resetSection('educations')} locked={isSectionLocked('educations')} />
@@ -1832,7 +1908,7 @@ function ResumeBuilder({
             {!sectionEnabled('languages') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
             <SectionHeading number="06" title="Projets et réalisations" enabled={sectionEnabled('projects')} onToggle={() => toggleSection('projects')} onReset={() => resetSection('projects')} locked={isSectionLocked('projects')} />
             <fieldset className="premium-fieldset" disabled={isSectionLocked('projects')}>
-              {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label>Lien <span className="optional-label">(facultatif)</span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
+              {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
               <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet {isSectionLocked('projects') && <PremiumCrown />}</button>
             </fieldset>
             {!sectionEnabled('projects') && <p className="section-hidden-note">Cette rubrique est masquée dans le CV.</p>}
@@ -2131,8 +2207,8 @@ function ResumeBuilder({
 }
 
 const dummyResume = {
-  firstName: 'Marie', lastName: 'Lambert', role: 'DIRECTRICE\nARTISTIQUE',
-  email: 'marie@craft.fr', phone: '06 12 34 56 78', city: 'Paris', website: 'marielambert.fr',
+  firstName: 'Marie', lastName: 'Lambert', role: 'Directrice Artistique',
+  email: 'marie@craft.fr', phone: '+237 699 12 34 56', city: 'Douala', website: 'marielambert.fr',
   summary: 'Directrice artistique créant des identités visuelles singulières.',
   experiences: [
     { id: '1', title: 'Direction artistique', company: 'Studio Sillage', startDate: '2021', endDate: 'Aujourd\'hui', description: 'Identités visuelles et campagnes digitales.' },

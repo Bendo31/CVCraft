@@ -28,6 +28,20 @@ function mergeColumnPages(leftPages, rightPages) {
   })
 }
 
+export function formatRoleTitle(role) {
+  if (!role) return ''
+  const isAllCaps = role === role.toUpperCase() && role !== role.toLowerCase()
+  const source = isAllCaps ? role.toLowerCase() : role
+  return source.replace(/(^|[\s\-\/])(\p{L})/gu, (match, sep, char) => sep + char.toUpperCase())
+}
+
+function formatDisplayPhone(phone) {
+  if (!phone) return ''
+  const trimmed = phone.trim()
+  if (!trimmed) return ''
+  return trimmed.startsWith('+') ? trimmed : `+237 ${trimmed}`
+}
+
 function ResumeHeader({ resume, photo, template, continued, sectionVisibility }) {
   if (continued) {
     return (
@@ -38,7 +52,7 @@ function ResumeHeader({ resume, photo, template, continued, sectionVisibility })
               {resume.firstName}{' '}
               {resume.lastName && <strong>{resume.lastName}.</strong>}
             </h2>}
-            {resume.role && <span>{resume.role.toUpperCase()}</span>}
+            {resume.role && <span>{formatRoleTitle(resume.role)}</span>}
           </div>
         </div>
       </div>
@@ -54,12 +68,12 @@ function ResumeHeader({ resume, photo, template, continued, sectionVisibility })
             {resume.firstName}
             {resume.lastName && <>{template === 'signal' ? ' ' : <br />}<strong>{resume.lastName}.</strong></>}
           </h2>}
-          {resume.role && <span>{resume.role.toUpperCase()}</span>}
+          {resume.role && <span>{formatRoleTitle(resume.role)}</span>}
         </div>
       </div>
       {sectionVisibility.personal !== false && <div className="resume-contact">
         {resume.email && <span>{resume.email}</span>}
-        {resume.phone && <span>{resume.phone}</span>}
+        {resume.phone && <span>{formatDisplayPhone(resume.phone)}</span>}
         {template !== 'gratuit' && resume.city && <span>{resume.city}</span>}
         {template !== 'gratuit' && resume.linkedin && <span>LinkedIn · {resume.linkedin}</span>}
         {template !== 'gratuit' && resume.facebook && <span>Facebook · {resume.facebook}</span>}
@@ -88,7 +102,7 @@ function LeftBlock({ item, resume }) {
         <p>
           {[
             resume.email,
-            resume.phone,
+            resume.phone && formatDisplayPhone(resume.phone),
             resume.city,
             resume.linkedin && `LinkedIn · ${resume.linkedin}`,
             resume.facebook && `Facebook · ${resume.facebook}`,
