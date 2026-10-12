@@ -1451,7 +1451,7 @@ function ResumeBuilder({
       showNotice?.('📱 Le QR Code interactif est automatiquement activé sur votre profil public.')
       return
     }
-    showNotice?.(isFreeModel ? '★ Rubrique ajoutée à votre structure gratuite !' : '✨ Rubrique ajoutée au CV !')
+    showNotice?.(isFreeModel ? '👑 Rubrique premium ajoutée à votre structure !' : '✨ Rubrique ajoutée au CV !')
   }
   const formatDate = (value) => {
     if (!value) return 'Aujourd’hui'
@@ -2293,11 +2293,7 @@ function ResumeBuilder({
               <div className="template-tier template-tier-free">
                 <div className="template-tier-heading">
                   <span>Accès libre</span>
-                  {hasPremiumSections && (
-                    <span className="tier-star-badge" title="Rubrique premium ajoutée">
-                      <PremiumStar />
-                    </span>
-                  )}
+                  {hasPremiumSections && <PremiumCrown />}
                 </div>
                 <div className="design-template-list">
                   {resumeTemplates.filter((item) => item.id === 'gratuit').map((item) => (
@@ -2309,18 +2305,8 @@ function ResumeBuilder({
                         onClick={() => selectTemplate(item.id)}
                       >
                         <span className={`template-swatch swatch-${item.color}`}><i /><i /><i /></span>
-                        <span>
-                          <b>
-                            {item.name}
-                            {hasPremiumSections && <span className="free-template-star" title="Rubrique premium ajoutée"> ★</span>}
-                          </b>
-                          <small>{hasPremiumSections ? `${item.description} · enrichi` : item.description}</small>
-                        </span>
-                        {hasPremiumSections && (
-                          <span className="free-template-star-icon" title="Rubrique premium ajoutée">
-                            <PremiumStar />
-                          </span>
-                        )}
+                        <span><b>{item.name}</b><small>{item.description}</small></span>
+                        {hasPremiumSections && <PremiumCrown />}
                         {userId && template === item.id && <em>✓</em>}
                       </button>
                     </div>
@@ -2643,12 +2629,11 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
         <div className="mobile-template-meta">
           <div>
             <strong>
-              {selectedTemplate.name}
-              {isGratuit && hasPremiumSections && <span className="free-template-star"> ★</span>}
+              {selectedTemplate.name} {isGratuit && hasPremiumSections && <PremiumCrown />}
             </strong>
             {isGratuit && (
               <span className="template-badge-free">
-                Modèle Gratuit{hasPremiumSections ? ' ★' : ''}
+                Modèle Gratuit {hasPremiumSections && <PremiumCrown />}
               </span>
             )}
             <br />
