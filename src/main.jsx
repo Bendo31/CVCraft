@@ -5167,7 +5167,7 @@ function App() {
           <section className="hero section-wrap">
             <div className="hero-copy">
               <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
-              <h1 className="hero-title">Votre talent<br />mérite un CV<br />à sa hauteur</h1>
+              <h1 className="hero-title">Votre talent mérite un CV<br />à sa hauteur</h1>
               <p className="hero-lede">Créez un CV moderne, percutant et professionnel en moins de 5 minutes.</p>
               <div className="hero-actions">
                 <button className="button button-dark button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV gratuitement <span className="button-arrow" aria-hidden="true">→</span></button>
