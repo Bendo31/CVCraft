@@ -516,14 +516,37 @@ export function ResumeDocument({
   useLayoutEffect(() => {
     const wrap = wrapRef.current
     if (!wrap) return undefined
+    const container = wrap.parentElement
+
     const updateScale = () => {
-      const nextScale = Math.min(1, wrap.clientWidth / RESUME_SHEET_WIDTH)
+      const isDesktop = window.innerWidth > 800
+      const containerWidth = container ? container.clientWidth : (wrap.clientWidth || RESUME_SHEET_WIDTH)
+      const scaleWidth = Math.min(1, Math.max(0.2, (containerWidth - 32) / RESUME_SHEET_WIDTH))
+
+      let nextScale = scaleWidth
+
+      if (isDesktop && container) {
+        const previewArea = wrap.closest('.builder-preview-area') || container
+        const floatingActions = previewArea.querySelector('.preview-floating-actions')
+        const actionsHeight = floatingActions ? floatingActions.getBoundingClientRect().height + 14 : 46
+        const availableHeight = previewArea.clientHeight - actionsHeight - 26
+        if (availableHeight > 220) {
+          const scaleHeight = availableHeight / RESUME_SHEET_HEIGHT
+          nextScale = Math.min(scaleWidth, scaleHeight)
+        }
+      }
+
       setScale(Number.isFinite(nextScale) && nextScale > 0 ? nextScale : 1)
     }
+
     updateScale()
     const observer = new ResizeObserver(updateScale)
-    observer.observe(wrap)
-    return () => observer.disconnect()
+    if (container) observer.observe(container)
+    window.addEventListener('resize', updateScale)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateScale)
+    }
   }, [])
 
   const fixPassRef = useRef(0)
@@ -699,13 +722,22 @@ export function ResumeDocument({
         </div>
       </div>
 
-      <div className="resume-pages-wrap" ref={wrapRef} style={{ height: stackHeight * scale }}>
+      <div
+        className="resume-pages-wrap"
+        ref={wrapRef}
+        style={{
+          width: Math.round(RESUME_SHEET_WIDTH * scale),
+          height: Math.round(stackHeight * scale),
+          margin: '0 auto',
+        }}
+      >
         <div
           className="resume-pages"
           id="resume-preview"
           style={{
             ...sheetStyleVars,
             transform: `scale(${scale})`,
+            transformOrigin: 'top left',
             width: RESUME_SHEET_WIDTH,
           }}
         >
