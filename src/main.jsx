@@ -778,21 +778,89 @@ function PremiumStar() {
   )
 }
 
-function SectionHeading({ number, title, onReset, locked = false }) {
+function SectionHeading({
+  number,
+  title,
+  onReset,
+  locked = false,
+  isOpen = false,
+  onToggle = null,
+  badge = null,
+}) {
   return (
-    <div className="builder-section-heading">
-      <div className="builder-section-title section-spaced">
-        <span>{number}</span>
+    <div
+      className={`builder-section-heading ${onToggle ? 'is-interactive' : ''} ${isOpen ? 'is-open' : 'is-collapsed'}`}
+      onClick={(e) => {
+        if (onToggle && !e.target.closest('button')) {
+          onToggle()
+        }
+      }}
+      role={onToggle ? 'button' : undefined}
+      tabIndex={onToggle ? 0 : undefined}
+      onKeyDown={(e) => {
+        if (onToggle && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onToggle()
+        }
+      }}
+      aria-expanded={onToggle ? isOpen : undefined}
+    >
+      <div className="builder-section-title">
+        <span className="section-number-pill">{number}</span>
         <h2>{title}</h2>
         {locked && <PremiumCrown />}
+        {badge && !isOpen && (
+          <span className="section-collapsed-badge" title={typeof badge === 'string' ? badge : ''}>
+            {badge}
+          </span>
+        )}
       </div>
-      {onReset && (
-        <div className="section-actions">
-          <button type="button" aria-label={`Réinitialiser ${title}`} title={locked ? 'Disponible avec un modèle Premium' : 'Réinitialiser la rubrique'} disabled={locked} onClick={onReset}>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" /><path d="M3 3v5h5" /></svg>
+      <div className="section-actions">
+        {onReset && (
+          <button
+            type="button"
+            aria-label={`Réinitialiser ${title}`}
+            title={locked ? 'Disponible avec un modèle Premium' : 'Réinitialiser la rubrique'}
+            disabled={locked}
+            onClick={(e) => {
+              e.stopPropagation()
+              onReset()
+            }}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 12a9 9 0 1 0 2.6-6.4L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
           </button>
-        </div>
-      )}
+        )}
+        {onToggle && (
+          <button
+            type="button"
+            className="section-accordion-toggle"
+            aria-label={isOpen ? `Fermer ${title}` : `Ouvrir ${title}`}
+            title={isOpen ? 'Fermer cette section' : 'Ouvrir cette section'}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
+          >
+            <svg
+              className={`section-accordion-chevron ${isOpen ? 'is-open' : ''}`}
+              viewBox="0 0 24 24"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -973,6 +1041,7 @@ function ResumeBuilder({
   const [resumesLoading, setResumesLoading] = useState(false)
   const [openExperienceIndex, setOpenExperienceIndex] = useState(0)
   const [openEducationIndex, setOpenEducationIndex] = useState(0)
+  const [activeSection, setActiveSection] = useState('personal')
   const [dragItem, setDragItem] = useState(null)
   const [dragOverItem, setDragOverItem] = useState(null)
   const isDraggingRef = useRef(false)
@@ -1606,6 +1675,7 @@ function ResumeBuilder({
         addListItem('references', { name: '', role: '', contact: '' })
       }
     }
+    setActiveSection(sectionId)
     showNotice?.(isFreeModel ? '👑 Rubrique premium ajoutée à votre structure !' : '✨ Rubrique ajoutée au CV !')
   }
   const formatDate = (value) => {
@@ -2187,12 +2257,47 @@ function ResumeBuilder({
       </aside>
       <main className="builder-main">
         <aside className="builder-sidebar">
-          <div className="builder-sidebar-heading"><div><span className="section-kicker">Mon espace</span><h1>Construire<br /><em>mon CV.</em></h1></div><span className="builder-step">01 / 03</span></div>
+          <div className="builder-sidebar-heading">
+            <div>
+              <button
+                type="button"
+                className="builder-back-dashboard-btn"
+                onClick={() => {
+                  if (onDashboard) {
+                    saveBeforeNavigation(onDashboard)
+                  } else if (onHome) {
+                    saveBeforeNavigation(onHome)
+                  }
+                }}
+                title="Retourner sur le Dashboard"
+              >
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="19" y1="12" x2="5" y2="12" />
+                  <polyline points="12 19 5 12 12 5" />
+                </svg>
+                <span>Retourner sur le Dashboard</span>
+              </button>
+              <h1>Construire<br /><em>mon CV.</em></h1>
+            </div>
+            <span className="builder-step">01 / 03</span>
+          </div>
           <div className="builder-progress"><span className="active" /><span /><span /></div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
           <div className="builder-form">
-            <SectionHeading number="01" title="Informations personnelles" onReset={() => resetSection('personal')} />
-            <div className="photo-field">
+            <div className={`builder-section-item ${activeSection === 'personal' ? 'is-active' : 'is-collapsed'}`}>
+              <SectionHeading
+                number="01"
+                title="Informations personnelles"
+                isOpen={activeSection === 'personal'}
+                onToggle={() => setActiveSection((curr) => (curr === 'personal' ? null : 'personal'))}
+                onReset={() => resetSection('personal')}
+                badge={
+                  [resume.firstName, resume.lastName].filter(Boolean).join(' ') ||
+                  (resume.role ? resume.role : '')
+                }
+              />
+              <div className="builder-section-body" style={{ display: activeSection === 'personal' ? 'block' : 'none' }}>
+                <div className="photo-field">
               <div className="photo-thumb">{photo ? <img src={photo} alt="Portrait du CV" /> : <span>+</span>}</div>
               <div className="photo-actions">
                 <label className="photo-upload">Photo<input type="file" accept="image/*" onChange={handlePhoto} /><span>{photo ? 'Changer la photo' : 'Ajouter une photo'}</span></label>
@@ -2347,8 +2452,19 @@ function ResumeBuilder({
                 </div>
               )}
             </div>
+          </div>
+        </div>
 
-            <SectionHeading number="02" title="Expériences professionnelles" onReset={() => resetSection('experiences')} />
+        <div className={`builder-section-item ${activeSection === 'experiences' ? 'is-active' : 'is-collapsed'}`}>
+          <SectionHeading
+            number="02"
+            title="Expériences professionnelles"
+            isOpen={activeSection === 'experiences'}
+            onToggle={() => setActiveSection((curr) => (curr === 'experiences' ? null : 'experiences'))}
+            onReset={() => resetSection('experiences')}
+            badge={`${experiences.length} ${experiences.length > 1 ? 'postes' : 'poste'}`}
+          />
+          <div className="builder-section-body" style={{ display: activeSection === 'experiences' ? 'block' : 'none' }}>
             {displayedExperiences.map((experience, index) => {
               const isOpen = openExperienceIndex === index
               const isDragging = dragItem?.section === 'experiences' && dragItem?.index === index
@@ -2603,8 +2719,19 @@ function ResumeBuilder({
               )
             })}
             <button className="add-entry" disabled={isFreeModel && experiences.length >= 3} onClick={handleAddExperience}>+ Ajouter une expérience {isFreeModel && experiences.length >= 3 && <PremiumCrown />}</button>
+          </div>
+        </div>
 
-            <SectionHeading number="03" title="Formations académiques" onReset={() => resetSection('educations')} />
+        <div className={`builder-section-item ${activeSection === 'educations' ? 'is-active' : 'is-collapsed'}`}>
+          <SectionHeading
+            number="03"
+            title="Formations académiques"
+            isOpen={activeSection === 'educations'}
+            onToggle={() => setActiveSection((curr) => (curr === 'educations' ? null : 'educations'))}
+            onReset={() => resetSection('educations')}
+            badge={`${educations.length} ${educations.length > 1 ? 'formations' : 'formation'}`}
+          />
+          <div className="builder-section-body" style={{ display: activeSection === 'educations' ? 'block' : 'none' }}>
             <fieldset className="premium-fieldset">
               {educations.map((education, index) => {
                 const isOpen = openEducationIndex === index
@@ -2850,54 +2977,116 @@ function ResumeBuilder({
               })}
               <button className="add-entry" onClick={handleAddEducation}>+ Ajouter une formation</button>
             </fieldset>
+          </div>
+        </div>
 
-            <SectionHeading number="04" title="Compétences" onReset={() => resetSection('skills')} />
+        <div className={`builder-section-item ${activeSection === 'skills' ? 'is-active' : 'is-collapsed'}`}>
+          <SectionHeading
+            number="04"
+            title="Compétences"
+            isOpen={activeSection === 'skills'}
+            onToggle={() => setActiveSection((curr) => (curr === 'skills' ? null : 'skills'))}
+            onReset={() => resetSection('skills')}
+            badge={`${skills.filter((s) => s && s.trim()).length} ${skills.filter((s) => s && s.trim()).length > 1 ? 'compétences' : 'compétence'}`}
+          />
+          <div className="builder-section-body" style={{ display: activeSection === 'skills' ? 'block' : 'none' }}>
             <fieldset className="premium-fieldset">
               <div className="skill-fields">{skills.map((skill, index) => <input key={`skill-${index}`} value={skill} placeholder="Ex. Photoshop" onChange={(event) => updateSkill(index, event.target.value)} />)}</div>
               <button className="add-entry" onClick={() => addListItem('skills', '')}>+ Ajouter une compétence</button>
             </fieldset>
+          </div>
+        </div>
 
-            <SectionHeading number="05" title="Langues" onReset={() => resetSection('languages')} />
+        <div className={`builder-section-item ${activeSection === 'languages' ? 'is-active' : 'is-collapsed'}`}>
+          <SectionHeading
+            number="05"
+            title="Langues"
+            isOpen={activeSection === 'languages'}
+            onToggle={() => setActiveSection((curr) => (curr === 'languages' ? null : 'languages'))}
+            onReset={() => resetSection('languages')}
+            badge={`${languages.filter((l) => l && l.name && l.name.trim()).length} ${languages.filter((l) => l && l.name && l.name.trim()).length > 1 ? 'langues' : 'langue'}`}
+          />
+          <div className="builder-section-body" style={{ display: activeSection === 'languages' ? 'block' : 'none' }}>
             <fieldset className="premium-fieldset">
               {languages.map((language, index) => <div className="repeatable-block" key={`language-${index}`}><div className="repeatable-heading"><span>Langue {index + 1}</span></div><div className="field-row"><label>Langue<input value={language.name} onChange={(event) => updateListItem('languages', index, 'name', event.target.value)} /></label><label>Niveau<select value={Math.min(5, Math.max(1, Number(language.level) || 1))} onChange={(event) => updateListItem('languages', index, 'level', Number(event.target.value))}>{[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>{level} / 5</option>)}</select></label></div></div>)}
               <button className="add-entry" onClick={() => addListItem('languages', { name: '', level: 1 })}>+ Ajouter une langue</button>
             </fieldset>
+          </div>
+        </div>
 
-            <SectionHeading number="06" title="Centres d’intérêt" onReset={() => resetSection('interests')} />
+        <div className={`builder-section-item ${activeSection === 'interests' ? 'is-active' : 'is-collapsed'}`}>
+          <SectionHeading
+            number="06"
+            title="Centres d’intérêt"
+            isOpen={activeSection === 'interests'}
+            onToggle={() => setActiveSection((curr) => (curr === 'interests' ? null : 'interests'))}
+            onReset={() => resetSection('interests')}
+            badge={`${interests.filter((i) => i && i.trim()).length} ${interests.filter((i) => i && i.trim()).length > 1 ? 'centres d’intérêt' : 'centre d’intérêt'}`}
+          />
+          <div className="builder-section-body" style={{ display: activeSection === 'interests' ? 'block' : 'none' }}>
             <fieldset className="premium-fieldset">
               <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
               <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt</button>
             </fieldset>
+          </div>
+        </div>
 
-            {(!isFreeModel || projects.length > 0) && (
-              <>
-                <SectionHeading number="07" title="Projets et réalisations" onReset={() => resetSection('projects')} />
-                <fieldset className="premium-fieldset">
-                  {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
-                  <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet</button>
-                </fieldset>
-              </>
-            )}
+        {(!isFreeModel || projects.length > 0) && (
+          <div className={`builder-section-item ${activeSection === 'projects' ? 'is-active' : 'is-collapsed'}`}>
+            <SectionHeading
+              number="07"
+              title="Projets et réalisations"
+              isOpen={activeSection === 'projects'}
+              onToggle={() => setActiveSection((curr) => (curr === 'projects' ? null : 'projects'))}
+              onReset={() => resetSection('projects')}
+              badge={`${projects.length} ${projects.length > 1 ? 'projets' : 'projet'}`}
+            />
+            <div className="builder-section-body" style={{ display: activeSection === 'projects' ? 'block' : 'none' }}>
+              <fieldset className="premium-fieldset">
+                {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
+                <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet</button>
+              </fieldset>
+            </div>
+          </div>
+        )}
 
-            {(!isFreeModel || certifications.length > 0) && (
-              <>
-                <SectionHeading number="08" title="Certifications" onReset={() => resetSection('certifications')} />
-                <fieldset className="premium-fieldset">
-                  {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
-                  <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification</button>
-                </fieldset>
-              </>
-            )}
+        {(!isFreeModel || certifications.length > 0) && (
+          <div className={`builder-section-item ${activeSection === 'certifications' ? 'is-active' : 'is-collapsed'}`}>
+            <SectionHeading
+              number="08"
+              title="Certifications"
+              isOpen={activeSection === 'certifications'}
+              onToggle={() => setActiveSection((curr) => (curr === 'certifications' ? null : 'certifications'))}
+              onReset={() => resetSection('certifications')}
+              badge={`${certifications.length} ${certifications.length > 1 ? 'certifications' : 'certification'}`}
+            />
+            <div className="builder-section-body" style={{ display: activeSection === 'certifications' ? 'block' : 'none' }}>
+              <fieldset className="premium-fieldset">
+                {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
+                <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification</button>
+              </fieldset>
+            </div>
+          </div>
+        )}
 
-            {(!isFreeModel || references.length > 0) && (
-              <>
-                <SectionHeading number="09" title="Références" onReset={() => resetSection('references')} />
-                <fieldset className="premium-fieldset">
-                  {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
-                  <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence</button>
-                </fieldset>
-              </>
-            )}
+        {(!isFreeModel || references.length > 0) && (
+          <div className={`builder-section-item ${activeSection === 'references' ? 'is-active' : 'is-collapsed'}`}>
+            <SectionHeading
+              number="09"
+              title="Références"
+              isOpen={activeSection === 'references'}
+              onToggle={() => setActiveSection((curr) => (curr === 'references' ? null : 'references'))}
+              onReset={() => resetSection('references')}
+              badge={`${references.length} ${references.length > 1 ? 'références' : 'référence'}`}
+            />
+            <div className="builder-section-body" style={{ display: activeSection === 'references' ? 'block' : 'none' }}>
+              <fieldset className="premium-fieldset">
+                {references.map((reference, index) => <div className="repeatable-block" key={`reference-${index}`}><div className="repeatable-heading"><span>Référence {index + 1}</span></div><label>Nom<input value={reference.name} onChange={(event) => updateListItem('references', index, 'name', event.target.value)} /></label><label>Fonction<input value={reference.role} onChange={(event) => updateListItem('references', index, 'role', event.target.value)} /></label><label>Email ou téléphone<input value={reference.contact} onChange={(event) => updateListItem('references', index, 'contact', event.target.value)} /></label></div>)}
+                <button className="add-entry" onClick={() => addListItem('references', { name: '', role: '', contact: '' })}>+ Ajouter une référence</button>
+              </fieldset>
+            </div>
+          </div>
+        )}
 
             <div className="builder-add-section-wrap">
               <button
