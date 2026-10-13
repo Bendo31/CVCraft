@@ -1873,7 +1873,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   height: 100vh;
   min-height: 0;
   display: grid;
-  grid-template-columns: clamp(420px, 28vw, 480px) minmax(0, 1fr) 270px;
+  grid-template-columns: clamp(420px, 28vw, 480px) minmax(0, 1fr) 320px;
   gap: 4px;
   background: var(--line);
 }
@@ -2121,7 +2121,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 .template-a4-preview-frame .resume-template-zenith .resume-right { order: 1 !important; }
 
 @media (max-width: 1180px) {
-	.builder-main { grid-template-columns: 340px minmax(0, 1fr) 240px; }
+	.builder-main { grid-template-columns: 340px minmax(0, 1fr) 280px; }
 	.builder-sidebar { padding: 40px 28px 60px; }
 	.builder-design-panel { padding: 28px 16px 40px; }
 	.design-color-list { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }

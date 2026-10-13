@@ -760,10 +760,7 @@ const baseColors = [
 
 const resumeFonts = [
   { id: 'classic', name: 'Classique', family: "'DM Sans', sans-serif", display: "'Fraunces', Georgia, serif" },
-  { id: 'editorial', name: 'Éditoriale', family: "'Libre Baskerville', Georgia, serif", display: "'Libre Baskerville', Georgia, serif" },
   { id: 'modern', name: 'Moderne', family: "'Space Grotesk', sans-serif", display: "'Space Grotesk', sans-serif" },
-  { id: 'elegant', name: 'Élégante', family: "'Cormorant Garamond', Georgia, serif", display: "'Cormorant Garamond', Georgia, serif" },
-  { id: 'clear', name: 'Claire', family: "'Source Sans 3', sans-serif", display: "'Source Sans 3', sans-serif" },
 ]
 
 function PremiumCrown() {
