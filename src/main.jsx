@@ -823,25 +823,11 @@ function AddSectionModal({
       details: 'Nom de la certification, organisme émetteur et année d’obtention.',
     },
     {
-      id: 'interests',
-      title: 'Centres d’intérêt',
-      icon: '🎯',
-      description: 'Dévoilez votre personnalité, vos passions extra-professionnelles et vos engagements associatifs.',
-      details: 'Passions, sports, bénévolat, activités créatives.',
-    },
-    {
       id: 'references',
       title: 'Références professionnelles',
       icon: '🤝',
       description: 'Ajoutez les coordonnées de vos anciens managers ou professeurs prêts à vous recommander.',
       details: 'Nom complet, fonction occupée, email ou téléphone de contact.',
-    },
-    {
-      id: 'qrcode',
-      title: 'QR Code interactif',
-      icon: '📱',
-      description: 'Permettez aux recruteurs d’accéder instantanément à votre profil en ligne ou portfolio en un scan.',
-      details: 'Génération automatique de QR Code haute résolution sur votre CV.',
     },
   ]
 
@@ -1513,7 +1499,7 @@ function ResumeBuilder({
     setResume((current) => ({ ...current, [section]: current[section].map((item, itemIndex) => itemIndex === index ? value : item) }))
   }
   const sectionEnabled = (section) => resume.sectionVisibility?.[section] !== false
-  const isSectionLocked = (section) => isFreeModel && !['personal', 'experiences', 'educations', 'skills', 'languages'].includes(section)
+  const isSectionLocked = (section) => isFreeModel && !['personal', 'experiences', 'educations', 'skills', 'languages', 'interests'].includes(section)
   const toggleSection = (section) => {
     markEdited()
     setResume((current) => ({
@@ -1615,17 +1601,10 @@ function ResumeBuilder({
       if (certifications.length === 0) {
         addListItem('certifications', { name: '', issuer: '', year: '' })
       }
-    } else if (sectionId === 'interests') {
-      if (interests.length === 0) {
-        addListItem('interests', '')
-      }
     } else if (sectionId === 'references') {
       if (references.length === 0) {
         addListItem('references', { name: '', role: '', contact: '' })
       }
-    } else if (sectionId === 'qrcode') {
-      showNotice?.('📱 Le QR Code interactif est automatiquement activé sur votre profil public.')
-      return
     }
     showNotice?.(isFreeModel ? '👑 Rubrique premium ajoutée à votre structure !' : '✨ Rubrique ajoutée au CV !')
   }
@@ -1884,7 +1863,6 @@ function ResumeBuilder({
   const hasPremiumSections = Boolean(
     projects.length > 0 ||
     certifications.length > 0 ||
-    interests.length > 0 ||
     references.length > 0
   )
 
@@ -2885,9 +2863,15 @@ function ResumeBuilder({
               <button className="add-entry" onClick={() => addListItem('languages', { name: '', level: 1 })}>+ Ajouter une langue</button>
             </fieldset>
 
+            <SectionHeading number="06" title="Centres d’intérêt" onReset={() => resetSection('interests')} />
+            <fieldset className="premium-fieldset">
+              <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
+              <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt</button>
+            </fieldset>
+
             {(!isFreeModel || projects.length > 0) && (
               <>
-                <SectionHeading number="06" title="Projets et réalisations" onReset={() => resetSection('projects')} />
+                <SectionHeading number="07" title="Projets et réalisations" onReset={() => resetSection('projects')} />
                 <fieldset className="premium-fieldset">
                   {projects.map((project, index) => <div className="repeatable-block" key={`project-${index}`}><div className="repeatable-heading"><span>Projet {index + 1}</span></div><label>Nom du projet<input value={project.name} onChange={(event) => updateListItem('projects', index, 'name', event.target.value)} /></label><label>Description<textarea rows="2" value={project.description} onChange={(event) => updateListItem('projects', index, 'description', event.target.value)} /></label><div className="field-row"><label><span className="builder-label-head"><span>Lien</span> <span className="optional-label">(facultatif)</span></span><input value={project.link} onChange={(event) => updateListItem('projects', index, 'link', event.target.value)} /></label><label>Année<input value={project.year} onChange={(event) => updateListItem('projects', index, 'year', event.target.value)} /></label></div></div>)}
                   <button className="add-entry" onClick={() => addListItem('projects', { name: '', description: '', link: '', year: '' })}>+ Ajouter un projet</button>
@@ -2897,20 +2881,10 @@ function ResumeBuilder({
 
             {(!isFreeModel || certifications.length > 0) && (
               <>
-                <SectionHeading number="07" title="Certifications" onReset={() => resetSection('certifications')} />
+                <SectionHeading number="08" title="Certifications" onReset={() => resetSection('certifications')} />
                 <fieldset className="premium-fieldset">
                   {certifications.map((certification, index) => <div className="repeatable-block" key={`certification-${index}`}><div className="repeatable-heading"><span>Certification {index + 1}</span></div><label>Nom de la certification<input value={certification.name} onChange={(event) => updateListItem('certifications', index, 'name', event.target.value)} /></label><div className="field-row"><label>Organisme<input value={certification.issuer} onChange={(event) => updateListItem('certifications', index, 'issuer', event.target.value)} /></label><label>Année<input value={certification.year} onChange={(event) => updateListItem('certifications', index, 'year', event.target.value)} /></label></div></div>)}
                   <button className="add-entry" onClick={() => addListItem('certifications', { name: '', issuer: '', year: '' })}>+ Ajouter une certification</button>
-                </fieldset>
-              </>
-            )}
-
-            {(!isFreeModel || interests.length > 0) && (
-              <>
-                <SectionHeading number="08" title="Centres d’intérêt" onReset={() => resetSection('interests')} />
-                <fieldset className="premium-fieldset">
-                  <div className="skill-fields">{interests.map((interest, index) => <input key={`interest-${index}`} value={interest} placeholder="Ex. photographie" onChange={(event) => updateStringListItem('interests', index, event.target.value)} />)}</div>
-                  <button className="add-entry" onClick={() => addListItem('interests', '')}>+ Ajouter un centre d’intérêt</button>
                 </fieldset>
               </>
             )}
@@ -3226,9 +3200,7 @@ function ResumeBuilder({
         activeSections={{
           projects: projects.length > 0,
           certifications: certifications.length > 0,
-          interests: interests.length > 0,
           references: references.length > 0,
-          qrcode: false,
         }}
       />
     </div>
