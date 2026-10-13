@@ -9,6 +9,7 @@ import {
   deleteUserResumeFromCloud,
   getUserResumePlan,
   getSession,
+  loadSharedResume,
   loadUserResumeFromCloud,
   loadUserResumesFromCloud,
   onAuthStateChange,
@@ -3268,6 +3269,33 @@ function ResumeDashboard({
     }
   }
 
+  const handleShareResume = async (resume) => {
+    setActionsOpen(null)
+    const shareUrl = `${window.location.origin}/?share=${resume.id}`
+    const resumeTitle = getResumeTitle(resume)
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `CV de ${resumeTitle} - CVcraft`,
+          text: `Consultez mon CV « ${resumeTitle} » en ligne sur CVcraft (lecture seule) :`,
+          url: shareUrl,
+        })
+        if (showNotice) showNotice('Lien de partage envoyé avec succès !')
+        return
+      } catch (shareErr) {
+        if (shareErr.name === 'AbortError') return
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      if (showNotice) showNotice('Lien de prévisualisation copié ! Vos contacts peuvent le consulter sans le modifier.')
+    } catch {
+      window.prompt('Copiez ce lien pour partager votre CV en lecture seule :', shareUrl)
+    }
+  }
+
   const handleToggleActions = (event, resume) => {
     event.stopPropagation()
     if (actionsOpen?.resume?.id === resume.id) {
@@ -3374,12 +3402,12 @@ function ResumeDashboard({
                 <caption className="visually-hidden">Documents enregistrés sur votre compte</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Nom</th>
-                    <th scope="col">Emploi</th>
-                    <th scope="col">Type</th>
-                    <th scope="col">Créé le</th>
-                    <th scope="col">Dernière modification <span aria-hidden="true">↓</span></th>
-                    <th scope="col"><span className="visually-hidden">Actions</span></th>
+                    <th scope="col" className="dashboard-col-name">Nom</th>
+                    <th scope="col" className="dashboard-col-job">Emploi</th>
+                    <th scope="col" className="dashboard-col-type">Type</th>
+                    <th scope="col" className="dashboard-col-created">Créé le</th>
+                    <th scope="col" className="dashboard-col-updated">Dernière modification <span aria-hidden="true">↓</span></th>
+                    <th scope="col" className="dashboard-col-actions"><span className="visually-hidden">Actions</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3387,31 +3415,30 @@ function ResumeDashboard({
                     const resumeTitle = getResumeTitle(resume)
                     const selectedTemplate = resumeTemplates.find((item) => item.id === resume.template)
                     const resumeWithinQuota = resumeIndex < resumeQuota
-                    const canDuplicate = resumeWithinQuota && plan.active && plan.planId === 'gold' && resumes.length < 3
                     const isDownloadingThis = downloadInProgressId === resume.id
-                    return <tr key={resume.id}>
-                      <td>
+                    return <tr key={resume.id} className="dashboard-document-row">
+                      <td className="dashboard-cell-name">
                         <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
                           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
                           <span>{resumeTitle}</span>
                         </button>
                       </td>
-                      <td>
+                      <td className="dashboard-col-job">
                         <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" onClick={() => onOpenResume(resume)}>
                           {!resume.resume?.role && <span aria-hidden="true">＋</span>}
                           {resume.resume?.role || 'Ajouter'}
                         </button>
                       </td>
-                      <td>
+                      <td className="dashboard-col-type">
                         <span className="dashboard-document-type">CV</span>
                         <small className="dashboard-document-model">{selectedTemplate?.name || 'Gratuit'}</small>
                         {!resumeWithinQuota && plan.active && <small className="dashboard-document-payment">Hors quota actif</small>}
                         {resume.modelStatus === 'pending_payment' && <small className="dashboard-document-payment">Paiement requis</small>}
                         {resume.modelStatus === 'paid' && <small className="dashboard-document-paid">Payé</small>}
                       </td>
-                      <td>{formatDate(resume.createdAt)}</td>
-                      <td>{formatRelativeDate(resume.updatedAt) || '—'}</td>
-                      <td>
+                      <td className="dashboard-col-created">{formatDate(resume.createdAt)}</td>
+                      <td className="dashboard-col-updated">{formatRelativeDate(resume.updatedAt) || '—'}</td>
+                      <td className="dashboard-cell-actions">
                         <div className="dashboard-document-actions">
                           <button
                             className={`dashboard-icon-button ${isDownloadingThis ? 'is-downloading' : ''}`}
@@ -3513,6 +3540,43 @@ function ResumeDashboard({
               </svg>
               <span>Télécharger en PDF</span>
             </button>
+            {(() => {
+              const target = actionsOpen.resume
+              const isResumePremium = Boolean(
+                (plan.active && ['pro', 'gold'].includes(plan.planId)) ||
+                target.modelStatus === 'paid' ||
+                (target.template && target.template !== 'gratuit')
+              )
+              return (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setActionsOpen(null)
+                    if (isResumePremium) {
+                      handleShareResume(target)
+                    } else {
+                      if (showNotice) showNotice('Le lien de partage public en lecture seule est réservé aux membres Premium.')
+                      setChangeOfferOpen(true)
+                    }
+                  }}
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  <span style={{ flex: 1 }}>Partager le CV</span>
+                  {isResumePremium ? (
+                    <span className="dashboard-share-badge">Lien public</span>
+                  ) : (
+                    <PremiumCrown />
+                  )}
+                </button>
+              )
+            })()}
             <button
               type="button"
               role="menuitem"
@@ -3652,10 +3716,243 @@ function isAdminDashboardUrl() {
   )
 }
 
+function SharedResumePreview({ resumeId, onHome, showNotice }) {
+  const [loading, setLoading] = useState(true)
+  const [resumeData, setResumeData] = useState(null)
+  const [error, setError] = useState(null)
+  const [downloading, setDownloading] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    async function load() {
+      setLoading(true)
+      setError(null)
+      try {
+        const record = await loadSharedResume(resumeId)
+        if (!active) return
+        if (!record) {
+          setError('Ce CV partagé est introuvable ou a été supprimé.')
+        } else {
+          setResumeData(record)
+        }
+      } catch (err) {
+        if (!active) return
+        console.error('Erreur chargement CV partagé:', err)
+        setError('Impossible d’accéder à ce CV partagé. Veuillez vérifier le lien.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    if (resumeId) {
+      load()
+    } else {
+      setError('Aucun lien de CV spécifié.')
+      setLoading(false)
+    }
+    return () => {
+      active = false
+    }
+  }, [resumeId])
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href)
+      setCopied(true)
+      if (showNotice) showNotice('Lien copié dans le presse-papier !')
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      window.prompt('Lien du CV :', window.location.href)
+    }
+  }
+
+  const handleDownloadPdf = async () => {
+    if (!resumeData || downloading) return
+    setDownloading(true)
+    try {
+      const container = document.getElementById('shared-resume-wrap')
+      if (!container) throw new Error('Conteneur de CV introuvable.')
+      const pages = container.querySelectorAll('.resume-sheet:not(.resume-sheet-measure)')
+      if (!pages.length) throw new Error('Aucune page à exporter.')
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      })
+
+      for (let i = 0; i < pages.length; i++) {
+        const pageElement = pages[i]
+        const canvas = await html2canvas(pageElement, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        })
+        const imgData = canvas.toDataURL('image/jpeg', 0.98)
+        if (i > 0) pdf.addPage('a4', 'portrait')
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297)
+      }
+
+      const fullName = `${resumeData.resume?.firstName || ''} ${resumeData.resume?.lastName || ''}`.trim() || 'CV'
+      pdf.save(`CV_${fullName.replace(/\s+/g, '_')}.pdf`)
+      if (showNotice) showNotice('Téléchargement du PDF terminé avec succès !')
+    } catch (err) {
+      console.error('Erreur export PDF partagé:', err)
+      alert('Le téléchargement en PDF a échoué.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  const formatSharedDateRange = (startDate, endDate) => {
+    const formatVal = (val) => {
+      if (!val) return ''
+      const parts = val.split('-')
+      if (parts.length >= 2) {
+        const d = new Date(parts[0], Number(parts[1]) - 1, 1)
+        return new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(d)
+      }
+      return val
+    }
+    return `${formatVal(startDate)} — ${formatVal(endDate)}`
+  }
+
+  const candidateName = resumeData
+    ? `${resumeData.resume?.firstName || ''} ${resumeData.resume?.lastName || ''}`.trim() || 'Candidat'
+    : ''
+  const candidateRole = resumeData?.resume?.role || ''
+
+  return (
+    <div className="shared-preview-page">
+      <header className="shared-preview-header">
+        <div className="shared-preview-brand-wrap">
+          <button className="brand shared-preview-brand" type="button" onClick={onHome} aria-label="CVcraft, accueil">
+            <span className="brand-mark">c</span>
+            <span>CVcraft</span>
+          </button>
+          <span className="shared-preview-badge">
+            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            CV certifié · Lecture seule
+          </span>
+        </div>
+
+        {resumeData && (
+          <div className="shared-preview-candidate-meta">
+            <strong>{candidateName}</strong>
+            {candidateRole && <span>{candidateRole}</span>}
+          </div>
+        )}
+
+        <div className="shared-preview-actions">
+          {resumeData && (
+            <>
+              <button
+                className="button button-outline button-small button-pill shared-btn"
+                type="button"
+                onClick={handleCopyLink}
+                title="Copier le lien public"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                <span>{copied ? 'Lien copié !' : 'Partager'}</span>
+              </button>
+
+              <button
+                className="button button-dark button-small button-pill shared-btn"
+                type="button"
+                disabled={downloading}
+                onClick={handleDownloadPdf}
+              >
+                {downloading ? (
+                  <>
+                    <span className="download-spinner" aria-hidden="true" style={{ borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff', width: 14, height: 14 }} />
+                    <span>Génération…</span>
+                  </>
+                ) : (
+                  <>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    <span>Télécharger PDF</span>
+                  </>
+                )}
+              </button>
+            </>
+          )}
+
+          <button
+            className="button button-yellow button-small button-pill shared-btn-cta"
+            type="button"
+            onClick={onHome}
+          >
+            <span>Créer mon CV</span>
+            <span aria-hidden="true">↗</span>
+          </button>
+        </div>
+      </header>
+
+      <main className="shared-preview-main">
+        {loading ? (
+          <div className="shared-preview-state">
+            <span className="loading-indicator" aria-hidden="true" />
+            <p>Chargement du CV en cours…</p>
+          </div>
+        ) : error ? (
+          <div className="shared-preview-state shared-preview-error">
+            <div className="shared-error-icon">⚠️</div>
+            <h2>CV introuvable</h2>
+            <p>{error}</p>
+            <button className="button button-dark button-pill" type="button" onClick={onHome}>
+              Retour à l’accueil
+            </button>
+          </div>
+        ) : resumeData ? (
+          <div className="shared-preview-document-container" id="shared-resume-wrap">
+            <div className="shared-preview-banner">
+              <span>🔒 Ce CV est partagé en mode lecture seule. Aucune modification n’est permise.</span>
+            </div>
+            <ResumeDocument
+              resume={resumeData.resume}
+              photo={resumeData.photo}
+              template={resumeData.template || 'sillage'}
+              baseColor={resumeData.baseColor || '#e49a68'}
+              resumeFont={resumeData.resumeFont || 'classic'}
+              showBranding={false}
+              formatDateRange={formatSharedDateRange}
+              sectionVisibility={resumeData.resume?.sectionVisibility || {}}
+            />
+          </div>
+        ) : null}
+      </main>
+
+      <footer className="shared-preview-footer">
+        <p>Créé avec passion sur <strong>CVcraft</strong> — La plateforme professionnelle pour vos candidatures.</p>
+        <button type="button" onClick={onHome}>Créer votre CV professionnel en 5 minutes →</button>
+      </footer>
+    </div>
+  )
+}
+
 function App() {
   const [notice, setNotice] = useState('')
+  const [shareResumeId, setShareResumeId] = useState(() => {
+    if (typeof window === 'undefined') return null
+    const params = new URLSearchParams(window.location.search)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    return params.get('share') || hashParams.get('share') || null
+  })
   const [view, setView] = useState(() => {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    const hashParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.hash.replace(/^#/, '')) : null
+    const shareId = params?.get('share') || hashParams?.get('share')
+    if (shareId) return 'shared-preview'
     if (params?.get('view') === 'builder') return 'builder'
     if (isAdminDashboardUrl()) return 'admin-dashboard'
     return hasPersistedSupabaseSession() ? 'dashboard' : 'landing'
@@ -3663,8 +3960,17 @@ function App() {
 
   useEffect(() => {
     const handleUrlChange = () => {
+      const params = new URLSearchParams(window.location.search)
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+      const shareId = params.get('share') || hashParams.get('share')
+      if (shareId) {
+        setShareResumeId(shareId)
+        setView('shared-preview')
+        return
+      }
       if (isAdminDashboardUrl()) {
         setView('admin-dashboard')
+        return
       }
     }
     window.addEventListener('hashchange', handleUrlChange)
@@ -4551,6 +4857,28 @@ function App() {
       />
     </div>
   ) : null
+
+  if (view === 'shared-preview') {
+    return (
+      <>
+        <SharedResumePreview
+          resumeId={shareResumeId}
+          onHome={() => {
+            if (typeof window !== 'undefined') {
+              const cleanUrl = new URL(window.location.href)
+              cleanUrl.searchParams.delete('share')
+              if (cleanUrl.hash.includes('share=')) cleanUrl.hash = ''
+              window.history.pushState(null, '', cleanUrl.toString())
+            }
+            setShareResumeId(null)
+            setView(user ? 'dashboard' : 'landing')
+          }}
+          showNotice={showNotice}
+        />
+        {notice && <div className="toast" role="status">{notice}</div>}
+      </>
+    )
+  }
 
   if (view === 'admin-dashboard') {
     return (

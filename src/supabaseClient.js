@@ -415,6 +415,24 @@ export async function loadUserResumesFromCloud(userId) {
   return (data || []).map(formatResumeRecord)
 }
 
+/**
+ * Récupère un CV spécifique par son identifiant pour la prévisualisation publique partagée
+ */
+export async function loadSharedResume(resumeId) {
+  const client = getSupabaseClient()
+  if (!client || !resumeId) throw new Error('Identifiant de CV manquant.')
+
+  const { data, error } = await client
+    .from('resumes')
+    .select('*')
+    .eq('id', resumeId)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+  return formatResumeRecord(data)
+}
+
 export async function getUserResumePlan(userId) {
   const client = getSupabaseClient()
   if (!client || !userId) throw new Error('Une session serveur est requise pour consulter l’offre.')
