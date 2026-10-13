@@ -935,6 +935,7 @@ function ResumeBuilder({
   onDashboard,
   onLogout,
   onRequestUnlock,
+  onSignIn,
   onPaymentStarted,
   paymentStatus,
   onRetryPayment,
@@ -1119,22 +1120,18 @@ function ResumeBuilder({
           interests: Array.isArray(savedResume.interests) ? savedResume.interests : defaultResume.interests,
         })
         setPhoto(savedData.photo || savedResume.photo || '')
-        const resolvedTemplate = preferInitialTemplate
+        const savedTemplate = resumeTemplates.some((item) => item.id === savedData.template)
+          ? savedData.template
+          : initialTemplate
+        const resolvedTemplate = (preferInitialTemplate && !savedData.template)
           ? initialTemplate
-          : resumeTemplates.some((item) => item.id === savedData.template)
-            ? savedData.template
-            : initialTemplate
+          : savedTemplate
         setTemplate(resolvedTemplate)
-        setModelStatus(isPlanActive ? 'paid' : (resolvedTemplate === savedData.template
-          ? savedData.modelStatus || (isFreeTemplate(resolvedTemplate) ? 'free' : 'pending_payment')
-          : isFreeTemplate(resolvedTemplate) ? 'free' : 'pending_payment'))
+        setModelStatus(isPlanActive ? 'paid' : (savedData.modelStatus || (isFreeTemplate(resolvedTemplate) ? 'free' : 'pending_payment')))
         setBaseColor(savedData.baseColor || '#e49a68')
         setResumeFont(savedData.resumeFont || 'classic')
-        if (preferInitialTemplate && resolvedTemplate !== savedData.template) {
-          editVersion.current += 1
-          setIsDirty(true)
-          setSaveStatus('saving')
-        }
+        setIsDirty(false)
+        setSaveStatus('saved')
       } else if (guestData) {
         setResumeId(null)
         resumeIdRef.current = null
@@ -1804,7 +1801,13 @@ function ResumeBuilder({
               <button
                 type="button"
                 className="builder-mobile-connexion-btn"
-                onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
+                onClick={() => {
+                  if (onSignIn) {
+                    onSignIn()
+                  } else {
+                    onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })
+                  }
+                }}
               >
                 Connexion
               </button>
@@ -1932,7 +1935,13 @@ function ResumeBuilder({
                 <button
                   type="button"
                   className="nav-rail-signin-link"
-                  onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
+                  onClick={() => {
+                    if (onSignIn) {
+                      onSignIn()
+                    } else {
+                      onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })
+                    }
+                  }}
                 >
                   Connectez-vous pour plusieurs CV
                 </button>
@@ -2025,7 +2034,13 @@ function ResumeBuilder({
             <button
               type="button"
               className="nav-rail-item nav-rail-profile"
-              onClick={() => onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })}
+              onClick={() => {
+                if (onSignIn) {
+                  onSignIn()
+                } else {
+                  onRequestUnlock('gratuit', { resume, photo, template, baseColor, resumeFont })
+                }
+              }}
               title="Profil / Se connecter"
             >
               <div className="nav-rail-icon-wrap">
@@ -3814,6 +3829,13 @@ function App() {
   const pendingDownloadRef = useRef(false)
   const pendingAuthDestinationRef = useRef(null)
   const pendingPlanRef = useRef(null)
+  const oauthInProgressRef = useRef(false)
+
+  const handleOpenSignIn = () => {
+    pendingAuthDestinationRef.current = 'dashboard'
+    setAuthMode('signin')
+    setAuthOpen(true)
+  }
 
   const handleRequestCreateResume = (templateChoice = null) => {
     const defaultTemplate = templateChoice || 'gratuit'
@@ -3890,12 +3912,15 @@ function App() {
     }
   }
 
-  const resumeOAuth = (session) => {
+  const resumeOAuth = async (session) => {
     if (session?.user) {
       cleanAuthUrlFromAddressBar()
     }
     const storedIntent = window.sessionStorage.getItem(OAUTH_INTENT_KEY)
-    if (!storedIntent) return
+    if (!storedIntent || oauthInProgressRef.current) return
+
+    oauthInProgressRef.current = true
+    window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
 
     try {
       const intent = JSON.parse(storedIntent)
@@ -3906,7 +3931,6 @@ function App() {
           || new URLSearchParams(window.location.search).get('error')
           || hashParams.get('error')
         if (errorDescription) {
-          window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
           setAuthMode(intent.mode === 'signin' ? 'signin' : 'signup')
           setAuthOpen(true)
           setNotice(`Connexion impossible : ${errorDescription}. Vérifiez la configuration du fournisseur dans Supabase Auth.`)
@@ -3914,13 +3938,61 @@ function App() {
         return
       }
 
-      window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
+      // 1. Vérifier en priorité si l'utilisateur possède déjà un compte avec des CV
+      const cloudResumes = await loadUserResumesFromCloud(session.user.id)
+      const hasExistingResumes = Array.isArray(cloudResumes) && cloudResumes.length > 0
+
+      if (hasExistingResumes) {
+        // Utilisateur existant : on restaure TOUT son compte sans écraser !
+        window.localStorage.removeItem(GUEST_RESUME_KEY)
+        const primaryResume = cloudResumes[0]
+        setSelectedResumeId(primaryResume.id)
+        setSelectedTemplate(primaryResume.template || 'gratuit')
+        setTemplateSelectionMade(false)
+        setCreateNewResume(false)
+        setImportedResumeDraft(null)
+        setBuilderSessionKey((prev) => prev + 1)
+        setUser(session.user)
+        setAuthOpen(false)
+
+        if (['pro', 'gold'].includes(intent.planId)) {
+          setMobilePayPhone('')
+          setMobilePayError('')
+          setMobilePayPlan(intent.planId)
+          setView('dashboard')
+          return
+        }
+
+        const destination = intent.destination === 'builder' ? 'builder' : 'dashboard'
+        setView(destination)
+        pendingAuthDestinationRef.current = null
+        showNotice('Bon retour ! Votre compte et vos CV ont été restaurés.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
+      }
+
+      // 2. Nouvel utilisateur sans CV existant
       const templateId = resumeTemplates.some((item) => item.id === intent.templateId)
         ? intent.templateId
         : null
+      const guestDraft = loadGuestResume()
+      if (guestDraft) {
+        try {
+          const saved = await saveUserResumeToCloud(session.user.id, {
+            ...guestDraft,
+            template: templateId || guestDraft.template || 'gratuit',
+          })
+          setSelectedResumeId(saved.resumeId || null)
+          window.localStorage.removeItem(GUEST_RESUME_KEY)
+        } catch (migrErr) {
+          console.warn('Erreur migration brouillon nouvel utilisateur:', migrErr)
+        }
+      } else {
+        setSelectedResumeId(null)
+      }
+
       setSelectedTemplate(templateId || 'gratuit')
       setTemplateSelectionMade(Boolean(templateId))
-      setSelectedResumeId(intent.resumeId || null)
       setCreateNewResume(false)
       setDownloadAfterPayment(Boolean(intent.downloadAfterAuth))
       setUser(session.user)
@@ -3937,9 +4009,10 @@ function App() {
       pendingAuthDestinationRef.current = null
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (error) {
-      window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
       console.error('Impossible de reprendre le parcours après la connexion:', error)
       showNotice('Connexion réussie, mais le parcours précédent n’a pas pu être restauré.')
+    } finally {
+      oauthInProgressRef.current = false
     }
   }
 
@@ -4283,54 +4356,94 @@ function App() {
     pendingPlanRef.current = null
   }
   const handleAuthenticated = async (authenticatedUser, draft) => {
-    const requestedTemplate = pendingTemplateRef.current
-    const requestedPlan = pendingPlanRef.current
-    let resumeDraft = draft || pendingDraftRef.current
-    let templateToSave = requestedTemplate
-    if (!resumeDraft) {
-      const guestDraft = loadGuestResume()
-      if (guestDraft) {
-        const cloudResume = await loadUserResumeFromCloud(authenticatedUser.id)
-        if (cloudResume) {
-          window.localStorage.removeItem(GUEST_RESUME_KEY)
-        } else {
-          resumeDraft = guestDraft
-          templateToSave = 'gratuit'
+    try {
+      // 1. Toujours vérifier d'abord si l'utilisateur possède déjà un ou plusieurs CV sur son compte
+      const existingResumes = await loadUserResumesFromCloud(authenticatedUser.id)
+      const hasExistingAccount = Array.isArray(existingResumes) && existingResumes.length > 0
+
+      if (hasExistingAccount) {
+        // L'utilisateur a déjà un compte avec des CV : ON RESTAURE TOUT, ON N'ÉCRASE RIEN !
+        window.localStorage.removeItem(GUEST_RESUME_KEY)
+        pendingDraftRef.current = null
+        pendingTemplateRef.current = null
+        pendingDownloadRef.current = false
+
+        const primaryResume = existingResumes[0]
+        setSelectedResumeId(primaryResume.id)
+        setSelectedTemplate(primaryResume.template || 'gratuit')
+        setTemplateSelectionMade(false)
+        setCreateNewResume(false)
+        setImportedResumeDraft(null)
+        setBuilderSessionKey((prev) => prev + 1)
+        setUser(authenticatedUser)
+        setAuthOpen(false)
+
+        const requestedPlan = pendingPlanRef.current
+        pendingPlanRef.current = null
+        if (requestedPlan) {
+          setMobilePayPhone('')
+          setMobilePayError('')
+          setMobilePayPlan(requestedPlan)
+          setView('dashboard')
+          return
         }
+
+        const destination = pendingAuthDestinationRef.current === 'builder' ? 'builder' : 'dashboard'
+        pendingAuthDestinationRef.current = null
+        setView(destination)
+        showNotice('Bon retour ! Votre compte et vos CV ont été restaurés.')
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        return
       }
-    }
-    if (resumeDraft && templateToSave) {
-      const saved = await saveUserResumeToCloud(authenticatedUser.id, {
-        ...resumeDraft,
-        template: templateToSave,
-      }, resumeDraft.resumeId || null)
-      setSelectedResumeId(saved.resumeId || null)
-      setCreateNewResume(false)
-      window.localStorage.removeItem(GUEST_RESUME_KEY)
-    }
-    setUser(authenticatedUser)
-    setAuthOpen(false)
-    if (requestedPlan) {
-      pendingPlanRef.current = null
+
+      // 2. Si l'utilisateur n'a AUCUN CV existant (nouveau compte) :
+      const requestedTemplate = pendingTemplateRef.current || 'gratuit'
+      const requestedPlan = pendingPlanRef.current
+      let resumeDraft = draft || pendingDraftRef.current || loadGuestResume()
+
+      if (resumeDraft) {
+        const saved = await saveUserResumeToCloud(authenticatedUser.id, {
+          ...resumeDraft,
+          template: requestedTemplate,
+        }, null)
+        setSelectedResumeId(saved.resumeId || null)
+        setCreateNewResume(false)
+        window.localStorage.removeItem(GUEST_RESUME_KEY)
+      } else {
+        setSelectedResumeId(null)
+        setCreateNewResume(false)
+      }
+
       pendingTemplateRef.current = null
       pendingDraftRef.current = null
       pendingDownloadRef.current = false
-      setMobilePayPhone('')
-      setMobilePayError('')
-      setMobilePayPlan(requestedPlan)
+      pendingPlanRef.current = null
+
+      setUser(authenticatedUser)
+      setAuthOpen(false)
+
+      if (requestedPlan) {
+        setMobilePayPhone('')
+        setMobilePayError('')
+        setMobilePayPlan(requestedPlan)
+        setView('dashboard')
+        return
+      }
+
+      setSelectedTemplate(requestedTemplate)
+      setTemplateSelectionMade(false)
+      setDownloadAfterPayment(false)
+      setView(resumeDraft ? 'builder' : 'dashboard')
+      pendingAuthDestinationRef.current = null
+      if (paymentReturnId) setPaymentVerifyAttempt((current) => current + 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (authHandlingError) {
+      console.error('Erreur lors de la gestion de l’authentification:', authHandlingError)
+      setUser(authenticatedUser)
+      setAuthOpen(false)
       setView('dashboard')
-      return
+      showNotice('Connexion réussie. Accès à votre espace.')
     }
-    setSelectedTemplate(templateToSave || 'gratuit')
-    setTemplateSelectionMade(Boolean(templateToSave))
-    setDownloadAfterPayment(pendingDownloadRef.current)
-    pendingTemplateRef.current = null
-    pendingDraftRef.current = null
-    pendingDownloadRef.current = false
-    setView((requestedTemplate || resumeDraft) ? 'builder' : 'dashboard')
-    pendingAuthDestinationRef.current = null
-    if (paymentReturnId) setPaymentVerifyAttempt((current) => current + 1)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const openDashboardResume = (savedResume) => {
@@ -4596,6 +4709,7 @@ function App() {
           onDashboard={goDashboard}
           onLogout={logout}
           onRequestUnlock={requestUnlock}
+          onSignIn={handleOpenSignIn}
           onPaymentStarted={handleMobilePayStarted}
           paymentStatus={paymentReturnStatus?.state}
           onRetryPayment={() => setPaymentVerifyAttempt((current) => current + 1)}
@@ -4657,6 +4771,7 @@ function App() {
               onDashboard={goDashboard}
               onLogout={logout}
               onRequestUnlock={requestUnlock}
+              onSignIn={handleOpenSignIn}
               onPaymentStarted={handleMobilePayStarted}
               paymentStatus={null}
               onRetryPayment={() => { }}
