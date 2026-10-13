@@ -1835,7 +1835,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 .resume-template-signal .resume-left .resume-certification p { font-size: 9px; }
 .resume-template-signal .resume-right > .resume-block:first-child { margin-top: 24px; }
 .resume-template-signal .resume-right > .resume-block:first-child .resume-label { font-size: 0; }
-.resume-template-signal .resume-right > .resume-block:first-child .resume-label::after { content: 'Expérience professionnelle'; font: 700 13px 'DM Sans', sans-serif; letter-spacing: .08em; }
+.resume-template-signal .resume-right > .resume-block:first-child .resume-label::after { content: 'Expériences professionnelles'; font: 700 13px 'DM Sans', sans-serif; letter-spacing: .08em; }
 
 /* ── MODÈLE ÉPURE (Gratuit - Minimaliste & ATS) ── */
 .resume-template-epure { background: #ffffff; --cv-accent: #334155; border-top: 5px solid var(--cv-accent, #334155); }
@@ -4394,4 +4394,98 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   font-weight: 700;
 }
 
+/* ==========================================================================
+   Drag & Drop et réorganisation des rubriques répétables (Expériences & Formations)
+   ========================================================================== */
+.repeatable-block {
+  position: relative;
+}
 
+.repeatable-block.is-dragging {
+  opacity: 0.35 !important;
+  border: 1.5px dashed #2563eb !important;
+  transform: scale(0.985);
+  box-shadow: none !important;
+}
+
+.repeatable-block.is-drag-over {
+  border-color: #2563eb !important;
+  background: #f0f7ff !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.22), 0 8px 24px rgba(37, 99, 235, 0.1) !important;
+  transform: translateY(-2px);
+}
+
+.repeatable-block.is-drag-over::before {
+  content: '';
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #2563eb;
+  border-radius: 3px;
+  z-index: 5;
+}
+
+.repeatable-drag-col {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.repeatable-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 28px;
+  color: #94998e;
+  cursor: grab;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  user-select: none;
+  touch-action: none;
+}
+
+.repeatable-drag-handle:hover {
+  color: var(--ink);
+  background: #e5e3d8;
+}
+
+.repeatable-drag-handle:active {
+  cursor: grabbing;
+}
+
+.repeatable-order-steppers {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.repeatable-action-stepper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 12px;
+  font-size: 7px;
+  line-height: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #8b9086;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.repeatable-action-stepper:hover:not(:disabled) {
+  background: #e4e2d7;
+  color: var(--ink);
+}
+
+.repeatable-action-stepper:disabled {
+  opacity: 0.18;
+  cursor: not-allowed;
+}

@@ -196,7 +196,7 @@ function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
     if (!experience) return null
     return (
       <div className={`resume-entry-wrap${showLabel ? ' resume-entry-wrap-labeled' : ''}`} data-block-id={item.id}>
-        {showLabel && <span className="resume-label">Expérience</span>}
+        {showLabel && <span className="resume-label">Expériences professionnelles</span>}
         <div className="resume-entry">
           <strong>{experience.company}</strong>
           <p>
@@ -221,7 +221,7 @@ function RightBlock({ item, resume, formatDateRange, showLabel = true }) {
     if (!education) return null
     return (
       <div className={`resume-entry-wrap${showLabel ? ' resume-entry-wrap-labeled' : ''}`} data-block-id={item.id}>
-        {showLabel && <span className="resume-label">Formation académique</span>}
+        {showLabel && <span className="resume-label">Formations académiques</span>}
         <div className="resume-entry">
           <strong>{education.school}</strong>
           <p>
@@ -316,8 +316,8 @@ function ResumeSheet({
         <div className="resume-right">
           {measure ? (
             <>
-              <span className="resume-label" data-measure="exp-label">Expérience</span>
-              <span className="resume-label" data-measure="edu-label">Formation académique</span>
+              <span className="resume-label" data-measure="exp-label">Expériences professionnelles</span>
+              <span className="resume-label" data-measure="edu-label">Formations académiques</span>
               <span className="resume-label" data-measure="project-label">Projets et réalisations</span>
               {page.right.map((item) => (
                 <RightBlock key={item.id} item={item} resume={resume} formatDateRange={formatDateRange} showLabel={false} />

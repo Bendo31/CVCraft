@@ -987,6 +987,10 @@ function ResumeBuilder({
   const [resumesLoading, setResumesLoading] = useState(false)
   const [openExperienceIndex, setOpenExperienceIndex] = useState(0)
   const [openEducationIndex, setOpenEducationIndex] = useState(0)
+  const [dragItem, setDragItem] = useState(null)
+  const [dragOverItem, setDragOverItem] = useState(null)
+  const isDraggingRef = useRef(false)
+  const touchDragRef = useRef(null)
   const editVersion = useRef(0)
   const cloudSaveQueue = useRef(Promise.resolve())
   const autoDownloadStarted = useRef(false)
@@ -1383,6 +1387,123 @@ function ResumeBuilder({
     }
   }
 
+  const handleReorder = (section, fromIndex, toIndex) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return
+    markEdited()
+    setResume((current) => {
+      const list = [...(current[section] || [])]
+      if (fromIndex >= list.length || toIndex >= list.length) return current
+      const [moved] = list.splice(fromIndex, 1)
+      list.splice(toIndex, 0, moved)
+      return { ...current, [section]: list }
+    })
+    if (section === 'experiences') {
+      setOpenExperienceIndex((prev) => {
+        if (prev === fromIndex) return toIndex
+        if (fromIndex < prev && toIndex >= prev) return prev - 1
+        if (fromIndex > prev && toIndex <= prev) return prev + 1
+        return prev
+      })
+    } else if (section === 'educations') {
+      setOpenEducationIndex((prev) => {
+        if (prev === fromIndex) return toIndex
+        if (fromIndex < prev && toIndex >= prev) return prev - 1
+        if (fromIndex > prev && toIndex <= prev) return prev + 1
+        return prev
+      })
+    }
+  }
+
+  const handleDragStart = (e, section, index) => {
+    isDraggingRef.current = true
+    setDragItem({ section, index })
+    e.dataTransfer.effectAllowed = 'move'
+    try {
+      e.dataTransfer.setData('text/plain', JSON.stringify({ section, index }))
+    } catch (_) {}
+  }
+
+  const handleDragOver = (e, section, index) => {
+    if (!dragItem || dragItem.section !== section) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (!dragOverItem || dragOverItem.section !== section || dragOverItem.index !== index) {
+      setDragOverItem({ section, index })
+    }
+  }
+
+  const handleDragLeave = (e, section, index) => {
+    if (dragOverItem?.section === section && dragOverItem?.index === index) {
+      if (!e.currentTarget.contains(e.relatedTarget)) {
+        setDragOverItem(null)
+      }
+    }
+  }
+
+  const handleDrop = (e, section, toIndex) => {
+    e.preventDefault()
+    let fromIndex = dragItem?.section === section ? dragItem.index : null
+    if (fromIndex === null) {
+      try {
+        const raw = e.dataTransfer.getData('text/plain')
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed && parsed.section === section) {
+            fromIndex = parsed.index
+          }
+        }
+      } catch (_) {}
+    }
+    if (fromIndex !== null && fromIndex !== toIndex) {
+      handleReorder(section, fromIndex, toIndex)
+    }
+    setDragItem(null)
+    setDragOverItem(null)
+    setTimeout(() => {
+      isDraggingRef.current = false
+    }, 120)
+  }
+
+  const handleDragEnd = () => {
+    setDragItem(null)
+    setDragOverItem(null)
+    setTimeout(() => {
+      isDraggingRef.current = false
+    }, 120)
+  }
+
+  const handleTouchStart = (e, section, index) => {
+    touchDragRef.current = { section, fromIndex: index, targetIndex: index }
+    setDragItem({ section, index })
+  }
+
+  const handleTouchMove = (e, section) => {
+    if (!touchDragRef.current || touchDragRef.current.section !== section) return
+    const touch = e.touches?.[0]
+    if (!touch) return
+    const el = document.elementFromPoint(touch.clientX, touch.clientY)
+    const targetCard = el?.closest(`[data-dnd-section="${section}"]`)
+    if (targetCard) {
+      const toIndex = Number(targetCard.getAttribute('data-dnd-index'))
+      if (!Number.isNaN(toIndex)) {
+        touchDragRef.current.targetIndex = toIndex
+        setDragOverItem({ section, index: toIndex })
+      }
+    }
+  }
+
+  const handleTouchEnd = (section) => {
+    if (touchDragRef.current && touchDragRef.current.section === section) {
+      const { fromIndex, targetIndex } = touchDragRef.current
+      if (fromIndex !== targetIndex) {
+        handleReorder(section, fromIndex, targetIndex)
+      }
+    }
+    touchDragRef.current = null
+    setDragItem(null)
+    setDragOverItem(null)
+  }
+
   const updateSkill = (index, value) => {
     markEdited()
     setResume((current) => ({ ...current, skills: current.skills.map((skill, skillIndex) => skillIndex === index ? value : skill) }))
@@ -1751,6 +1872,9 @@ function ResumeBuilder({
 
   const experiences = Array.isArray(resume?.experiences) ? resume.experiences : []
   const educations = Array.isArray(resume?.educations) ? resume.educations : []
+  const displayedExperiences = experiences.slice(0, isFreeModel ? 3 : undefined)
+  const totalExperiences = displayedExperiences.length
+  const totalEducations = educations.length
   const skills = Array.isArray(resume?.skills) ? resume.skills : []
   const languages = Array.isArray(resume?.languages) ? resume.languages : []
   const projects = Array.isArray(resume?.projects) ? resume.projects : []
@@ -2246,20 +2370,75 @@ function ResumeBuilder({
               )}
             </div>
 
-            <SectionHeading number="02" title="Expérience professionnelle" onReset={() => resetSection('experiences')} />
-            {experiences.slice(0, isFreeModel ? 3 : undefined).map((experience, index) => {
+            <SectionHeading number="02" title="Expériences professionnelles" onReset={() => resetSection('experiences')} />
+            {displayedExperiences.map((experience, index) => {
               const isOpen = openExperienceIndex === index
+              const isDragging = dragItem?.section === 'experiences' && dragItem?.index === index
+              const isDragOver = dragOverItem?.section === 'experiences' && dragOverItem?.index === index && dragItem?.index !== index
+
               if (!isOpen) {
                 return (
                   <div
-                    className="repeatable-block repeatable-block-collapsed"
+                    className={`repeatable-block repeatable-block-collapsed${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
                     key={`experience-${index}`}
-                    onClick={() => setOpenExperienceIndex(index)}
+                    data-dnd-section="experiences"
+                    data-dnd-index={index}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'experiences', index)}
+                    onDragOver={(e) => handleDragOver(e, 'experiences', index)}
+                    onDragLeave={(e) => handleDragLeave(e, 'experiences', index)}
+                    onDrop={(e) => handleDrop(e, 'experiences', index)}
+                    onDragEnd={handleDragEnd}
+                    onClick={() => {
+                      if (isDraggingRef.current) return
+                      setOpenExperienceIndex(index)
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenExperienceIndex(index) }}
                     title="Cliquer pour modifier cette expérience"
                   >
+                    <div className="repeatable-drag-col" onClick={(e) => e.stopPropagation()}>
+                      <span
+                        className="repeatable-drag-handle"
+                        title="Glisser pour réorganiser"
+                        aria-label="Glisser pour réorganiser"
+                        onTouchStart={(e) => handleTouchStart(e, 'experiences', index)}
+                        onTouchMove={(e) => handleTouchMove(e, 'experiences')}
+                        onTouchEnd={() => handleTouchEnd('experiences')}
+                      >
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                          <circle cx="9" cy="6" r="1.6" />
+                          <circle cx="15" cy="6" r="1.6" />
+                          <circle cx="9" cy="12" r="1.6" />
+                          <circle cx="15" cy="12" r="1.6" />
+                          <circle cx="9" cy="18" r="1.6" />
+                          <circle cx="15" cy="18" r="1.6" />
+                        </svg>
+                      </span>
+                      <div className="repeatable-order-steppers">
+                        <button
+                          type="button"
+                          className="repeatable-action-stepper"
+                          disabled={index === 0}
+                          onClick={() => handleReorder('experiences', index, index - 1)}
+                          title="Monter cette expérience"
+                          aria-label="Monter"
+                        >
+                          ▲
+                        </button>
+                        <button
+                          type="button"
+                          className="repeatable-action-stepper"
+                          disabled={index === totalExperiences - 1}
+                          onClick={() => handleReorder('experiences', index, index + 1)}
+                          title="Descendre cette expérience"
+                          aria-label="Descendre"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
                     <div className="repeatable-collapsed-content">
                       <div className="repeatable-collapsed-header">
                         <span className="repeatable-badge">Expérience {index + 1}</span>
@@ -2300,16 +2479,71 @@ function ResumeBuilder({
               }
 
               return (
-                <div className="repeatable-block repeatable-block-open" key={`experience-${index}`}>
+                <div
+                  className={`repeatable-block repeatable-block-open${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+                  key={`experience-${index}`}
+                  data-dnd-section="experiences"
+                  data-dnd-index={index}
+                  onDragOver={(e) => handleDragOver(e, 'experiences', index)}
+                  onDragLeave={(e) => handleDragLeave(e, 'experiences', index)}
+                  onDrop={(e) => handleDrop(e, 'experiences', index)}
+                >
                   <div
                     className="repeatable-heading repeatable-heading-interactive"
-                    onClick={() => setOpenExperienceIndex(-1)}
+                    onClick={() => {
+                      if (isDraggingRef.current) return
+                      setOpenExperienceIndex(-1)
+                    }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenExperienceIndex(-1) }}
                     title="Cliquer pour replier cette expérience"
                   >
                     <div className="repeatable-heading-info">
+                      <div className="repeatable-drag-col" onClick={(e) => e.stopPropagation()}>
+                        <span
+                          className="repeatable-drag-handle"
+                          title="Glisser pour réorganiser"
+                          aria-label="Glisser pour réorganiser"
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, 'experiences', index)}
+                          onDragEnd={handleDragEnd}
+                          onTouchStart={(e) => handleTouchStart(e, 'experiences', index)}
+                          onTouchMove={(e) => handleTouchMove(e, 'experiences')}
+                          onTouchEnd={() => handleTouchEnd('experiences')}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                            <circle cx="9" cy="6" r="1.6" />
+                            <circle cx="15" cy="6" r="1.6" />
+                            <circle cx="9" cy="12" r="1.6" />
+                            <circle cx="15" cy="12" r="1.6" />
+                            <circle cx="9" cy="18" r="1.6" />
+                            <circle cx="15" cy="18" r="1.6" />
+                          </svg>
+                        </span>
+                        <div className="repeatable-order-steppers">
+                          <button
+                            type="button"
+                            className="repeatable-action-stepper"
+                            disabled={index === 0}
+                            onClick={() => handleReorder('experiences', index, index - 1)}
+                            title="Monter cette expérience"
+                            aria-label="Monter"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            className="repeatable-action-stepper"
+                            disabled={index === totalExperiences - 1}
+                            onClick={() => handleReorder('experiences', index, index + 1)}
+                            title="Descendre cette expérience"
+                            aria-label="Descendre"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
                       <span className="repeatable-badge">Expérience {index + 1}</span>
                       {(experience.company || experience.jobTitle) && (
                         <span className="repeatable-heading-sub">
@@ -2392,21 +2626,76 @@ function ResumeBuilder({
             })}
             <button className="add-entry" disabled={isFreeModel && experiences.length >= 3} onClick={handleAddExperience}>+ Ajouter une expérience {isFreeModel && experiences.length >= 3 && <PremiumCrown />}</button>
 
-            <SectionHeading number="03" title="Formation académique" onReset={() => resetSection('educations')} />
+            <SectionHeading number="03" title="Formations académiques" onReset={() => resetSection('educations')} />
             <fieldset className="premium-fieldset">
               {educations.map((education, index) => {
                 const isOpen = openEducationIndex === index
+                const isDragging = dragItem?.section === 'educations' && dragItem?.index === index
+                const isDragOver = dragOverItem?.section === 'educations' && dragOverItem?.index === index && dragItem?.index !== index
+
                 if (!isOpen) {
                   return (
                     <div
-                      className="repeatable-block repeatable-block-collapsed"
+                      className={`repeatable-block repeatable-block-collapsed${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
                       key={`education-${index}`}
-                      onClick={() => setOpenEducationIndex(index)}
+                      data-dnd-section="educations"
+                      data-dnd-index={index}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, 'educations', index)}
+                      onDragOver={(e) => handleDragOver(e, 'educations', index)}
+                      onDragLeave={(e) => handleDragLeave(e, 'educations', index)}
+                      onDrop={(e) => handleDrop(e, 'educations', index)}
+                      onDragEnd={handleDragEnd}
+                      onClick={() => {
+                        if (isDraggingRef.current) return
+                        setOpenEducationIndex(index)
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenEducationIndex(index) }}
                       title="Cliquer pour modifier cette formation"
                     >
+                      <div className="repeatable-drag-col" onClick={(e) => e.stopPropagation()}>
+                        <span
+                          className="repeatable-drag-handle"
+                          title="Glisser pour réorganiser"
+                          aria-label="Glisser pour réorganiser"
+                          onTouchStart={(e) => handleTouchStart(e, 'educations', index)}
+                          onTouchMove={(e) => handleTouchMove(e, 'educations')}
+                          onTouchEnd={() => handleTouchEnd('educations')}
+                        >
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                            <circle cx="9" cy="6" r="1.6" />
+                            <circle cx="15" cy="6" r="1.6" />
+                            <circle cx="9" cy="12" r="1.6" />
+                            <circle cx="15" cy="12" r="1.6" />
+                            <circle cx="9" cy="18" r="1.6" />
+                            <circle cx="15" cy="18" r="1.6" />
+                          </svg>
+                        </span>
+                        <div className="repeatable-order-steppers">
+                          <button
+                            type="button"
+                            className="repeatable-action-stepper"
+                            disabled={index === 0}
+                            onClick={() => handleReorder('educations', index, index - 1)}
+                            title="Monter cette formation"
+                            aria-label="Monter"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            type="button"
+                            className="repeatable-action-stepper"
+                            disabled={index === totalEducations - 1}
+                            onClick={() => handleReorder('educations', index, index + 1)}
+                            title="Descendre cette formation"
+                            aria-label="Descendre"
+                          >
+                            ▼
+                          </button>
+                        </div>
+                      </div>
                       <div className="repeatable-collapsed-content">
                         <div className="repeatable-collapsed-header">
                           <span className="repeatable-badge">Formation {index + 1}</span>
@@ -2447,16 +2736,71 @@ function ResumeBuilder({
                 }
 
                 return (
-                  <div className="repeatable-block repeatable-block-open" key={`education-${index}`}>
+                  <div
+                    className={`repeatable-block repeatable-block-open${isDragging ? ' is-dragging' : ''}${isDragOver ? ' is-drag-over' : ''}`}
+                    key={`education-${index}`}
+                    data-dnd-section="educations"
+                    data-dnd-index={index}
+                    onDragOver={(e) => handleDragOver(e, 'educations', index)}
+                    onDragLeave={(e) => handleDragLeave(e, 'educations', index)}
+                    onDrop={(e) => handleDrop(e, 'educations', index)}
+                  >
                     <div
                       className="repeatable-heading repeatable-heading-interactive"
-                      onClick={() => setOpenEducationIndex(-1)}
+                      onClick={() => {
+                        if (isDraggingRef.current) return
+                        setOpenEducationIndex(-1)
+                      }}
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenEducationIndex(-1) }}
                       title="Cliquer pour replier cette formation"
                     >
                       <div className="repeatable-heading-info">
+                        <div className="repeatable-drag-col" onClick={(e) => e.stopPropagation()}>
+                          <span
+                            className="repeatable-drag-handle"
+                            title="Glisser pour réorganiser"
+                            aria-label="Glisser pour réorganiser"
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, 'educations', index)}
+                            onDragEnd={handleDragEnd}
+                            onTouchStart={(e) => handleTouchStart(e, 'educations', index)}
+                            onTouchMove={(e) => handleTouchMove(e, 'educations')}
+                            onTouchEnd={() => handleTouchEnd('educations')}
+                          >
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                              <circle cx="9" cy="6" r="1.6" />
+                              <circle cx="15" cy="6" r="1.6" />
+                              <circle cx="9" cy="12" r="1.6" />
+                              <circle cx="15" cy="12" r="1.6" />
+                              <circle cx="9" cy="18" r="1.6" />
+                              <circle cx="15" cy="18" r="1.6" />
+                            </svg>
+                          </span>
+                          <div className="repeatable-order-steppers">
+                            <button
+                              type="button"
+                              className="repeatable-action-stepper"
+                              disabled={index === 0}
+                              onClick={() => handleReorder('educations', index, index - 1)}
+                              title="Monter cette formation"
+                              aria-label="Monter"
+                            >
+                              ▲
+                            </button>
+                            <button
+                              type="button"
+                              className="repeatable-action-stepper"
+                              disabled={index === totalEducations - 1}
+                              onClick={() => handleReorder('educations', index, index + 1)}
+                              title="Descendre cette formation"
+                              aria-label="Descendre"
+                            >
+                              ▼
+                            </button>
+                          </div>
+                        </div>
                         <span className="repeatable-badge">Formation {index + 1}</span>
                         {(education.school || education.degree) && (
                           <span className="repeatable-heading-sub">
