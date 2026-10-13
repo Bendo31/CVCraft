@@ -2509,7 +2509,13 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   background: #f3f4f6;
   border-color: rgba(0, 0, 0, 0.15);
 }
-.dashboard-content { width: min(100% - 48px, 1400px); margin: auto; padding: 40px 0 64px; }
+.dashboard-content {
+  width: 100%;
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 40px 44px 64px;
+  box-sizing: border-box;
+}
 .dashboard-documents { border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; }
 .dashboard-documents-heading { min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 20px; }
 .dashboard-heading-actions { display: flex; align-items: center; gap: 9px; }
@@ -2642,7 +2648,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
 }
 
 @media (max-width: 760px) {
-  .dashboard-content { width: min(100% - 32px, 1240px); padding: 26px 0 48px; }
+  .dashboard-content { padding: 26px 16px 48px; }
   .dashboard-documents-heading { min-height: 60px; padding: 10px 13px; }
   .dashboard-heading-actions { gap: 6px; }
   .dashboard-documents-heading h1 { font-size: 18px; }
