@@ -3135,8 +3135,7 @@ function ResumeBuilder({
         </section>
         <aside className="builder-design-panel" aria-label="Personnalisation du CV">
           <div className="design-panel-heading">
-            <span className="section-kicker">Personnalisation</span>
-            <h2>Style<br /><em>du CV.</em></h2>
+            <h2>Ajoutez du Style</h2>
           </div>
 
           <section className="design-group">
