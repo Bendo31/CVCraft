@@ -3873,7 +3873,6 @@ function ResumeDashboard({
               </span>
             )}
           </span>
-          <button className="dashboard-home-link" type="button" onClick={onHome}>Accueil</button>
           <button type="button" onClick={onLogout}>Déconnexion</button>
         </div>
         <button
