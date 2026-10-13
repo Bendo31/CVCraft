@@ -3863,31 +3863,33 @@ function ResumeDashboard({
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
-        <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CVcraft"><span className="brand-mark">c</span><span>CVcraft</span></button>
-        <div className="dashboard-user dashboard-user-desktop">
-          <span className="dashboard-user-email">
-            {user?.email || ''}
-            {plan.active && ['pro', 'gold'].includes(plan.planId) && (
-              <span className="user-pro-crown" title={`Abonnement ${plan.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
-                <PremiumCrown />
-              </span>
-            )}
-          </span>
-          <button type="button" onClick={onLogout}>Déconnexion</button>
+        <div className="dashboard-header-inner">
+          <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CVcraft"><span className="brand-mark">c</span><span>CVcraft</span></button>
+          <div className="dashboard-user dashboard-user-desktop">
+            <span className="dashboard-user-email">
+              {user?.email || ''}
+              {plan.active && ['pro', 'gold'].includes(plan.planId) && (
+                <span className="user-pro-crown" title={`Abonnement ${plan.planId === 'gold' ? 'Gold' : 'Pro'} actif`}>
+                  <PremiumCrown />
+                </span>
+              )}
+            </span>
+            <button className="dashboard-logout-button" type="button" onClick={onLogout}>Déconnexion</button>
+          </div>
+          <button
+            className="dashboard-burger-btn"
+            type="button"
+            aria-label="Menu du profil"
+            aria-expanded={mobileMenuOpen}
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
         </div>
-        <button
-          className="dashboard-burger-btn"
-          type="button"
-          aria-label="Menu du profil"
-          aria-expanded={mobileMenuOpen}
-          onClick={() => setMobileMenuOpen(true)}
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <line x1="3" y1="6" x2="21" y2="6" />
-            <line x1="3" y1="12" x2="21" y2="12" />
-            <line x1="3" y1="18" x2="21" y2="18" />
-          </svg>
-        </button>
       </header>
       <div className="dashboard-content">
         <section className="dashboard-documents" aria-labelledby="dashboard-documents-title" aria-busy={isLoading}>
