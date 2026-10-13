@@ -3045,17 +3045,11 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
 }
 
 function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthStart }) {
-  const [flowMode, setFlowMode] = useState(mode)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [otp, setOtp] = useState('')
-  const [otpType, setOtpType] = useState('email')
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
-    setFlowMode(mode)
     setError('')
     setMessage('')
   }, [mode])
@@ -3068,88 +3062,17 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
     }
   }, [])
 
-  const handleSubmit = async (event) => {
-    event.preventDefault()
-    setError('')
-    setMessage('')
-    setIsSubmitting(true)
-    try {
-      if (flowMode === 'reset') {
-        await resetPasswordForEmail(email)
-        setMessage('Si un compte correspond à cette adresse, un lien de réinitialisation vous sera envoyé.')
-        return
-      }
-      if (flowMode === 'update') {
-        await updatePassword(password)
-        setPassword('')
-        setMessage('Votre mot de passe a été modifié.')
-        return
-      }
-      if (flowMode === 'otp') {
-        const result = await verifyEmailOtp(email, otp.trim(), otpType)
-        if (!result.session?.user) {
-          throw new Error('Le code est accepté, mais aucune session n’a été créée. Réessayez ou reconnectez-vous.')
-        }
-        await onAuthenticated(result.session.user)
-        return
-      }
-
-      if (flowMode === 'signup') {
-        const result = await signUp({ email, password })
-        if (result.session?.user) {
-          await signOut()
-          await signInWithOtp(email)
-          setOtpType('email')
-        } else {
-          setOtpType('signup')
-        }
-      } else {
-        await signInWithPassword({ email, password })
-        await signOut()
-        await signInWithOtp(email)
-        setOtpType('email')
-      }
-      setOtp('')
-      setFlowMode('otp')
-      setMessage(`Un code de validation a été demandé pour ${email}. Vérifiez aussi vos courriers indésirables. S’il n’arrive pas, utilisez « Renvoyer un code ».`)
-    } catch (submitError) {
-      console.error('Erreur d’authentification Supabase:', submitError)
-      setError(submitError.message || 'La connexion au serveur a échoué.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   const handleOAuth = async (provider) => {
     setError('')
     setMessage('')
     setIsSubmitting(true)
     try {
-      onOAuthStart(flowMode)
+      onOAuthStart?.('signin')
       await signInWithOAuth(provider)
     } catch (oauthError) {
       window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
       console.error(`Erreur de connexion avec ${provider}:`, oauthError)
       setError(oauthError.message || `La connexion avec ${provider} a échoué.`)
-      setIsSubmitting(false)
-    }
-  }
-
-  const resendOtp = async () => {
-    setError('')
-    setMessage('')
-    setIsSubmitting(true)
-    try {
-      if (otpType === 'signup') {
-        await resendSignupOtp(email)
-      } else {
-        await signInWithOtp(email)
-      }
-      setMessage(`Un nouveau code de validation a été envoyé à ${email}.`)
-    } catch (resendError) {
-      console.error('Erreur lors du renvoi du code OTP:', resendError)
-      setError(resendError.message || 'Le code n’a pas pu être renvoyé.')
-    } finally {
       setIsSubmitting(false)
     }
   }
@@ -3183,89 +3106,45 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
           <button className="account-close" type="button" aria-label="Fermer" onClick={onClose}>×</button>
           <div className="account-auth-content">
             <span className="preview-kicker">Votre espace CVcraft</span>
-            <h1 id="account-title">{flowMode === 'signup' ? 'Créer mon compte' : flowMode === 'reset' ? 'Réinitialiser le mot de passe' : flowMode === 'update' ? 'Choisir un nouveau mot de passe' : flowMode === 'otp' ? otpType === 'signup' ? 'Valider mon compte' : 'Valider mon e-mail' : 'Bon retour parmi nous'}</h1>
-            <p>{flowMode === 'reset' ? 'Saisissez l’adresse e-mail de votre compte pour recevoir un lien de réinitialisation.' : flowMode === 'update' ? 'Saisissez votre nouveau mot de passe pour sécuriser votre compte.' : flowMode === 'otp' ? `Saisissez le code à 6 chiffres envoyé à ${email}.` : 'Enregistrez votre CV et retrouvez-le à tout moment.'}</p>
-            {flowMode !== 'reset' && flowMode !== 'update' && flowMode !== 'otp' && (
-              <>
-                <div className="account-providers">
-                  <button type="button" className="account-provider" disabled={isSubmitting} onClick={() => handleOAuth('google')}>
-                    <span className="provider-google-mark" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="18" height="18">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z" />
-                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z" />
-                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15Z" />
-                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z" />
-                      </svg>
-                    </span>
-                    Continuer avec Google
-                  </button>
-                </div>
-                <div className="account-divider"><span>ou par e-mail</span></div>
-              </>
-            )}
-            <form className="account-form" onSubmit={handleSubmit}>
-              {flowMode !== 'update' && flowMode !== 'otp' && <label>Adresse e-mail<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>}
-              {(flowMode === 'signup' || flowMode === 'signin') && <label>Mot de passe<input type="password" autoComplete={flowMode === 'signin' ? 'current-password' : 'new-password'} minLength="6" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>}
-              {flowMode === 'signup' && <p className="account-otp-hint">Un code à usage unique sera envoyé à cette adresse e-mail pour valider votre compte.</p>}
-              {flowMode === 'signin' && <p className="account-otp-hint">Après vérification de votre mot de passe, nous vous enverrons un code à usage unique par e-mail.</p>}
-              {flowMode === 'otp' && (
-                <label>Code de validation<input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxLength="6"
-                  required
-                  value={otp}
-                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                /></label>
-              )}
-              {flowMode === 'update' && <label>Nouveau mot de passe<input type="password" autoComplete="new-password" minLength="6" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>}
-              {error && <p className="account-error" role="alert">{error}</p>}
-              {message && <p className="account-message" role="status">{message}</p>}
-              <button className="button button-dark" type="submit" disabled={isSubmitting}>
-                {flowMode === 'signup' ? 'Créer mon compte' : flowMode === 'reset' ? 'Envoyer le lien' : flowMode === 'update' ? 'Enregistrer le nouveau mot de passe' : flowMode === 'otp' ? 'Valider le code' : 'Recevoir mon code'}
+            <h1 id="account-title">Connexion</h1>
+            <p>Connectez-vous en un clic avec votre compte Google pour créer, retrouver et synchroniser vos CV en toute sécurité.</p>
+
+            <div className="account-providers">
+              <button
+                type="button"
+                className="account-provider account-provider-google"
+                disabled={isSubmitting}
+                onClick={() => handleOAuth('google')}
+              >
+                <span className="provider-google-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z" />
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24Z" />
+                    <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15Z" />
+                    <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z" />
+                  </svg>
+                </span>
+                <span>{isSubmitting ? 'Connexion en cours…' : 'Continuer avec Google'}</span>
               </button>
-            </form>
-            {flowMode === 'otp' && <div className="account-otp-actions">
-              <button type="button" disabled={isSubmitting} onClick={resendOtp}>Renvoyer un code</button>
-              <button type="button" onClick={() => {
-                setError('')
-                setMessage('')
-                setOtp('')
-                setFlowMode(otpType === 'signup' ? 'signup' : 'signin')
-              }}>Changer d’adresse e-mail</button>
-            </div>}
-            {flowMode === 'signin' && <button className="account-forgot" type="button" onClick={() => {
-              setError('')
-              setMessage('')
-              setFlowMode('reset')
-            }}>Réinitialiser le mot de passe</button>}
-            {flowMode === 'otp' ? (
-              <button className="account-switch" type="button" onClick={() => {
-                setError('')
-                setMessage('')
-                setOtp('')
-                setFlowMode(otpType === 'signup' ? 'signup' : 'signin')
-              }}>Retour</button>
-            ) : flowMode === 'reset' ? (
-              <button className="account-switch" type="button" onClick={() => {
-                setError('')
-                setMessage('')
-                setFlowMode('signin')
-              }}>Retour à la connexion</button>
-            ) : flowMode !== 'update' && (
-              <button className="account-switch" type="button" onClick={() => {
-                setError('')
-                setMessage('')
-                const nextMode = flowMode === 'signup' ? 'signin' : 'signup'
-                setFlowMode(nextMode)
-                onModeChange(nextMode)
-              }}>
-                {flowMode === 'signup' ? 'Déjà un compte ? Se connecter' : 'Pas encore de compte ? Créer un compte'}
-              </button>
-            )}
+            </div>
+
+            {error && <p className="account-error" role="alert" style={{ marginTop: 14 }}>{error}</p>}
+            {message && <p className="account-message" role="status" style={{ marginTop: 14 }}>{message}</p>}
+
+            <div className="account-auth-features">
+              <div className="account-auth-feature-item">
+                <span className="account-auth-feature-bullet">✓</span>
+                <span>Connexion sécurisée en 1 clic sans mot de passe</span>
+              </div>
+              <div className="account-auth-feature-item">
+                <span className="account-auth-feature-bullet">✓</span>
+                <span>Restauration automatique de vos CV et données</span>
+              </div>
+              <div className="account-auth-feature-item">
+                <span className="account-auth-feature-bullet">✓</span>
+                <span>Accès direct à vos téléchargements et modèles débloqués</span>
+              </div>
+            </div>
           </div>
           <span className="account-legal">En continuant, vous acceptez nos conditions d’utilisation.</span>
         </section>
@@ -3799,7 +3678,7 @@ function App() {
   const [authReady, setAuthReady] = useState(false)
   const [accountPlan, setAccountPlan] = useState({ planId: 'free', active: true, validUntil: null, ready: false })
   const [authOpen, setAuthOpen] = useState(false)
-  const [authMode, setAuthMode] = useState('signup')
+  const [authMode, setAuthMode] = useState('signin')
   const [selectedTemplate, setSelectedTemplate] = useState('gratuit')
   const [selectedResumeId, setSelectedResumeId] = useState(null)
   const [createNewResume, setCreateNewResume] = useState(false)
@@ -3931,7 +3810,7 @@ function App() {
           || new URLSearchParams(window.location.search).get('error')
           || hashParams.get('error')
         if (errorDescription) {
-          setAuthMode(intent.mode === 'signin' ? 'signin' : 'signup')
+          setAuthMode('signin')
           setAuthOpen(true)
           setNotice(`Connexion impossible : ${errorDescription}. Vérifiez la configuration du fournisseur dans Supabase Auth.`)
         }
@@ -4278,7 +4157,7 @@ function App() {
     pendingDownloadRef.current = downloadAfterAuth
     pendingAuthDestinationRef.current = null
     pendingPlanRef.current = null
-    setAuthMode('signup')
+    setAuthMode('signin')
     setAuthOpen(true)
   }
   const requestPlanCheckout = (planId) => {
@@ -4290,7 +4169,7 @@ function App() {
     if (!user) {
       pendingPlanRef.current = planId
       pendingAuthDestinationRef.current = null
-      setAuthMode('signup')
+      setAuthMode('signin')
       setAuthOpen(true)
       return
     }
@@ -4803,9 +4682,9 @@ function App() {
             ) : (
               <button type="button" className="header-auth-link" onClick={() => {
                 pendingAuthDestinationRef.current = 'dashboard'
-                setAuthMode('signup')
+                setAuthMode('signin')
                 setAuthOpen(true)
-              }}>Créer mon compte</button>
+              }}>Connexion</button>
             )}
             <button className="button button-dark button-small button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
           </div>
