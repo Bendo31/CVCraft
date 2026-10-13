@@ -669,11 +669,12 @@ export function ResumeDocument({
     return () => window.cancelAnimationFrame(frame)
   }, [pages, resume, template, baseColor, selectedFont, photo])
 
+  const fontObj = selectedFont || { family: "'DM Sans', sans-serif", display: "'Fraunces', Georgia, serif" }
   const sheetStyleVars = {
     '--signal-color': baseColor,
     '--cv-accent': baseColor,
-    '--cv-font': selectedFont.family,
-    '--cv-font-display': selectedFont.display,
+    '--cv-font': fontObj.family || "'DM Sans', sans-serif",
+    '--cv-font-display': fontObj.display || "'Fraunces', Georgia, serif",
   }
   const stackHeight = pages.length * RESUME_SHEET_HEIGHT + Math.max(0, pages.length - 1) * PAGE_GAP
 

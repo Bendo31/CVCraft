@@ -422,13 +422,27 @@ export async function loadSharedResume(resumeId) {
   const client = getSupabaseClient()
   if (!client || !resumeId) throw new Error('Identifiant de CV manquant.')
 
+  try {
+    const { data: rpcData, error: rpcError } = await client
+      .rpc('get_shared_resume', { p_resume_id: resumeId })
+      .maybeSingle()
+    if (!rpcError && rpcData) {
+      return formatResumeRecord(rpcData)
+    }
+  } catch (rpcErr) {
+    console.warn('Essai RPC get_shared_resume non concluant:', rpcErr)
+  }
+
   const { data, error } = await client
     .from('resumes')
     .select('*')
     .eq('id', resumeId)
     .maybeSingle()
 
-  if (error) throw error
+  if (error) {
+    console.error('Erreur Supabase loadSharedResume direct:', error)
+    throw error
+  }
   if (!data) return null
   return formatResumeRecord(data)
 }

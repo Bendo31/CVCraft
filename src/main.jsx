@@ -3174,6 +3174,7 @@ function ResumeDashboard({
   const [retry, setRetry] = useState(0)
   const [actionsOpen, setActionsOpen] = useState(null)
   const [changeOfferOpen, setChangeOfferOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const guestMigrationRef = useRef(null)
 
   useEffect(() => {
@@ -3271,7 +3272,9 @@ function ResumeDashboard({
 
   const handleShareResume = async (resume) => {
     setActionsOpen(null)
-    const shareUrl = `${window.location.origin}/?share=${resume.id}`
+    const base = window.location.origin + window.location.pathname
+    const cleanBase = base.endsWith('/') ? base : `${base}/`
+    const shareUrl = `${cleanBase}?share=${resume.id}`
     const resumeTitle = getResumeTitle(resume)
 
     if (navigator.share) {
@@ -3356,7 +3359,7 @@ function ResumeDashboard({
     <main className="dashboard-page">
       <header className="dashboard-header">
         <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CVcraft"><span className="brand-mark">c</span><span>CVcraft</span></button>
-        <div className="dashboard-user">
+        <div className="dashboard-user dashboard-user-desktop">
           <span className="dashboard-user-email">
             {user?.email || ''}
             {plan.active && ['pro', 'gold'].includes(plan.planId) && (
@@ -3368,6 +3371,19 @@ function ResumeDashboard({
           <button className="dashboard-home-link" type="button" onClick={onHome}>Accueil</button>
           <button type="button" onClick={onLogout}>Déconnexion</button>
         </div>
+        <button
+          className="dashboard-burger-btn"
+          type="button"
+          aria-label="Menu du profil"
+          aria-expanded={mobileMenuOpen}
+          onClick={() => setMobileMenuOpen(true)}
+        >
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
       </header>
       <div className="dashboard-content">
         <section className="dashboard-documents" aria-labelledby="dashboard-documents-title" aria-busy={isLoading}>
@@ -3640,6 +3656,91 @@ function ResumeDashboard({
           </div>
         </section>
       </div>}
+      {mobileMenuOpen && (
+        <div className="dashboard-mobile-drawer-backdrop" onClick={() => setMobileMenuOpen(false)}>
+          <aside className="dashboard-mobile-drawer" onClick={(event) => event.stopPropagation()} aria-label="Menu de navigation mobile">
+            <div className="dashboard-drawer-header">
+              <span className="preview-kicker">Mon Profil</span>
+              <button
+                type="button"
+                className="dashboard-drawer-close"
+                aria-label="Fermer le menu"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="dashboard-drawer-profile-card">
+              <div className="dashboard-drawer-avatar">
+                {user?.email ? user.email.charAt(0).toUpperCase() : 'U'}
+              </div>
+              <div className="dashboard-drawer-user-info">
+                <strong>{user?.email || 'Utilisateur'}</strong>
+                <div className="dashboard-drawer-plan-pill">
+                  {plan.active && ['pro', 'gold'].includes(plan.planId) && <PremiumCrown />}
+                  <span>Offre {currentPlanLabel}</span>
+                </div>
+              </div>
+            </div>
+
+            {plan.validUntil && (
+              <div className="dashboard-drawer-plan-validity">
+                <small>Validité : jusqu'au {formatDate(plan.validUntil)}</small>
+              </div>
+            )}
+
+            <nav className="dashboard-drawer-nav">
+              <button
+                type="button"
+                className="dashboard-drawer-nav-item"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  onHome()
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                  <polyline points="9 22 9 12 15 12 15 22" />
+                </svg>
+                <span>Accueil CVcraft</span>
+              </button>
+
+              <button
+                type="button"
+                className="dashboard-drawer-nav-item"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  setChangeOfferOpen(true)
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+                <span>Changer / Gérer mon offre</span>
+              </button>
+
+              <div className="dashboard-drawer-divider" />
+
+              <button
+                type="button"
+                className="dashboard-drawer-nav-item dashboard-drawer-logout"
+                onClick={() => {
+                  setMobileMenuOpen(false)
+                  onLogout()
+                }}
+              >
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>Déconnexion</span>
+              </button>
+            </nav>
+          </aside>
+        </div>
+      )}
     </main>
   )
 }
@@ -3923,7 +4024,7 @@ function SharedResumePreview({ resumeId, onHome, showNotice }) {
               photo={resumeData.photo}
               template={resumeData.template || 'sillage'}
               baseColor={resumeData.baseColor || '#e49a68'}
-              resumeFont={resumeData.resumeFont || 'classic'}
+              selectedFont={resumeFonts.find((f) => f.id === (resumeData?.resumeFont || 'classic')) || resumeFonts[0]}
               showBranding={false}
               formatDateRange={formatSharedDateRange}
               sectionVisibility={resumeData.resume?.sectionVisibility || {}}
