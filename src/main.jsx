@@ -3393,7 +3393,9 @@ function ResumeDashboard({
               <p>Tous les documents <span>·</span> Offre {currentPlanLabel} : {resumes.length} / {resumeQuota} CV utilisé{resumes.length === 1 ? '' : 's'}</p>
             </div>
             <div className="dashboard-heading-actions">
-              {plan.planId === 'free' && <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>{isPlanExpired ? 'Renouveler mon offre' : 'Changer mon offre'}</button>}
+              <button className="dashboard-change-plan-button" type="button" onClick={() => setChangeOfferOpen(true)}>
+                {isPlanExpired ? 'Renouveler mon offre' : 'Changer d’offre'}
+              </button>
               <button className="dashboard-create-button" type="button" disabled={isLoading || freeQuotaReached} title={freeQuotaReached ? (isPlanExpired ? 'Votre offre a expiré et la limite de CV est atteinte. Réactivez votre offre pour créer d’autres CV.' : 'La limite de CV de votre offre est atteinte.') : undefined} onClick={onCreateResume}>
                 <span aria-hidden="true">＋</span> Créer
               </button>
@@ -3642,17 +3644,58 @@ function ResumeDashboard({
           <p>Choisissez l’offre qui correspond à vos besoins. Le paiement se fait par Mobile Money.</p>
           {plan.schemaWarning && <p className="change-plan-warning" role="status">Les offres payantes seront disponibles dès que la configuration Supabase sera mise à jour.</p>}
           <div className="change-plan-options">
-            {plans.filter((option) => option.id !== 'free').map((option) => (
-              <article className={`change-plan-option ${option.featured ? 'featured' : ''}`} key={option.id}>
-                <div><strong>{option.name}</strong><span>{option.price} FCFA · {option.suffix}</span></div>
-                <p>{option.description}</p>
-                <small>{option.features.slice(0, 3).join(' · ')}</small>
-                <button type="button" disabled={Boolean(plan.schemaWarning)} onClick={() => {
-                  setChangeOfferOpen(false)
-                  onPurchasePlan(option.id)
-                }}>{option.action}</button>
-              </article>
-            ))}
+            {plans.filter((option) => option.id !== 'free').map((option) => {
+              const isCurrentActive = Boolean(plan.active && plan.planId === option.id)
+              const isUpgrade = plan.active && plan.planId === 'pro' && option.id === 'gold'
+
+              let buttonLabel = option.action
+              if (isCurrentActive) {
+                buttonLabel = 'Offre actuellement active'
+              } else if (isUpgrade) {
+                buttonLabel = 'Passer à l’offre Gold'
+              } else if (plan.active && plan.planId === 'gold' && option.id === 'pro') {
+                buttonLabel = 'Passer à l’offre Pro'
+              } else if (isPlanExpired && plan.previousPlanId === option.id) {
+                buttonLabel = `Réactiver l’offre ${option.name}`
+              }
+
+              return (
+                <article
+                  className={`change-plan-option ${option.featured ? 'featured' : ''} ${isCurrentActive ? 'is-current' : ''}`}
+                  key={option.id}
+                >
+                  <div className="change-plan-header">
+                    <div>
+                      <strong>{option.name}</strong>
+                      {isCurrentActive && (
+                        <span className="current-plan-badge">
+                          <svg viewBox="0 0 20 20" width="11" height="11" fill="currentColor" aria-hidden="true" style={{ display: 'inline-block', marginRight: 4, verticalAlign: '-1px' }}>
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                          Offre active
+                        </span>
+                      )}
+                    </div>
+                    <span>{option.price} FCFA · {option.suffix}</span>
+                  </div>
+                  <p>{option.description}</p>
+                  <small>{option.features.slice(0, 3).join(' · ')}</small>
+                  <button
+                    type="button"
+                    disabled={Boolean(plan.schemaWarning) || isCurrentActive}
+                    className={isCurrentActive ? 'current-plan-btn' : ''}
+                    title={isCurrentActive ? 'Cette offre est déjà active sur votre compte' : undefined}
+                    onClick={() => {
+                      if (isCurrentActive) return
+                      setChangeOfferOpen(false)
+                      onPurchasePlan(option.id)
+                    }}
+                  >
+                    {buttonLabel}
+                  </button>
+                </article>
+              )
+            })}
           </div>
         </section>
       </div>}
@@ -3719,9 +3762,10 @@ function ResumeDashboard({
                 </svg>
                 <span>Changer / Gérer mon offre</span>
               </button>
+            </nav>
 
+            <div className="dashboard-drawer-footer">
               <div className="dashboard-drawer-divider" />
-
               <button
                 type="button"
                 className="dashboard-drawer-nav-item dashboard-drawer-logout"
@@ -3737,7 +3781,7 @@ function ResumeDashboard({
                 </svg>
                 <span>Déconnexion</span>
               </button>
-            </nav>
+            </div>
           </aside>
         </div>
       )}
