@@ -3927,7 +3927,6 @@ function ResumeDashboard({
                   <tr>
                     <th scope="col" className="dashboard-col-name">Nom</th>
                     <th scope="col" className="dashboard-col-job">Emploi</th>
-                    <th scope="col" className="dashboard-col-type">Type</th>
                     <th scope="col" className="dashboard-col-created">Créé le</th>
                     <th scope="col" className="dashboard-col-updated">Dernière modification <span aria-hidden="true">↓</span></th>
                     <th scope="col" className="dashboard-col-actions"><span className="visually-hidden">Actions</span></th>
@@ -3941,23 +3940,24 @@ function ResumeDashboard({
                     const isDownloadingThis = downloadInProgressId === resume.id
                     return <tr key={resume.id} className="dashboard-document-row">
                       <td className="dashboard-cell-name">
-                        <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
-                          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
-                          <span>{resumeTitle}</span>
-                        </button>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                          <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
+                            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
+                            <span>{resumeTitle}</span>
+                          </button>
+                          {resume.modelStatus === 'pending_payment' && (
+                            <small className="dashboard-document-payment">Paiement requis</small>
+                          )}
+                          {!resumeWithinQuota && plan.active && (
+                            <small className="dashboard-document-payment">Hors quota actif</small>
+                          )}
+                        </div>
                       </td>
                       <td className="dashboard-col-job">
                         <button className={`dashboard-job-link ${resume.resume?.role ? 'has-job' : ''}`} type="button" onClick={() => onOpenResume(resume)}>
                           {!resume.resume?.role && <span aria-hidden="true">＋</span>}
                           {resume.resume?.role || 'Ajouter'}
                         </button>
-                      </td>
-                      <td className="dashboard-col-type">
-                        <span className="dashboard-document-type">CV</span>
-                        <small className="dashboard-document-model">{selectedTemplate?.name || 'Gratuit'}</small>
-                        {!resumeWithinQuota && plan.active && <small className="dashboard-document-payment">Hors quota actif</small>}
-                        {resume.modelStatus === 'pending_payment' && <small className="dashboard-document-payment">Paiement requis</small>}
-                        {resume.modelStatus === 'paid' && <small className="dashboard-document-paid">Payé</small>}
                       </td>
                       <td className="dashboard-col-created">{formatDate(resume.createdAt)}</td>
                       <td className="dashboard-col-updated">{formatRelativeDate(resume.updatedAt) || '—'}</td>
