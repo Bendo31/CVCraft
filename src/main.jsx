@@ -3494,7 +3494,6 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
   const [selectedIndex, setSelectedIndex] = useState(() => getIndexFor(currentTemplate))
   const selectedTemplate = resumeTemplates[selectedIndex] || resumeTemplates[0]
   const isGratuit = isFreeTemplate(selectedTemplate.id)
-  const isLocked = !isAuthenticated && !isGratuit
   const previousTemplate = () => setSelectedIndex((current) => (current - 1 + resumeTemplates.length) % resumeTemplates.length)
   const nextTemplate = () => setSelectedIndex((current) => (current + 1) % resumeTemplates.length)
 
@@ -3508,7 +3507,6 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
         <button type="button" className="mobile-template-close-btn" onClick={onHome} aria-label="Fermer">✕</button>
       </div>
       <main className="mobile-template-main">
-        <span className="eyebrow"><span className="eyebrow-dot" /> Modèle de départ</span>
         <h1>Choisissez<br /><em>votre modèle.</em></h1>
         <p>Aperçu exact au format A4. Faites défiler les modèles pour choisir votre mise en page.</p>
         <div className="mobile-template-carousel">
@@ -3519,7 +3517,7 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
         <div className="mobile-template-meta">
           <div>
             <strong>
-              {selectedTemplate.name} {isGratuit && hasPremiumSections && <PremiumCrown />}
+              {selectedTemplate.name} {!isGratuit && <PremiumCrown />} {isGratuit && hasPremiumSections && <PremiumCrown />}
             </strong>
             {isGratuit && (
               <span className="template-badge-free">
@@ -3533,13 +3531,12 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
         </div>
         <div className="mobile-template-actions">
           <button className="button button-dark mobile-template-continue" onClick={() => onSelect(selectedTemplate.id)}>
-            {isLocked ? 'Prévisualiser ce modèle' : 'Choisir ce modèle'} <span aria-hidden="true">↗</span>
+            <span className="mobile-template-continue-label">
+              {!isGratuit && <PremiumCrown />}
+              Choisir ce modèle
+            </span>
+            <span aria-hidden="true">↗</span>
           </button>
-          {isLocked && (
-            <button className="button button-outline mobile-template-unlock" onClick={() => onUnlock(selectedTemplate.id)}>
-              <PremiumCrown /> Débloquer le modèle
-            </button>
-          )}
         </div>
       </main>
     </div>
