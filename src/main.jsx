@@ -3963,11 +3963,17 @@ function ResumeDashboard({
                         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                           <button className="dashboard-document-name" type="button" onClick={() => onOpenResume(resume)}>
                             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 2.5h7l3 3v12H5z" /><path d="M12 2.5v4h3M7.5 10h5M7.5 13h5" /></svg>
+                            {resume.modelStatus === 'pending_payment' && (
+                              <span
+                                className="dashboard-document-payment-alert"
+                                title="Paiement requis"
+                                aria-label="Paiement requis"
+                              >
+                                !
+                              </span>
+                            )}
                             <span>{resumeTitle}</span>
                           </button>
-                          {resume.modelStatus === 'pending_payment' && (
-                            <small className="dashboard-document-payment">Paiement requis</small>
-                          )}
                           {!resumeWithinQuota && plan.active && (
                             <small className="dashboard-document-payment">Hors quota actif</small>
                           )}
@@ -4034,6 +4040,20 @@ function ResumeDashboard({
             </div>
           )}
         </section>
+        {/* Bouton flottant Créer pour mobile positionné en bas à droite */}
+        <button
+          className="dashboard-mobile-fab"
+          type="button"
+          disabled={isLoading || freeQuotaReached}
+          title={freeQuotaReached ? (isPlanExpired ? 'Votre offre a expiré et la limite de CV est atteinte. Réactivez votre offre pour créer d’autres CV.' : 'La limite de CV de votre offre est atteinte.') : 'Créer un nouveau CV'}
+          aria-label="Créer un nouveau CV"
+          onClick={onCreateResume}
+        >
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+        </button>
       </div>
       {actionsOpen && (
         <>

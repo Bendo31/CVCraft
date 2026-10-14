@@ -2599,6 +2599,26 @@ body.pdf-exporting .resume-sheet,
 .dashboard-document-payment, .dashboard-document-paid { display: inline-block; margin-top: 4px; padding: 2px 5px; border-radius: 3px; font-size: 9px; }
 .dashboard-document-payment { background: #fff1e8; color: #a14d1d; }
 .dashboard-document-paid { background: #eef5e8; color: #526b1e; }
+.dashboard-document-payment-alert {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff1e8;
+  color: #a14d1d;
+  border: 1px solid #fbd0b4;
+  font-family: 'Sora', sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(161, 77, 29, 0.12);
+}
+.dashboard-mobile-fab {
+  display: none;
+}
 .dashboard-document-actions { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .dashboard-icon-button { width: 28px; height: 30px; display: grid; place-items: center; border-radius: 5px; background: transparent; color: #252b33; }
 .dashboard-icon-button:hover { background: #f0f1f4; }
@@ -2699,8 +2719,50 @@ body.pdf-exporting .resume-sheet,
   .dashboard-heading-actions { gap: 6px; }
   .dashboard-documents-heading h1 { font-size: 18px; }
   .dashboard-documents-heading p { font-size: 10px; }
+  .dashboard-heading-actions .dashboard-create-button { display: none !important; }
   .dashboard-create-button { min-height: 35px; padding: 0 11px; font-size: 12px; }
-  .dashboard-change-plan-button { min-height: 35px; padding: 0 8px; font-size: 10px; }
+  .dashboard-change-plan-button { min-height: 35px; padding: 0 10px; font-size: 11px; }
+  .dashboard-mobile-fab {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    right: 20px;
+    bottom: max(20px, env(safe-area-inset-bottom, 20px));
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #7351df;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    z-index: 95;
+    box-shadow: 0 8px 24px rgba(115, 81, 223, 0.45), 0 2px 6px rgba(0, 0, 0, 0.12);
+    transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .dashboard-mobile-fab:hover:not(:disabled) {
+    background: #6040ce;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(115, 81, 223, 0.52);
+  }
+  .dashboard-mobile-fab:active:not(:disabled) {
+    transform: scale(0.93);
+  }
+  .dashboard-mobile-fab:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  .dashboard-mobile-fab svg {
+    width: 26px;
+    height: 26px;
+  }
+  .dashboard-document-payment-alert {
+    width: 17px;
+    height: 17px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
   .dashboard-expired-plan { align-items: flex-start; flex-direction: column; padding: 12px 13px; }
   .dashboard-schema-warning { padding: 12px 13px; }
   .payment-dialog { padding: 24px; }
