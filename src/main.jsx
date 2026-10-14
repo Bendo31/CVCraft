@@ -1752,10 +1752,13 @@ function ResumeBuilder({
         const sheet = sheets[index].cloneNode(true)
         sheet.style.width = '650px'
         sheet.style.height = '919px'
-        sheet.style.minHeight = '0'
+        sheet.style.minHeight = '919px'
+        sheet.style.maxHeight = '919px'
         sheet.style.aspectRatio = 'auto'
         sheet.style.transform = 'none'
         sheet.style.zoom = '1'
+        sheet.style.margin = '0'
+        sheet.style.boxShadow = 'none'
         exportRoot.replaceChildren(sheet)
 
         // Attendre que les images (photo, etc.) soient prêtes
@@ -1781,6 +1784,15 @@ function ResumeBuilder({
           onclone: (clonedDoc) => {
             const clonedSheet = clonedDoc.querySelector('.pdf-export-root .resume-sheet')
             if (clonedSheet) {
+              clonedSheet.style.width = '650px'
+              clonedSheet.style.height = '919px'
+              clonedSheet.style.minHeight = '919px'
+              clonedSheet.style.maxHeight = '919px'
+              clonedSheet.style.aspectRatio = 'auto'
+              clonedSheet.style.transform = 'none'
+              clonedSheet.style.zoom = '1'
+              clonedSheet.style.margin = '0'
+              clonedSheet.style.boxShadow = 'none'
               clonedSheet.style.webkitFontSmoothing = 'antialiased'
               clonedSheet.style.mozOsxFontSmoothing = 'grayscale'
               clonedSheet.style.textRendering = 'geometricPrecision'
@@ -1952,7 +1964,21 @@ function ResumeBuilder({
             <span>Retour</span>
           </button>
           <span className="builder-mobile-preview-title">Aperçu A4</span>
-          <div className="builder-mobile-back-placeholder" aria-hidden="true" />
+          <button
+            type="button"
+            className="builder-mobile-template-btn"
+            onClick={() => setTemplateChooserOpen(true)}
+            aria-label="Changer de modèle de CV"
+            title="Changer de modèle"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg>
+            <span className="builder-mobile-btn-text-full">Changer de modèle</span>
+            <span className="builder-mobile-btn-text-short">Modèles</span>
+          </button>
         </header>
       ) : (
         <header className="builder-mobile-header" aria-label="Navigation mobile">

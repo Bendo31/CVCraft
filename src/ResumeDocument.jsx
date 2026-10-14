@@ -1,4 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 export const RESUME_SHEET_WIDTH = 650
 export const RESUME_SHEET_HEIGHT = Math.round(RESUME_SHEET_WIDTH / (210 / 297))
@@ -620,10 +621,11 @@ export function ResumeDocument({
         const footer = sheet.querySelector('.resume-sheet-footer')
         if (!footer) return
         const footerTop = footer.getBoundingClientRect().top
+        const tolerance = 0.5 * (scale || 1)
 
         sheet.querySelectorAll('[data-block-id]').forEach((node) => {
           const rect = node.getBoundingClientRect()
-          if (rect.bottom <= footerTop + 0.5) return
+          if (rect.bottom <= footerTop + tolerance) return
           const id = node.getAttribute('data-block-id')
           if (!id) return
           if (id.startsWith('exp-') || id.startsWith('edu-') || id.startsWith('project-') || id.startsWith('volunteer-') || id.startsWith('publication-')) forcedBreaks.right.add(id)
@@ -667,7 +669,7 @@ export function ResumeDocument({
     })
 
     return () => window.cancelAnimationFrame(frame)
-  }, [pages, resume, template, baseColor, selectedFont, photo])
+  }, [pages, resume, template, baseColor, selectedFont, photo, scale])
 
   const fontObj = selectedFont || { family: "'DM Sans', sans-serif", display: "'Fraunces', Georgia, serif" }
   const sheetStyleVars = {
@@ -678,26 +680,32 @@ export function ResumeDocument({
   }
   const stackHeight = pages.length * RESUME_SHEET_HEIGHT + Math.max(0, pages.length - 1) * PAGE_GAP
 
+  const measureTree = (
+    <div className="resume-measure-root" aria-hidden="true" ref={measureRef}>
+      <ResumeSheet
+        resume={resume}
+        photo={photo}
+        template={template}
+        sectionVisibility={sectionVisibility}
+        page={allPage}
+        pageIndex={0}
+        totalPages={1}
+        formatDateRange={formatDateRange}
+        measure
+        style={sheetStyleVars}
+        showBranding={showBranding}
+      />
+      <div className={`resume-sheet resume-template-${template} resume-sheet-continued resume-sheet-measure`} style={{ ...sheetStyleVars, width: RESUME_SHEET_WIDTH }}>
+        <ResumeHeader resume={resume} photo={photo} template={template} continued sectionVisibility={sectionVisibility} />
+      </div>
+    </div>
+  )
+
   return (
     <>
-      <div className="resume-measure-root" aria-hidden="true" ref={measureRef}>
-        <ResumeSheet
-          resume={resume}
-          photo={photo}
-          template={template}
-          sectionVisibility={sectionVisibility}
-          page={allPage}
-          pageIndex={0}
-          totalPages={1}
-          formatDateRange={formatDateRange}
-          measure
-          style={sheetStyleVars}
-          showBranding={showBranding}
-        />
-        <div className={`resume-sheet resume-template-${template} resume-sheet-continued resume-sheet-measure`} style={{ ...sheetStyleVars, width: RESUME_SHEET_WIDTH }}>
-          <ResumeHeader resume={resume} photo={photo} template={template} continued sectionVisibility={sectionVisibility} />
-        </div>
-      </div>
+      {typeof document !== 'undefined' && document.body
+        ? createPortal(measureTree, document.body)
+        : measureTree}
 
       <div className="resume-pages-wrap" ref={wrapRef} style={{ height: stackHeight * scale }}>
         <div
