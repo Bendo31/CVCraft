@@ -1090,7 +1090,7 @@ details[open] .faq-arrow { transform: rotate(180deg); }
   .cta-stat-number { font-size: 34px; }
 }
 .toast { position: fixed; z-index: 10; bottom: 28px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--paper); border: 1px solid #484d48; padding: 14px 18px; box-shadow: 0 8px 28px #0002; font: 11px 'Sora', sans-serif; }
-.payment-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(23, 25, 26, .52); }
+.payment-backdrop { position: fixed; z-index: 1000 !important; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(23, 25, 26, .58); }
 .payment-dialog { width: min(100%, 390px); padding: 30px; background: var(--paper); color: var(--ink); box-shadow: 12px 12px 0 var(--yellow); }
 .payment-dialog h2 { margin: 10px 0 8px; font-size: 27px; letter-spacing: -.05em; }
 .payment-dialog p { margin: 0; color: var(--muted); font-size: 13px; }
@@ -2338,11 +2338,12 @@ body.pdf-exporting .resume-sheet,
   .footer-bottom div { flex-wrap: wrap; gap: 12px 20px; }
 }
 
-.account-backdrop { z-index: 30; }
+.account-backdrop { z-index: 1000 !important; }
 .account-dialog { position: relative; width: min(100%, 430px); padding: 38px; background: var(--paper); color: var(--ink); box-shadow: 0 22px 70px #0003; }
 .account-dialog h1, .account-dialog h2 { margin: 14px 0; font-size: 32px; line-height: 1; letter-spacing: -.06em; }
 .account-dialog > p { color: var(--muted); font-size: 13px; line-height: 1.55; }
-.account-close { position: absolute; top: 12px; right: 14px; padding: 4px 8px; background: transparent; color: var(--muted); font-size: 22px; }
+.account-close { position: absolute; top: 12px; right: 14px; width: 34px; height: 34px; border: none; border-radius: 50%; display: grid; place-items: center; background: transparent; color: var(--muted); font-size: 22px; cursor: pointer; transition: background 0.15s ease, color 0.15s ease; z-index: 10; }
+.account-close:hover { background: rgba(0, 0, 0, 0.06); color: var(--ink); }
 .account-providers { display: grid; gap: 9px; margin-top: 22px; }
 .account-provider { position: relative; min-height: 44px; display: flex; align-items: center; justify-content: center; gap: 10px; border: 1px solid #c9cbc0; background: #fffef9; color: var(--ink); font-size: 12px; font-weight: 600; }
 .account-provider:hover:not(:disabled) { border-color: var(--ink); background: #f0efe8; }
@@ -2438,38 +2439,37 @@ body.pdf-exporting .resume-sheet,
   .account-dialog { padding: 30px 22px; }
 }
 
-.account-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 24px; overflow: auto; background: rgba(23, 25, 26, .58); }
-.account-backdrop .account-dialog { width: min(100%, 1200px); max-width: none; height: min(780px, calc(100dvh - 48px)); min-height: 520px; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); padding: 0; overflow: hidden; background: var(--paper); box-shadow: 0 22px 70px #0005; }
-.account-visual { position: relative; display: flex; min-height: 0; flex-direction: column; overflow: hidden; padding: clamp(24px, 4vw, 54px); background: #e8e8dc; color: var(--ink); }
+.account-backdrop { position: fixed; z-index: 1000 !important; inset: 0; display: grid; place-items: center; padding: 24px; overflow: auto; background: rgba(23, 25, 26, .62); -webkit-backdrop-filter: blur(5px); backdrop-filter: blur(5px); }
+.account-backdrop .account-dialog { width: min(100%, 1100px); max-width: none; height: min(720px, calc(100dvh - 40px)); min-height: 460px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 0; overflow: hidden; background: var(--paper); box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35); border-radius: 18px; }
+.account-visual { position: relative; display: flex; min-height: 0; flex-direction: column; overflow: hidden; padding: clamp(24px, 4vw, 44px); background: #e8e8dc; color: var(--ink); }
 .account-brand { z-index: 1; width: fit-content; }
-.account-visual-copy { position: relative; z-index: 1; max-width: 470px; margin: clamp(38px, 7vh, 86px) 0 0; }
-.account-visual-copy h2 { margin: 24px 0 18px; font-size: clamp(42px, 5vw, 68px); line-height: .92; letter-spacing: -.075em; }
+.account-visual-copy { position: relative; z-index: 1; max-width: 440px; margin: clamp(24px, 4vh, 48px) 0 0; }
+.account-visual-copy h2 { margin: 16px 0 12px; font-size: clamp(34px, 4.2vw, 56px); line-height: .95; letter-spacing: -.07em; }
 .account-visual-copy h2 em { color: #718b2b; }
-.account-visual-copy p { max-width: 390px; margin: 0; color: #686e65; font-size: 14px; line-height: 1.7; }
-.account-resume-art { position: relative; flex: 1; min-height: 280px; margin: 25px 0 22px; }
-.account-resume-sheet { position: absolute; top: 10px; left: 50%; width: min(65%, 340px); min-width: 250px; height: 100%; max-height: 365px; padding: 30px 32px; background: #fffef9; box-shadow: 18px 22px 55px #24281d24; transform: translateX(-50%) rotate(-3deg); }
+.account-visual-copy p { max-width: 380px; margin: 0; color: #686e65; font-size: 13.5px; line-height: 1.6; }
+.account-resume-art { position: relative; flex: 1; min-height: 220px; margin: 18px 0 16px; }
+.account-resume-sheet { position: absolute; top: 10px; left: 50%; width: min(65%, 320px); min-width: 230px; height: 100%; max-height: 320px; padding: 24px 26px; background: #fffef9; box-shadow: 18px 22px 55px #24281d24; transform: translateX(-50%) rotate(-3deg); }
 .account-resume-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.account-resume-heading span { font: 500 30px/.88 'Fraunces', Georgia, serif; letter-spacing: -.06em; }
+.account-resume-heading span { font: 500 26px/.88 'Fraunces', Georgia, serif; letter-spacing: -.06em; }
 .account-resume-heading span strong { font-weight: 500; }
 .account-resume-heading small { padding-top: 4px; color: #737971; font: 7px/1.5 'DM Mono', monospace; text-align: right; }
-.account-resume-rule { height: 1px; margin: 22px 0 18px; background: #2d302a; }
-.account-resume-columns { display: grid; grid-template-columns: .8fr 1.2fr; gap: 18px; }
-.account-resume-columns > div { display: grid; grid-template-columns: 1fr; align-content: start; gap: 7px; }
-.account-resume-columns b { margin-top: 12px; color: #747b70; font: 700 7px 'DM Mono', monospace; letter-spacing: .07em; }
-.account-resume-columns i { width: 100%; height: 4px; background: #d9dbd1; }
+.account-resume-rule { height: 1px; margin: 18px 0 14px; background: #2d302a; }
+.account-resume-columns { display: grid; grid-template-columns: .8fr 1.2fr; gap: 14px; }
+.account-resume-columns > div { display: grid; grid-template-columns: 1fr; align-content: start; gap: 6px; }
+.account-resume-columns b { margin-top: 10px; color: #747b70; font: 700 7px 'DM Mono', monospace; letter-spacing: .07em; }
+.account-resume-columns i { width: 100%; height: 3px; background: #d9dbd1; }
 .account-resume-columns i.short { width: 68%; }
-.account-resume-footer { position: absolute; right: 32px; bottom: 20px; left: 32px; display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #d6d8ce; color: #858b80; font: 7px 'DM Mono', monospace; }
-.account-art-note { position: absolute; top: 12%; right: 4%; display: flex; align-items: center; gap: 8px; padding: 12px 15px; background: var(--lime); box-shadow: 0 7px 20px #24281d18; font-size: 11px; transform: rotate(5deg); }
+.account-resume-footer { position: absolute; right: 26px; bottom: 16px; left: 26px; display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px solid #d6d8ce; color: #858b80; font: 7px 'DM Mono', monospace; }
+.account-art-note { position: absolute; top: 12%; right: 4%; display: flex; align-items: center; gap: 8px; padding: 10px 13px; background: var(--lime); box-shadow: 0 7px 20px #24281d18; font-size: 11px; transform: rotate(5deg); }
 .account-art-note b { color: #ad7443; font-size: 18px; }
-.account-art-stamp { position: absolute; right: 6%; bottom: 9%; display: grid; width: 76px; height: 76px; place-content: center; border: 1px solid #c4c9b6; border-radius: 50%; color: #758844; font: 8px/1.5 'Sora', sans-serif; text-align: center; transform: rotate(9deg); }
+.account-art-stamp { position: absolute; right: 6%; bottom: 9%; display: grid; width: 68px; height: 68px; place-content: center; border: 1px solid #c4c9b6; border-radius: 50%; color: #758844; font: 8px/1.4 'Sora', sans-serif; text-align: center; transform: rotate(9deg); }
 .account-visual-caption { position: relative; z-index: 1; color: #858b80; font: 9px 'Sora', sans-serif; letter-spacing: .04em; text-transform: uppercase; }
-.account-auth-panel { position: relative; display: flex; min-width: 0; min-height: 100%; flex-direction: column; justify-content: center; padding: 80px clamp(34px, 7vw, 110px); background: var(--paper); }
-.account-auth-content { width: 100%; max-width: 480px; margin: auto; }
-.account-auth-content h1 { margin: 14px 0; font-size: clamp(30px, 3vw, 40px); line-height: 1; letter-spacing: -.06em; }
-.account-auth-content > p { color: var(--muted); font-size: 13px; line-height: 1.55; }
-.account-auth-panel .account-close { top: 25px; right: 30px; }
+.account-auth-panel { position: relative; display: flex; min-width: 0; min-height: 100%; flex-direction: column; justify-content: center; padding: clamp(36px, 5vh, 56px) clamp(28px, 5vw, 68px); background: var(--paper); }
+.account-auth-content { width: 100%; max-width: 440px; margin: auto; }
+.account-auth-content h1 { margin: 10px 0 8px; font-size: clamp(26px, 2.5vw, 36px); line-height: 1.05; letter-spacing: -.05em; }
+.account-auth-content > p { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 0 0 18px; }
+.account-auth-panel .account-close { top: 18px; right: 20px; }
 .account-auth-panel .account-form { margin-top: 18px; }
-.account-auth-panel .account-legal { position: absolute; bottom: 24px; left: clamp(34px, 7vw, 110px); color: #93988f; font-size: 10px; }
 .account-auth-panel .account-switch { margin-top: 22px; }
 .account-auth-panel .account-forgot { font-size: 11px; }
 .account-otp-hint { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
@@ -2709,29 +2709,46 @@ body.pdf-exporting .resume-sheet,
   .change-plan-option { min-height: 170px; }
   .payment-actions { flex-wrap: wrap; }
   .builder-payment-status { right: 16px; bottom: 76px; left: 16px; justify-content: space-between; }
-  .account-backdrop { padding: 16px; }
-  .account-backdrop .account-dialog { width: min(100%, 560px); height: min(760px, calc(100dvh - 32px)); min-height: 0; grid-template-columns: 1fr; grid-template-rows: minmax(190px, 30vh) minmax(0, 1fr); }
-  .account-visual { min-height: 0; padding: 20px 24px; }
-  .account-brand { font-size: 18px; }
-  .account-visual-copy { margin-top: 19px; }
-  .account-visual-copy .eyebrow { font-size: 8px; }
-  .account-visual-copy h2 { margin: 12px 0 8px; font-size: clamp(30px, 8vw, 42px); }
-  .account-visual-copy p { max-width: 360px; font-size: 11px; line-height: 1.45; }
-  .account-resume-art { position: absolute; top: 23px; right: 12px; bottom: 12px; width: 35%; min-height: 0; margin: 0; opacity: .3; }
-  .account-resume-sheet { top: 0; width: 90%; min-width: 0; height: 100%; padding: 12px; }
-  .account-resume-heading span { font-size: 17px; }
-  .account-resume-heading small { font-size: 5px; }
-  .account-resume-rule { margin: 12px 0 9px; }
-  .account-resume-columns { gap: 8px; }
-  .account-resume-columns > div { gap: 4px; }
-  .account-resume-columns b { margin-top: 6px; font-size: 5px; }
-  .account-resume-columns i { height: 3px; }
-  .account-resume-footer { right: 12px; bottom: 8px; left: 12px; padding-top: 4px; font-size: 5px; }
+  .account-backdrop { padding: 12px; }
+  .account-backdrop .account-dialog {
+    width: min(100%, 450px);
+    height: auto;
+    max-height: calc(100dvh - 24px);
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    border-radius: 16px;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+  }
+  .account-visual {
+    min-height: 0;
+    padding: 14px 18px 12px;
+  }
+  .account-brand { font-size: 16px; }
+  .account-visual-copy { margin-top: 6px; }
+  .account-visual-copy .eyebrow { font-size: 8.5px; }
+  .account-visual-copy h2 { margin: 4px 0 0; font-size: 19px; line-height: 1.15; letter-spacing: -0.03em; }
+  .account-visual-copy p { display: none; }
+  .account-resume-art { display: none; }
   .account-art-note, .account-art-stamp, .account-visual-caption { display: none; }
-  .account-auth-panel { min-height: 0; justify-content: flex-start; padding: 46px 24px 58px; overflow-y: auto; }
-  .account-auth-panel .account-close { top: 12px; right: 14px; }
-  .account-auth-content h1 { font-size: 30px; }
-  .account-auth-panel .account-legal { bottom: 15px; left: 24px; }
+  .account-auth-panel {
+    min-height: 0;
+    justify-content: flex-start;
+    padding: 18px 18px 16px;
+    overflow-y: visible;
+  }
+  .account-auth-panel .account-close { top: 10px; right: 12px; width: 30px; height: 30px; font-size: 20px; }
+  .account-auth-content { max-width: 100%; margin: 0; }
+  .account-auth-content .preview-kicker { font-size: 8.5px; margin-bottom: 2px; }
+  .account-auth-content h1 { font-size: 21px; line-height: 1.15; margin: 2px 0 6px; letter-spacing: -0.03em; }
+  .account-auth-content > p { font-size: 12px; line-height: 1.42; margin: 0 0 14px; }
+  .account-providers { margin-top: 0; gap: 8px; }
+  .account-provider-google { min-height: 44px; font-size: 13px; border-radius: 8px; }
+  .account-auth-features { margin-top: 12px; padding: 10px 12px; gap: 8px; border-radius: 8px; }
+  .account-auth-feature-item { font-size: 11px; gap: 8px; line-height: 1.35; }
+  .account-auth-feature-bullet { width: 15px; height: 15px; font-size: 9.5px; }
+  .account-auth-panel .account-legal { position: static; margin-top: 12px; font-size: 9.5px; text-align: center; display: block; color: #858b80; }
 
   /* Table documents mobile: uniquement le nom, le téléchargement et les 3 points avec marges internes aérées */
   .dashboard-documents-heading {
@@ -3242,8 +3259,13 @@ body.pdf-exporting .resume-sheet,
 .preview-export:disabled, .mobile-preview-actions button:disabled { cursor: not-allowed; opacity: .45; }
 
 @media (max-width: 500px) {
-  .account-backdrop { padding: 10px; }
-  .account-backdrop .account-dialog { height: calc(100dvh - 20px); grid-template-rows: minmax(185px, 27vh) minmax(0, 1fr); }
+  .account-backdrop { padding: 8px; }
+  .account-backdrop .account-dialog {
+    width: 100%;
+    height: auto;
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px;
+  }
 }
 
 /* Template Carousel */
