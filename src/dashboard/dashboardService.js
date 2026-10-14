@@ -453,7 +453,7 @@ export function exportReportToCsv(data) {
   const lines = []
 
   // Entête
-  lines.push(['RAPPORT CV CRAFT - COMPTE RENDU DU SITE'].join(';'))
+  lines.push(['RAPPORT CAPVERS - COMPTE RENDU DU SITE'].join(';'))
   lines.push([`Date de génération`, new Date().toLocaleString('fr-FR')].join(';'))
   lines.push([`Période`, data.period || 'Toutes les données'].join(';'))
   lines.push([])
@@ -503,7 +503,7 @@ export function exportReportToCsv(data) {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.setAttribute('href', url)
-  link.setAttribute('download', `cvcraft_rapport_${new Date().toISOString().slice(0, 10)}.csv`)
+  link.setAttribute('download', `capvers_rapport_${new Date().toISOString().slice(0, 10)}.csv`)
   document.body.appendChild(link)
   link.click()
   document.body.removeChild(link)

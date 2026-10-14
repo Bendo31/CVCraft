@@ -2,7 +2,9 @@
 
 ## Contexte du projet
 
-CV Craft est une plateforme SaaS africaine de création de CV professionnels.
+CapVers est une plateforme SaaS africaine de création de CV professionnels.
+
+Slogan : « Votre avenir prend une direction. »
 
 La mission du produit est simple :
 
@@ -23,7 +25,7 @@ Le produit est conçu en priorité pour le marché africain francophone avant un
 
 # Vision Produit
 
-CV Craft n'est pas un simple générateur de PDF.
+CapVers n'est pas un simple générateur de PDF.
 
 L'objectif à long terme est de devenir une plateforme de gestion d'identité professionnelle permettant à un utilisateur de :
 
@@ -188,7 +190,7 @@ Fonctionnalités :
 
 Objectif :
 
-Créer une synergie entre CV Craft et WAYA.
+Créer une synergie entre CapVers et WAYA.
 
 ---
 
@@ -272,7 +274,7 @@ Ne jamais :
 
 * Ajouter des fonctionnalités hors roadmap sans justification
 * Introduire une architecture complexe prématurément
-* Transformer CV Craft en réseau social
+* Transformer CapVers en réseau social
 * Prioriser l'IA avant la validation du produit de base
 * Développer la marketplace recruteurs avant d'avoir une base utilisateur significative
 

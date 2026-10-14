@@ -330,7 +330,7 @@ function ResumeSheet({
         </div>
       </div>
       <div className="resume-sheet-footer">
-        {showBranding && <span>Made With Love By CVcraft</span>}
+        {showBranding && <span>Made With Love By CapVers</span>}
         <span>{formatPageLabel(pageIndex, totalPages)}</span>
       </div>
     </div>

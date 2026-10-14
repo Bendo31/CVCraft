@@ -125,7 +125,7 @@ export default function AdminDashboard({ onBack = () => {}, user = null }) {
           <div className="admin-brand">
             <div className="admin-brand-icon" aria-hidden="true">📊</div>
             <div className="admin-brand-title">
-              <h1>CVcraft · Compte Rendu du Site</h1>
+              <h1>CapVers · Compte Rendu du Site</h1>
               <span>Tableau de bord de pilotage &amp; statistiques financières</span>
             </div>
           </div>
@@ -194,7 +194,7 @@ export default function AdminDashboard({ onBack = () => {}, user = null }) {
               type="button"
               className="admin-btn admin-btn-primary"
               onClick={onBack}
-              title="Quitter le dashboard et revenir sur CVcraft"
+              title="Quitter le dashboard et revenir sur CapVers"
             >
               ← Retour au site
             </button>
@@ -695,7 +695,7 @@ export default function AdminDashboard({ onBack = () => {}, user = null }) {
           <article className="executive-summary-card">
             <div className="summary-headline">
               <h2>Compte Rendu d’Activité · Synthèse Opérationnelle</h2>
-              <p>Rapport consolidé des performances commerciales, de conversion et d’engagement de CVcraft.</p>
+              <p>Rapport consolidé des performances commerciales, de conversion et d’engagement de CapVers.</p>
             </div>
 
             <div className="summary-points-grid">

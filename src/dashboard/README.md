@@ -1,6 +1,6 @@
-# Dossier Dashboard · CV Craft
+# Dossier Dashboard · CapVers
 
-Ce dossier contient le module complet de **Compte Rendu & Dashboard de pilotage** de la plateforme CV Craft.
+Ce dossier contient le module complet de **Compte Rendu & Dashboard de pilotage** de la plateforme CapVers.
 
 ## Fonctionnalités
 

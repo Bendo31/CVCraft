@@ -37,7 +37,8 @@ import AdminDashboard from './dashboard/AdminDashboard.jsx'
 
 const CROP_VIEW_SIZE = 280
 const CROP_OUTPUT_SIZE = 512
-const OAUTH_INTENT_KEY = 'cvcraft-oauth-intent'
+const OAUTH_INTENT_KEY = 'capvers-oauth-intent'
+const LEGACY_OAUTH_INTENT_KEY = 'cvcraft-oauth-intent'
 
 const FRANCOPHONE_AFRICA_COUNTRIES = [
   {
@@ -214,7 +215,7 @@ const TIMEZONE_TO_COUNTRY = {
 function detectUserCountryCode() {
   if (typeof window !== 'undefined') {
     try {
-      const saved = window.localStorage.getItem('cvcraft_user_country')
+      const saved = window.localStorage.getItem('capvers_user_country') || window.localStorage.getItem('cvcraft_user_country')
       if (saved && FRANCOPHONE_AFRICA_COUNTRIES.some((c) => c.code === saved)) {
         return saved
       }
@@ -285,7 +286,7 @@ function MobileMoneyPhoneInput({
     const nextCode = e.target.value
     if (onCountryChange) onCountryChange(nextCode)
     try {
-      window.localStorage.setItem('cvcraft_user_country', nextCode)
+      window.localStorage.setItem('capvers_user_country', nextCode)
     } catch { }
   }
 
@@ -582,6 +583,12 @@ const resumeTemplates = [
 ]
 
 const legacyResumeKeys = [
+  'capvers-resume',
+  'capvers-resume-photo',
+  'capvers-template',
+  'capvers-base-color',
+  'capvers-signal-color',
+  'capvers-resume-font',
   'cvcraft-resume',
   'cvcraft-resume-photo',
   'cvcraft-template',
@@ -589,7 +596,8 @@ const legacyResumeKeys = [
   'cvcraft-signal-color',
   'cvcraft-resume-font',
 ]
-const GUEST_RESUME_KEY = 'cvcraft-free-resume-v1'
+const GUEST_RESUME_KEY = 'capvers-free-resume-v1'
+const LEGACY_GUEST_RESUME_KEY = 'cvcraft-free-resume-v1'
 
 const defaultResume = {
   firstName: '',
@@ -693,11 +701,13 @@ function normalizeResumeData(inputResume) {
 function clearLocalResumeData() {
   legacyResumeKeys.forEach((key) => window.localStorage.removeItem(key))
   window.localStorage.removeItem(GUEST_RESUME_KEY)
+  window.localStorage.removeItem(LEGACY_GUEST_RESUME_KEY)
   window.sessionStorage.removeItem(OAUTH_INTENT_KEY)
+  window.sessionStorage.removeItem(LEGACY_OAUTH_INTENT_KEY)
 }
 
 function loadGuestResume() {
-  const storedResume = window.localStorage.getItem(GUEST_RESUME_KEY)
+  const storedResume = window.localStorage.getItem(GUEST_RESUME_KEY) || window.localStorage.getItem(LEGACY_GUEST_RESUME_KEY)
   if (storedResume) {
     try {
       const savedData = JSON.parse(storedResume)
@@ -736,17 +746,17 @@ function readLegacyResume() {
 
   let resume = {}
   try {
-    resume = JSON.parse(storedValues['cvcraft-resume'] || '{}')
+    resume = JSON.parse(storedValues['capvers-resume'] || storedValues['cvcraft-resume'] || '{}')
   } catch (error) {
     console.warn('Les anciennes données locales du CV sont illisibles.', error)
   }
 
   return {
     resume,
-    photo: storedValues['cvcraft-resume-photo'] || '',
-    template: storedValues['cvcraft-template'] || 'sillage',
-    baseColor: storedValues['cvcraft-base-color'] || storedValues['cvcraft-signal-color'] || '#e49a68',
-    resumeFont: storedValues['cvcraft-resume-font'] || 'classic',
+    photo: storedValues['capvers-resume-photo'] || storedValues['cvcraft-resume-photo'] || '',
+    template: storedValues['capvers-template'] || storedValues['cvcraft-template'] || 'sillage',
+    baseColor: storedValues['capvers-base-color'] || storedValues['cvcraft-base-color'] || storedValues['capvers-signal-color'] || storedValues['cvcraft-signal-color'] || '#e49a68',
+    resumeFont: storedValues['capvers-resume-font'] || storedValues['cvcraft-resume-font'] || 'classic',
   }
 }
 
@@ -1805,7 +1815,7 @@ function ResumeBuilder({
       }
 
       const fullName = `${(resume.lastName || '').trim()} ${(resume.firstName || '').trim()}`.trim()
-      const fileName = `${fullName ? fullName + ' ' : ''}CvCraft.pdf`
+      const fileName = `${fullName ? fullName + ' ' : ''}CapVers.pdf`
       pdf.save(fileName)
 
       if (userId) {
@@ -1986,10 +1996,10 @@ function ResumeBuilder({
             type="button"
             className="builder-mobile-brand"
             onClick={() => saveBeforeNavigation(userId ? onDashboard : onHome)}
-            title="CVcraft - Accueil"
+            title="CapVers - Accueil"
           >
-            <span className="brand-mark">c</span>
-            <span className="builder-mobile-brand-title">CVcraft</span>
+            <span className="brand-mark">C</span>
+            <span className="builder-mobile-brand-title">CapVers</span>
           </button>
 
           <div className="builder-mobile-nav-right">
@@ -2035,7 +2045,7 @@ function ResumeBuilder({
       )}
 
       <aside className="builder-nav-rail" aria-label="Menu de navigation">
-        {/* LOGO CVcraft */}
+        {/* LOGO CapVers */}
         <div className="nav-rail-top">
           {!userId ? (
             <button
@@ -2044,13 +2054,13 @@ function ResumeBuilder({
               onClick={() => saveBeforeNavigation(onHome)}
               title="Revenir à l'accueil"
             >
-              <span className="brand-mark">c</span>
-              <span className="nav-rail-text brand-text">CVcraft</span>
+              <span className="brand-mark">C</span>
+              <span className="nav-rail-text brand-text">CapVers</span>
             </button>
           ) : (
-            <div className="nav-rail-brand" title="CVcraft Studio">
-              <span className="brand-mark">c</span>
-              <span className="nav-rail-text brand-text">CVcraft</span>
+            <div className="nav-rail-brand" title="CapVers Studio">
+              <span className="brand-mark">C</span>
+              <span className="nav-rail-text brand-text">CapVers</span>
             </div>
           )}
         </div>
@@ -3422,7 +3432,7 @@ const DUMMY_AVATAR_URL = '/template-profile-avatar.jpg'
 
 const dummyResume = {
   firstName: 'Marie', lastName: 'Lambert', role: 'Directrice Artistique',
-  email: 'marie@craft.fr', phone: '+237 699 12 34 56', city: 'Douala', website: 'marielambert.fr',
+  email: 'marie@capvers.com', phone: '+237 699 12 34 56', city: 'Douala', website: 'marielambert.fr',
   photo: DUMMY_AVATAR_URL,
   photo_url: DUMMY_AVATAR_URL,
   summary: 'Directrice artistique créant des identités visuelles singulières.',
@@ -3606,7 +3616,7 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
     <div className="payment-backdrop account-backdrop" role="presentation" onClick={onClose}>
       <div className="account-dialog" role="dialog" aria-modal="true" aria-labelledby="account-title" onClick={(event) => event.stopPropagation()}>
         <section className="account-visual" aria-label="Illustration de la création d’un CV">
-          <a className="brand account-brand" href="#top" aria-label="CVcraft, accueil" onClick={onClose}><span className="brand-mark">c</span><span>CVcraft</span></a>
+          <a className="brand account-brand" href="#top" aria-label="CapVers, accueil" onClick={onClose}><span className="brand-mark">C</span><span>CapVers</span></a>
           <div className="account-visual-copy">
             <span className="eyebrow"><span className="eyebrow-dot" /> Votre prochain chapitre</span>
             <h2>Votre parcours<br /><em>mérite sa place.</em></h2>
@@ -3620,7 +3630,7 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
                 <div><i /><i /><i className="short" /><b>PROFIL</b><i /><i className="short" /><b>COMPÉTENCES</b><i /><i /></div>
                 <div><b>EXPÉRIENCE</b><i /><i className="short" /><i /><i /><i className="short" /><b>FORMATION</b><i /><i className="short" /></div>
               </div>
-              <div className="account-resume-footer"><span>CVCRAFT</span><span>01 / 01</span></div>
+              <div className="account-resume-footer"><span>CAPVERS</span><span>01 / 01</span></div>
             </div>
             <span className="account-art-note">Un CV à votre image <b>✳</b></span>
             <span className="account-art-stamp">PRÊT<br />À ENVOYER</span>
@@ -3630,7 +3640,7 @@ function AccountModal({ mode, onModeChange, onClose, onAuthenticated, onOAuthSta
         <section className="account-auth-panel">
           <button className="account-close" type="button" aria-label="Fermer" onClick={onClose}>×</button>
           <div className="account-auth-content">
-            <span className="preview-kicker">Votre espace CVcraft</span>
+            <span className="preview-kicker">Votre espace CapVers</span>
             <h1 id="account-title">Connexion</h1>
             <p>Connectez-vous en un clic avec votre compte Google pour créer, retrouver et synchroniser vos CV en toute sécurité.</p>
 
@@ -3804,8 +3814,8 @@ function ResumeDashboard({
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `CV de ${resumeTitle} - CVcraft`,
-          text: `Consultez mon CV « ${resumeTitle} » en ligne sur CVcraft (lecture seule) :`,
+          title: `CV de ${resumeTitle} - CapVers`,
+          text: `Consultez mon CV « ${resumeTitle} » en ligne sur CapVers (lecture seule) :`,
           url: shareUrl,
         })
         if (showNotice) showNotice('Lien de partage envoyé avec succès !')
@@ -3883,7 +3893,7 @@ function ResumeDashboard({
     <main className="dashboard-page">
       <header className="dashboard-header">
         <div className="dashboard-header-inner">
-          <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CVcraft"><span className="brand-mark">c</span><span>CVcraft</span></button>
+          <button className="brand dashboard-brand" type="button" onClick={onHome} aria-label="Tableau de bord CapVers"><span className="brand-mark">C</span><span>CapVers</span></button>
           <div className="dashboard-user dashboard-user-desktop">
             <span className="dashboard-user-email">
               {user?.email || ''}
@@ -4024,7 +4034,7 @@ function ResumeDashboard({
           ) : (
             <div className="dashboard-welcome-banner">
               <div className="dashboard-welcome-info">
-                <h2>Bienvenue sur votre espace CVCraft !</h2>
+                <h2>Bienvenue sur votre espace CapVers !</h2>
                 <p>Prêt à créer votre CV ? Créez un CV professionnel en quelques minutes grâce à nos modèles optimisés.</p>
               </div>
               <div className="dashboard-welcome-actions">
@@ -4184,7 +4194,7 @@ function ResumeDashboard({
       }}>
         <section className="change-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="change-plan-title">
           <button className="change-plan-close" type="button" aria-label="Fermer" onClick={() => setChangeOfferOpen(false)}>×</button>
-          <span className="preview-kicker">Votre espace CVcraft</span>
+          <span className="preview-kicker">Votre espace CapVers</span>
           <h2 id="change-plan-title">Changer mon offre</h2>
           <p>Choisissez l’offre qui correspond à vos besoins. Le paiement se fait par Mobile Money.</p>
           {plan.schemaWarning && <p className="change-plan-warning" role="status">Les offres payantes seront disponibles dès que la configuration Supabase sera mise à jour.</p>}
@@ -4291,7 +4301,7 @@ function ResumeDashboard({
                   <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
                   <polyline points="9 22 9 12 15 12 15 22" />
                 </svg>
-                <span>Accueil CVcraft</span>
+                <span>Accueil CapVers</span>
               </button>
 
               <button
@@ -4517,9 +4527,9 @@ function SharedResumePreview({ resumeId, onHome, showNotice }) {
     <div className="shared-preview-page">
       <header className="shared-preview-header">
         <div className="shared-preview-brand-wrap">
-          <button className="brand shared-preview-brand" type="button" onClick={onHome} aria-label="CVcraft, accueil">
-            <span className="brand-mark">c</span>
-            <span>CVcraft</span>
+          <button className="brand shared-preview-brand" type="button" onClick={onHome} aria-label="CapVers, accueil">
+            <span className="brand-mark">C</span>
+            <span>CapVers</span>
           </button>
           <span className="shared-preview-badge">
             <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor">
@@ -4623,7 +4633,7 @@ function SharedResumePreview({ resumeId, onHome, showNotice }) {
       </main>
 
       <footer className="shared-preview-footer">
-        <p>Créé avec passion sur <strong>CVcraft</strong> — La plateforme professionnelle pour vos candidatures.</p>
+        <p>Créé avec passion sur <strong>CapVers</strong> — Votre avenir prend une direction.</p>
         <button type="button" onClick={onHome}>Créer votre CV professionnel en 5 minutes →</button>
       </footer>
     </div>
@@ -5351,7 +5361,7 @@ function App() {
     }
 
     if (savedResume.pdfUrl) {
-      const fileName = `${(savedResume.resume?.lastName || '').trim()} ${(savedResume.resume?.firstName || '').trim()} CvCraft.pdf`.trim() || 'CV.pdf'
+      const fileName = `${(savedResume.resume?.lastName || '').trim()} ${(savedResume.resume?.firstName || '').trim()} CapVers.pdf`.trim() || 'CV_CapVers.pdf'
       try {
         setDownloadingResumeId(savedResume.id)
         showNotice('Téléchargement du CV en cours...')
@@ -5686,7 +5696,7 @@ function App() {
     <>
       <div className="app-shell">
         <header className="site-header">
-          <a className="brand" href="#top" aria-label="CVcraft, accueil"><span className="brand-mark">c</span><span>CVcraft</span></a>
+          <a className="brand" href="#top" aria-label="CapVers, accueil"><span className="brand-mark">C</span><span>CapVers</span></a>
           <nav className="main-nav" aria-label="Navigation principale">
             <a href="#process">Comment ça marche</a>
             <a href="#modeles">Modèles</a>
@@ -5711,7 +5721,7 @@ function App() {
         <main id="top">
           <section className="hero section-wrap">
             <div className="hero-copy">
-              <div className="eyebrow"><span className="eyebrow-dot" /> Le studio CV nouvelle génération</div>
+              <div className="eyebrow"><span className="eyebrow-dot" /> Votre avenir prend une direction</div>
               <h1 className="hero-title">Votre talent mérite un CV<br />à sa hauteur</h1>
               <p className="hero-lede">Créez un CV moderne, percutant et professionnel en moins de 5 minutes.</p>
               <div className="hero-actions">
@@ -5720,7 +5730,7 @@ function App() {
               </div>
               <div className="hero-proof"><div className="avatar-stack"><span>ML</span><span>AD</span><span>SK</span><span>+</span></div><span>Déjà adopté par <strong>12 000+</strong> candidats</span></div>
             </div>
-            <div className="hero-visual" aria-label="Aperçu du studio CVcraft">
+            <div className="hero-visual" aria-label="Aperçu du studio CapVers">
               <div className="hero-visual-wrapper">
                 {/* Bulles animées de mots liés à l'emploi */}
                 <div className="hero-bubble bubble-interview">
@@ -5753,7 +5763,7 @@ function App() {
             </div>
           </section>
 
-          <section className="marquee" aria-label="Promesse CVcraft"><div className="marquee-track"><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span></div></section>
+          <section className="marquee" aria-label="Promesse CapVers"><div className="marquee-track"><span>Votre avenir prend une direction.</span><span className="marquee-star">✳</span><span>CapVers</span><span className="marquee-star">✳</span><span>Votre avenir prend une direction.</span><span className="marquee-star">✳</span><span>Votre parcours mérite mieux qu’un modèle banal.</span><span className="marquee-star">✳</span></div></section>
 
           <section className="process section-wrap" id="process">
             <div className="section-heading"><div><div className="eyebrow">Simple comme bonjour</div><h2>De l’idée au<br /><em>oui.</em></h2></div><p>Pas de jargon, pas de mise en page qui casse. Juste les bons outils pour donner à votre histoire la place qu’elle mérite.</p></div>
@@ -5787,7 +5797,7 @@ function App() {
           </section>
 
           {/* ── SECTION FEATURES ── */}
-          <section className="features-section section-wrap" id="features" aria-label="Fonctionnalités CVcraft">
+          <section className="features-section section-wrap" id="features" aria-label="Fonctionnalités CapVers">
             <div className="features-heading">
               <div className="eyebrow"><span className="eyebrow-dot" /> Ce qui nous distingue</div>
               <h2>Tout ce qu'il vous faut<br /><em>pour décrocher le job.</em></h2>
@@ -5876,7 +5886,7 @@ function App() {
               </div>
               <div className="testimonials-grid">
                 <blockquote className="testimonial-card testimonial-featured">
-                  <p>"J'ai créé mon CV en moins de 10 minutes depuis mon téléphone. Le lendemain, j'avais un entretien. CVcraft a changé la donne pour moi."</p>
+                  <p>"J'ai créé mon CV en moins de 10 minutes depuis mon téléphone. Le lendemain, j'avais un entretien. CapVers a changé la donne pour moi."</p>
                   <footer>
                     <div className="testimonial-avatar">AM</div>
                     <div>
@@ -5927,10 +5937,10 @@ function App() {
             </div>
             <div className="faq-list">
               {[
-                { q: 'CVcraft est-il vraiment gratuit ?', a: 'Oui ! Le plan gratuit vous permet de créer un CV complet et de le télécharger en PDF. Les plans payants débloquent des modèles premium et des fonctionnalités avancées.' },
+                { q: 'CapVers est-il vraiment gratuit ?', a: 'Oui ! Le plan gratuit vous permet de créer un CV complet et de le télécharger en PDF. Les plans payants débloquent des modèles premium et des fonctionnalités avancées.' },
                 { q: 'Comment fonctionne le paiement Mobile Money ?', a: 'Nous utilisons Tara Money pour les paiements. Sélectionnez votre pays, entrez votre numéro mobile (MTN, Orange...) et validez la demande sur votre téléphone. Simple, rapide et sécurisé.' },
                 { q: 'Puis-je créer plusieurs CV ?', a: 'Le plan gratuit et le plan Pro vous permettent de créer 1 CV complet. L’offre Gold vous permet de gérer jusqu’à 3 CV différents en simultané, idéal si vous postulez à plusieurs types de postes.' },
-                { q: 'Mon CV est-il sauvegardé automatiquement ?', a: 'Oui, avec un compte CVcraft, votre travail est sauvegardé en temps réel dans le cloud. Vous pouvez reprendre depuis n\'importe quel appareil.' },
+                { q: 'Mon CV est-il sauvegardé automatiquement ?', a: 'Oui, avec un compte CapVers, votre travail est sauvegardé en temps réel dans le cloud. Vous pouvez reprendre depuis n\'importe quel appareil.' },
                 { q: 'Quelle est la qualité du PDF exporté ?', a: 'Nos PDF sont générés en haute résolution et formatés pour l\'impression A4. Ils sont compatibles avec toutes les plateformes de dépôt de candidature.' },
               ].map((item, index) => (
                 <details className="faq-item" key={index}>
@@ -5976,7 +5986,7 @@ function App() {
           </section>
         </main>
 
-        <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">c</span><span>CVcraft</span></a><p>Faites de votre parcours<br /><em>votre meilleur atout.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CVcraft Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
+        <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">C</span><span>CapVers</span></a><p>Votre avenir prend<br /><em>une direction.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CapVers Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
         {notice && <div className="toast" role="status">{notice}</div>}
       </div>
       {templatePickerOverlay}

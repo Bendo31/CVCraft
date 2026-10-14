@@ -4,15 +4,17 @@ import { createClient } from '@supabase/supabase-js'
 const ENV_SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').trim()
 const ENV_SUPABASE_ANON_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim()
 
-const STORAGE_KEY_URL = 'cvcraft_supabase_url'
-const STORAGE_KEY_ANON = 'cvcraft_supabase_anon_key'
+const STORAGE_KEY_URL = 'capvers_supabase_url'
+const STORAGE_KEY_ANON = 'capvers_supabase_anon_key'
+const LEGACY_STORAGE_KEY_URL = 'cvcraft_supabase_url'
+const LEGACY_STORAGE_KEY_ANON = 'cvcraft_supabase_anon_key'
 
 /**
  * Récupère l'URL et la clé Supabase actives (soit depuis .env, soit depuis le localStorage).
  */
 export function getSupabaseCredentials() {
-  const localUrl = (typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY_URL) || '' : '').trim()
-  const localKey = (typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY_ANON) || '' : '').trim()
+  const localUrl = (typeof window !== 'undefined' ? (window.localStorage.getItem(STORAGE_KEY_URL) || window.localStorage.getItem(LEGACY_STORAGE_KEY_URL) || '') : '').trim()
+  const localKey = (typeof window !== 'undefined' ? (window.localStorage.getItem(STORAGE_KEY_ANON) || window.localStorage.getItem(LEGACY_STORAGE_KEY_ANON) || '') : '').trim()
 
   const url = localUrl || ENV_SUPABASE_URL
   const anonKey = localKey || ENV_SUPABASE_ANON_KEY
