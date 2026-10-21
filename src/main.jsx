@@ -28,6 +28,7 @@ import {
   updateResumeModelStatus,
 } from './supabaseClient.js'
 import './styles.css'
+import './mobile.css'
 // import { ImportResumeModal } from './ImportResumeModal.jsx'
 // import { StartResumeChoiceModal } from './StartResumeChoiceModal.jsx'
 import { normalizeDateToIso } from './resumeParser.js'
@@ -1025,6 +1026,7 @@ function ResumeBuilder({
   const [changePlanOpen, setChangePlanOpen] = useState(false)
   const [addSectionModalOpen, setAddSectionModalOpen] = useState(false)
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false)
+  const [mobileDesignOpen, setMobileDesignOpen] = useState(false)
   const [cropSource, setCropSource] = useState('')
   const [isAiGenerating, setIsAiGenerating] = useState(false)
   const [aiSuggestion, setAiSuggestion] = useState('')
@@ -1955,8 +1957,56 @@ function ResumeBuilder({
     references.length > 0
   )
 
+  // Parcours mobile guidé : étapes réelles, progression et onglets du bas
+  const hasFilledItem = (list) => list.some((item) => (
+    typeof item === 'string'
+      ? item.trim().length > 0
+      : Boolean(item) && Object.values(item).some((value) => typeof value === 'string' && value.trim().length > 0)
+  ))
+  const mobileSteps = [
+    { id: 'personal', label: 'Informations personnelles', done: Boolean(resume.firstName?.trim() && resume.lastName?.trim()) },
+    { id: 'experiences', label: 'Expériences', done: hasFilledItem(experiences) },
+    { id: 'educations', label: 'Formations', done: hasFilledItem(educations) },
+    { id: 'skills', label: 'Compétences', done: hasFilledItem(skills) },
+    { id: 'languages', label: 'Langues', done: hasFilledItem(languages) },
+    { id: 'interests', label: 'Centres d’intérêt', done: hasFilledItem(interests) },
+    ...((!isFreeModel || projects.length > 0) ? [{ id: 'projects', label: 'Projets', done: hasFilledItem(projects) }] : []),
+    ...((!isFreeModel || certifications.length > 0) ? [{ id: 'certifications', label: 'Certifications', done: hasFilledItem(certifications) }] : []),
+    ...((!isFreeModel || references.length > 0) ? [{ id: 'references', label: 'Références', done: hasFilledItem(references) }] : []),
+  ]
+  const completedSteps = mobileSteps.filter((step) => step.done).length
+  const completionPercent = Math.round((completedSteps / mobileSteps.length) * 100)
+  const activeStepIndex = mobileSteps.findIndex((step) => step.id === activeSection)
+  const hasActiveStep = activeStepIndex >= 0
+  const isLastStep = hasActiveStep && activeStepIndex === mobileSteps.length - 1
+  const activeMobileTab = mobilePreviewOpen ? 'preview' : mobileDesignOpen ? 'design' : 'content'
+
+  const goToStep = (index) => {
+    const target = mobileSteps[index]
+    if (!target) return
+    setActiveSection(target.id)
+    window.setTimeout(() => {
+      document.querySelector('.builder-section-heading.is-open')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 60)
+  }
+
+  const selectMobileTab = (tab) => {
+    setMobilePreviewOpen(tab === 'preview')
+    setMobileDesignOpen(tab === 'design')
+  }
+
+  const retryFailedSave = () => {
+    if (saveStatus !== 'error') return
+    setSaveStatus('saving')
+    setSaveRetry((current) => current + 1)
+    if (!isDirty) {
+      editVersion.current += 1
+      setIsDirty(true)
+    }
+  }
+
   return (
-    <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''}`}>
+    <div className={`builder-page ${mobilePreviewOpen ? 'mobile-preview-open' : ''} ${mobileDesignOpen ? 'mobile-design-open' : ''}`}>
       {/* BARRE DE NAVIGATION MOBILE (EN HAUT) */}
       {mobilePreviewOpen ? (
         <header className="builder-mobile-header builder-mobile-header-preview" aria-label="Aperçu mobile et retour">
@@ -2030,15 +2080,16 @@ function ResumeBuilder({
 
             <button
               type="button"
-              className="builder-mobile-eye-btn"
-              onClick={() => setMobilePreviewOpen(true)}
-              aria-label="Prévisualiser le CV"
-              title="Aperçu du CV"
+              className={`builder-mobile-save-status is-${saveStatus}`}
+              onClick={retryFailedSave}
+              aria-disabled={saveStatus !== 'error'}
+              aria-live="polite"
+              title={saveStatus === 'error' ? saveError || 'Erreur de sauvegarde — toucher pour réessayer' : saveStatus === 'saving' ? 'Sauvegarde en cours…' : 'Modifications enregistrées'}
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
+              <span className="builder-mobile-save-dot" aria-hidden="true" />
+              <span>
+                {saveStatus === 'saving' ? 'Sauvegarde…' : saveStatus === 'error' ? 'Réessayer' : 'Enregistré'}
+              </span>
             </button>
           </div>
         </header>
@@ -2312,9 +2363,18 @@ function ResumeBuilder({
               </button>
               <h1>Construire<br /><em>mon CV.</em></h1>
             </div>
-            <span className="builder-step">01 / 03</span>
+            <span className="builder-step">{completedSteps} / {mobileSteps.length}</span>
           </div>
-          <div className="builder-progress"><span className="active" /><span /><span /></div>
+          <div
+            className="builder-progress builder-progress-real"
+            role="progressbar"
+            aria-label="Progression du CV"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={completionPercent}
+          >
+            <span className="builder-progress-fill" style={{ width: `${completionPercent}%` }} />
+          </div>
           <p className="builder-help">Commencez par vos informations essentielles. Vous pourrez tout modifier ensuite.</p>
           <div className="builder-form">
             <div className={`builder-section-item ${activeSection === 'personal' ? 'is-active' : 'is-collapsed'}`}>
@@ -2339,11 +2399,11 @@ function ResumeBuilder({
             <div className="field-row">
               <label>
                 <span className="builder-label-head">Prénom</span>
-                <input value={resume.firstName} onChange={(event) => updateResume('firstName', event.target.value)} />
+                <input value={resume.firstName} autoComplete="given-name" autoCapitalize="words" enterKeyHint="next" onChange={(event) => updateResume('firstName', event.target.value)} />
               </label>
               <label>
                 <span className="builder-label-head">Nom</span>
-                <input value={resume.lastName} onChange={(event) => updateResume('lastName', event.target.value)} />
+                <input value={resume.lastName} autoComplete="family-name" autoCapitalize="words" enterKeyHint="next" onChange={(event) => updateResume('lastName', event.target.value)} />
               </label>
             </div>
             <label>
@@ -2363,7 +2423,7 @@ function ResumeBuilder({
             <div className="field-row">
               <label>
                 <span className="builder-label-head">Adresse mail</span>
-                <input type="email" value={resume.email} onChange={(event) => updateResume('email', event.target.value)} />
+                <input type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} enterKeyHint="next" value={resume.email} onChange={(event) => updateResume('email', event.target.value)} />
               </label>
               <label>
                 <span className="builder-label-head">Numéro de téléphone</span>
@@ -2371,6 +2431,9 @@ function ResumeBuilder({
                   <span className="builder-phone-prefix">🇨🇲 +237</span>
                   <input
                     type="tel"
+                    inputMode="tel"
+                    autoComplete="tel-national"
+                    enterKeyHint="next"
                     placeholder="6XX XX XX XX"
                     value={resume.phone ? resume.phone.replace(/^\+237\s*/, '') : ''}
                     onChange={(event) => {
@@ -2387,20 +2450,20 @@ function ResumeBuilder({
                 <span className="builder-label-head">
                   <span>Ville</span>
                 </span>
-                <input value={resume.city} onChange={(event) => updateResume('city', event.target.value)} />
+                <input value={resume.city} autoComplete="address-level2" autoCapitalize="words" enterKeyHint="next" onChange={(event) => updateResume('city', event.target.value)} />
               </label>
               <label>
                 <span className="builder-label-head">
                   <span>LinkedIn</span> <span className="optional-label">(optionnel)</span>
                 </span>
-                <input value={resume.linkedin} onChange={(event) => updateResume('linkedin', event.target.value)} />
+                <input value={resume.linkedin} type="url" inputMode="url" autoCapitalize="none" spellCheck={false} enterKeyHint="next" placeholder="linkedin.com/in/…" onChange={(event) => updateResume('linkedin', event.target.value)} />
               </label>
             </div>
             <label>
               <span className="builder-label-head">
                 <span>Site web ou portfolio</span> <span className="optional-label">(optionnel)</span>
               </span>
-              <input value={resume.website || ''} onChange={(event) => updateResume('website', event.target.value)} />
+              <input value={resume.website || ''} type="url" inputMode="url" autoComplete="url" autoCapitalize="none" spellCheck={false} enterKeyHint="next" onChange={(event) => updateResume('website', event.target.value)} />
             </label>
             <div className="builder-summary-group">
               <div className="builder-summary-header">
@@ -3289,6 +3352,66 @@ function ResumeBuilder({
           </button>
         </div>
       )}
+      {/* NAVIGATION PAR ÉTAPES (MOBILE, ONGLET CONTENU) */}
+      {activeMobileTab === 'content' && (
+        <div className="builder-mobile-stepdock">
+          <button
+            type="button"
+            className="builder-mobile-step-btn"
+            onClick={() => goToStep(activeStepIndex - 1)}
+            disabled={!hasActiveStep || activeStepIndex === 0}
+            aria-label="Section précédente"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </button>
+          <div className="builder-mobile-step-info" aria-live="polite">
+            <small>{hasActiveStep ? `Étape ${activeStepIndex + 1} sur ${mobileSteps.length}` : `${completedSteps} / ${mobileSteps.length} sections remplies`}</small>
+            <strong>{hasActiveStep ? mobileSteps[activeStepIndex].label : 'Choisissez une section'}</strong>
+          </div>
+          {isLastStep ? (
+            <button type="button" className="builder-mobile-step-btn is-primary" onClick={() => selectMobileTab('preview')}>
+              <span>Aperçu</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="builder-mobile-step-btn is-primary"
+              onClick={() => goToStep(hasActiveStep ? activeStepIndex + 1 : 0)}
+            >
+              <span>{hasActiveStep ? 'Suivant' : 'Commencer'}</span>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+      {/* BARRE D'ONGLETS DU BAS (MOBILE) */}
+      <nav className="builder-mobile-tabbar" aria-label="Navigation de l'éditeur">
+        {[
+          { id: 'content', label: 'Contenu', icon: <><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" /></> },
+          { id: 'design', label: 'Design', icon: <><circle cx="13.5" cy="6.5" r="1.2" /><circle cx="17.5" cy="10.5" r="1.2" /><circle cx="8.5" cy="7.5" r="1.2" /><circle cx="6.5" cy="12.5" r="1.2" /><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A5.7 5.7 0 0 0 22 9.7C22 5.4 17.5 2 12 2z" /></> },
+          { id: 'preview', label: 'Aperçu', icon: <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></> },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            id={`builder-mobile-tab-${tab.id}`}
+            className={`builder-mobile-tab ${activeMobileTab === tab.id ? 'is-active' : ''}`}
+            aria-current={activeMobileTab === tab.id ? 'page' : undefined}
+            onClick={() => selectMobileTab(tab.id)}
+          >
+            <span className="builder-mobile-tab-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                {tab.icon}
+              </svg>
+            </span>
+            <span className="builder-mobile-tab-label">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
       {paymentStatus && (
         <div className="builder-payment-status" role={paymentStatus === 'failure' || paymentStatus === 'error' ? 'alert' : 'status'}>
           {(paymentStatus === 'checking' || paymentStatus === 'pending') && (
@@ -3537,6 +3660,24 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
     setSelectedIndex(getIndexFor(currentTemplate))
   }, [currentTemplate])
 
+  // Balayage tactile gauche / droite (seuil de 40px, ignore les gestes verticaux)
+  const swipeStartRef = useRef(null)
+  const handleSwipeStart = (event) => {
+    const touch = event.touches[0]
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY }
+  }
+  const handleSwipeEnd = (event) => {
+    const start = swipeStartRef.current
+    swipeStartRef.current = null
+    if (!start) return
+    const touch = event.changedTouches[0]
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) < Math.abs(deltaY)) return
+    if (deltaX < 0) nextTemplate()
+    else previousTemplate()
+  }
+
   return (
     <div className="mobile-template-page">
       <div className="mobile-template-top-bar">
@@ -3544,11 +3685,37 @@ function MobileTemplateSelection({ currentTemplate = 'gratuit', isAuthenticated,
       </div>
       <main className="mobile-template-main">
         <h1>Choisissez<br /><em>votre modèle.</em></h1>
-        <p>Aperçu exact au format A4. Faites défiler les modèles pour choisir votre mise en page.</p>
-        <div className="mobile-template-carousel">
-          <button className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button>
+        <p>Aperçu exact au format A4. Balayez vers la gauche ou la droite pour changer de modèle.</p>
+        <div
+          className="mobile-template-carousel"
+          onTouchStart={handleSwipeStart}
+          onTouchEnd={handleSwipeEnd}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft') previousTemplate()
+            if (event.key === 'ArrowRight') nextTemplate()
+          }}
+          role="group"
+          aria-roledescription="carrousel"
+          aria-label={`Modèle ${selectedIndex + 1} sur ${resumeTemplates.length} : ${selectedTemplate.name}`}
+        >
+          <button type="button" className="carousel-arrow" onClick={previousTemplate} aria-label="Modèle précédent">←</button>
           <TemplateMiniPreview template={selectedTemplate} photo={photo || DUMMY_AVATAR_URL} />
-          <button className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button>
+          <button type="button" className="carousel-arrow" onClick={nextTemplate} aria-label="Modèle suivant">→</button>
+        </div>
+        <div className="mobile-template-dots" role="tablist" aria-label="Choisir un modèle">
+          {resumeTemplates.map((item, index) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              className={`mobile-template-dot ${index === selectedIndex ? 'is-active' : ''}`}
+              aria-selected={index === selectedIndex}
+              aria-label={`Modèle ${item.name}`}
+              onClick={() => setSelectedIndex(index)}
+            >
+              <span aria-hidden="true" />
+            </button>
+          ))}
         </div>
         <div className="mobile-template-meta">
           <div>
@@ -4715,6 +4882,35 @@ function App() {
   const pendingAuthDestinationRef = useRef(null)
   const pendingPlanRef = useRef(null)
   const oauthInProgressRef = useRef(false)
+  const [landingMenuOpen, setLandingMenuOpen] = useState(false)
+  const [showLandingStickyCta, setShowLandingStickyCta] = useState(false)
+
+  // CTA collant mobile : visible après le hero, masqué près du CTA final
+  useEffect(() => {
+    if (view !== 'landing') return undefined
+    const handleScroll = () => {
+      const scrolled = window.scrollY > 520
+      const nearBottom = window.innerHeight + window.scrollY > document.documentElement.scrollHeight - 700
+      setShowLandingStickyCta((current) => {
+        const next = scrolled && !nearBottom
+        return current === next ? current : next
+      })
+    }
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [view])
+
+  useEffect(() => {
+    if (!landingMenuOpen) return undefined
+    const handleKey = (event) => { if (event.key === 'Escape') setLandingMenuOpen(false) }
+    document.addEventListener('keydown', handleKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', handleKey)
+      document.body.style.overflow = ''
+    }
+  }, [landingMenuOpen])
 
   const handleOpenSignIn = () => {
     pendingAuthDestinationRef.current = 'dashboard'
@@ -5715,8 +5911,65 @@ function App() {
               }}>Connexion</button>
             )}
             <button className="button button-dark button-small button-pill" onClick={() => handleRequestCreateResume()}>Créer mon CV <span className="button-arrow" aria-hidden="true">→</span></button>
+            <button
+              type="button"
+              id="landing-menu-toggle"
+              className="landing-menu-toggle"
+              aria-label="Ouvrir le menu"
+              aria-expanded={landingMenuOpen}
+              aria-controls="landing-mobile-menu"
+              onClick={() => setLandingMenuOpen(true)}
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+                <line x1="4" y1="7" x2="20" y2="7" />
+                <line x1="4" y1="12" x2="20" y2="12" />
+                <line x1="4" y1="17" x2="20" y2="17" />
+              </svg>
+            </button>
           </div>
         </header>
+        {landingMenuOpen && (
+          <div className="landing-menu-backdrop" role="presentation" onClick={() => setLandingMenuOpen(false)}>
+            <nav
+              id="landing-mobile-menu"
+              className="landing-menu-sheet"
+              aria-label="Menu mobile"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="landing-menu-head">
+                <span className="brand"><span className="brand-mark">C</span><span>CapVers</span></span>
+                <button type="button" className="landing-menu-close" aria-label="Fermer le menu" onClick={() => setLandingMenuOpen(false)}>✕</button>
+              </div>
+              {[
+                ['#process', 'Comment ça marche'],
+                ['#modeles', 'Modèles'],
+                ['#features', 'Ce qui nous distingue'],
+                ['#pricing', 'Tarifs'],
+                ['#faq', 'FAQ'],
+              ].map(([href, label]) => (
+                <a key={href} className="landing-menu-link" href={href} onClick={() => setLandingMenuOpen(false)}>
+                  <span>{label}</span>
+                  <span aria-hidden="true">›</span>
+                </a>
+              ))}
+              <div className="landing-menu-actions">
+                <button type="button" className="button button-dark landing-menu-cta" onClick={() => { setLandingMenuOpen(false); handleRequestCreateResume() }}>
+                  Créer mon CV gratuitement
+                </button>
+                {user ? (
+                  <button type="button" className="landing-menu-secondary" onClick={() => { setLandingMenuOpen(false); goDashboard() }}>Mes CV</button>
+                ) : (
+                  <button type="button" className="landing-menu-secondary" onClick={() => {
+                    setLandingMenuOpen(false)
+                    pendingAuthDestinationRef.current = 'dashboard'
+                    setAuthMode('signin')
+                    setAuthOpen(true)
+                  }}>Connexion</button>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
 
         <main id="top">
           <section className="hero section-wrap">
@@ -5988,6 +6241,17 @@ function App() {
 
         <footer className="site-footer"><div className="footer-top"><a className="brand brand-light" href="#top"><span className="brand-mark">C</span><span>CapVers</span></a><p>Votre avenir prend<br /><em>une direction.</em></p><button className="button button-yellow" onClick={() => handleRequestCreateResume()}>Créer mon CV <span aria-hidden="true">↗</span></button></div><div className="footer-bottom"><span>© 2026 CapVers Studio</span><div><a href="#top">Mentions légales</a><a href="#top">Confidentialité</a><a href="#top">Instagram</a></div></div></footer>
         {notice && <div className="toast" role="status">{notice}</div>}
+        <div className={`landing-sticky-cta ${showLandingStickyCta ? 'is-visible' : ''}`} aria-hidden={!showLandingStickyCta}>
+          <button
+            type="button"
+            id="landing-sticky-cta-btn"
+            className="button button-dark"
+            tabIndex={showLandingStickyCta ? 0 : -1}
+            onClick={() => handleRequestCreateResume()}
+          >
+            Créer mon CV gratuitement <span aria-hidden="true">→</span>
+          </button>
+        </div>
       </div>
       {templatePickerOverlay}
       {planMobilePayDialog}
